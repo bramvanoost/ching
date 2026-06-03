@@ -13,35 +13,87 @@ import {
 } from './engine.js';
 import { decide, type Difficulty } from './ai.js';
 
-// ─── ansi palette (80s green CRT + accents) ─────────────────────────────────
-const A = {
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  blink: '\x1b[5m',
-  invert: '\x1b[7m',
-  green: '\x1b[92m',
-  yellow: '\x1b[93m',
-  red: '\x1b[91m',
-  cyan: '\x1b[96m',
-  magenta: '\x1b[95m',
-  white: '\x1b[97m',
-  gray: '\x1b[90m',
-  clear: '\x1b[2J\x1b[H',
-  hideCursor: '\x1b[?25l',
-  showCursor: '\x1b[?25h',
-};
+// ─── 256-color CRT palette ──────────────────────────────────────────────────
+const ESC = '\x1b[';
+const fg = (n: number): string => ESC + '38;5;' + n + 'm';
+const RESET = ESC + '0m';
+const BOLD = ESC + '1m';
+const DIM = ESC + '2m';
+const INVERT = ESC + '7m';
+const CLEAR = ESC + '2J' + ESC + 'H';
+const HIDE_CURSOR = ESC + '?25l';
+const SHOW_CURSOR = ESC + '?25h';
 const BELL = '\x07';
 
+// Phosphor green (dim → neon → lime)
+const P_DARK = 22;
+const P_DIM = 28;
+const P_MED = 34;
+const P_BR = 40;
+const P_NEON = 46;
+const P_LIME = 82;
+const P_LIME2 = 118;
+const P_LIME3 = 154;
+const PHOSPHOR_GRADIENT = [
+  P_DARK,
+  P_DIM,
+  P_MED,
+  P_BR,
+  P_NEON,
+  P_LIME,
+  P_LIME2,
+  P_LIME3,
+  P_LIME2,
+  P_LIME,
+  P_NEON,
+  P_BR,
+  P_MED,
+  P_DIM,
+  P_DARK,
+];
+
+// Amber CRT (the other classic mainframe tone)
+const A_DIM = 130;
+const A_MED = 178;
+const A_BR = 214;
+const A_GLINT = 220;
+
+// Cool accents
+const Cy_BR = 51;
+const Mg_BR = 207;
+
+// Tile tiers
+const TIER1 = 246;
+const TIER2 = 38;
+const TIER3 = 135;
+const TIER4 = 214;
+
+// Surfaces
+const TEXT = 252;
+const DIM_TEXT = 244;
+const SHADOW = 235;
+const RED = 196;
+
+// ─── game wiring ────────────────────────────────────────────────────────────
 const HUMAN = 0;
 const AI = 1;
 const DEFAULT_DISCIPLINE = 0.6;
 
-const ROLL_REVEAL_MS = 90;
+const INNER = 66;
+const SHADOW_CHAR = '▒';
+const LABEL_WIDTH = 10;
+
+const ROLL_REVEAL_MS = 70;
+const COIN_SPIN_MS = 55;
+const COIN_SPIN_FRAMES = 4;
+const COIN_GLINT_MS = 100;
 const AI_THINK_MS = 380;
 const FLASH_MS = 110;
 
-// ─── tty helpers ────────────────────────────────────────────────────────────
+const COIN_SPIN: readonly string[] = ['◐', '◓', '◑', '◒'];
+const COIN_STATIC = '✦';
+
+// ─── tty plumbing ───────────────────────────────────────────────────────────
 function out(s: string): void {
   process.stdout.write(s);
 }
@@ -70,7 +122,6 @@ function setupInput(): void {
     inputBuf += chunk;
     flushInput();
   });
-  // Treat ^C and EOF like quit.
   process.stdin.on('end', () => {
     inputBuf += 'q';
     flushInput();
@@ -80,7 +131,7 @@ function setupInput(): void {
 function teardownInput(): void {
   if (process.stdin.isTTY) process.stdin.setRawMode(false);
   process.stdin.pause();
-  out(A.showCursor + A.reset);
+  out(SHOW_CURSOR + RESET);
 }
 
 function waitKey(): Promise<string> {
@@ -97,9 +148,222 @@ async function typewrite(text: string, msPerChar = 8): Promise<void> {
   }
 }
 
-// ─── boot/microloader ───────────────────────────────────────────────────────
+// ─── width-aware helpers ────────────────────────────────────────────────────
+function visibleLen(s: string): number {
+  // Strip CSI sequences so padding math sees actual glyph counts.
+  return s.replace(/\x1b\[[\d;?]*[A-Za-z]/g, '').length;
+}
+
+// ─── panel primitives (bevel + drop shadow) ─────────────────────────────────
+function panelTop(label?: string, inner = INNER): string {
+  if (label) {
+    const tag = ' ' + label + ' ';
+    const tagLen = visibleLen(tag);
+    const leftFill = 3;
+    const rightFill = Math.max(1, inner - leftFill - tagLen);
+    return (
+      fg(P_NEON) + BOLD + '╔' + '═'.repeat(leftFill) + RESET +
+      fg(P_LIME2) + BOLD + tag + RESET +
+      fg(P_NEON) + BOLD + '═'.repeat(rightFill) + '╗' + RESET
+    );
+  }
+  return fg(P_NEON) + BOLD + '╔' + '═'.repeat(inner) + '╗' + RESET;
+}
+
+function panelLine(content: string, inner = INNER): string {
+  const vis = visibleLen(content);
+  const pad = ' '.repeat(Math.max(0, inner - vis));
+  return (
+    fg(P_BR) + '║' + RESET + content + pad +
+    fg(P_BR) + '║' + RESET +
+    fg(SHADOW) + SHADOW_CHAR + RESET
+  );
+}
+
+function panelBottom(inner = INNER): string {
+  const bot =
+    fg(P_DIM) + '╚' + '═'.repeat(inner) + '╝' + RESET +
+    fg(SHADOW) + SHADOW_CHAR + RESET;
+  const shadowRow = ' ' + fg(SHADOW) + SHADOW_CHAR.repeat(inner + 2) + RESET;
+  return bot + '\n' + shadowRow;
+}
+
+// ─── die / tile cells ───────────────────────────────────────────────────────
+function tileCell(t: number): string {
+  const c = tileCoins(t);
+  const color = c === 1 ? TIER1 : c === 2 ? TIER2 : c === 3 ? TIER3 : TIER4;
+  const stars = '★'.repeat(c);
+  return fg(color) + '[' + t + ' ' + stars + ']' + RESET;
+}
+
+function coinCell(spinFrame?: number, glint?: boolean): string {
+  if (glint) {
+    return (
+      fg(A_GLINT) + BOLD + '[' + INVERT + ' ' + COIN_STATIC + ' ' + RESET +
+      fg(A_GLINT) + BOLD + ']' + RESET
+    );
+  }
+  if (spinFrame !== undefined) {
+    const g = COIN_SPIN[spinFrame % COIN_SPIN.length];
+    return (
+      fg(A_MED) + '[' + fg(A_BR) + BOLD + g + RESET + fg(A_MED) + ']' + RESET
+    );
+  }
+  // Settled coin: a quiet amber star, so the signature object always reads.
+  return (
+    fg(A_MED) + '[' + fg(A_GLINT) + BOLD + COIN_STATIC + RESET +
+    fg(A_MED) + ']' + RESET
+  );
+}
+
+function dieCell(f: Face, spinFrame?: number, glint?: boolean): string {
+  if (f === COIN) return coinCell(spinFrame, glint);
+  return fg(DIM_TEXT) + '[' + fg(TEXT) + String(f) + fg(DIM_TEXT) + ']' + RESET;
+}
+
+function setAsideSum(state: State): number {
+  return state.setAside.reduce((acc, f) => acc + (f === COIN ? 5 : f), 0);
+}
+
+function pickedSummary(state: State): string {
+  if (state.pickedFaces.length === 0) return fg(DIM_TEXT) + '(none)' + RESET;
+  return state.pickedFaces
+    .map((f) =>
+      f === COIN
+        ? fg(A_GLINT) + BOLD + COIN_STATIC + RESET
+        : fg(TEXT) + String(f) + RESET,
+    )
+    .join(' ');
+}
+
+function playerLineContent(
+  label: string,
+  color: number,
+  p: State['players'][number],
+): string {
+  const padded = label.padEnd(LABEL_WIDTH, ' ');
+  const coins = p.tiles.reduce((s, t) => s + tileCoins(t), 0);
+  const tiles =
+    p.tiles.length === 0
+      ? fg(DIM_TEXT) + '(none)' + RESET
+      : p.tiles.map(tileCell).join(' ');
+  return (
+    fg(color) + BOLD + padded + RESET + '  ' + tiles + '   ' +
+    fg(DIM_TEXT) + 'coins:' + RESET + ' ' +
+    fg(A_GLINT) + BOLD + coins + RESET
+  );
+}
+
+function rolledLine(state: State, opts: RenderOpts): string {
+  if (state.rolled.length === 0) {
+    return fg(DIM_TEXT) + '(none yet)' + RESET;
+  }
+  return state.rolled
+    .map((f, i) => {
+      if (i === opts.spinIdx) {
+        return dieCell(f, opts.spinFrame, opts.spinGlint);
+      }
+      return dieCell(f);
+    })
+    .join(' ');
+}
+
+// ─── full-frame render ──────────────────────────────────────────────────────
+type RenderOpts = {
+  aiDiscipline: number;
+  status?: string;
+  spinIdx?: number;
+  spinFrame?: number;
+  spinGlint?: boolean;
+};
+
+function render(state: State, opts: RenderOpts): void {
+  out(CLEAR);
+
+  // Header.
+  const titleLeft = fg(P_LIME2) + BOLD + 'CHING' + RESET + fg(P_MED) + ' v0.1' + RESET;
+  const titleRight = fg(A_MED) + '8-BIT TERMINAL EDITION' + RESET;
+  const gap = Math.max(1, INNER - 4 - visibleLen(titleLeft) - visibleLen(titleRight));
+  out(panelTop() + '\n');
+  out(panelLine('  ' + titleLeft + ' '.repeat(gap) + titleRight + '  ') + '\n');
+  out(panelBottom() + '\n');
+
+  // Center tiles.
+  out(panelTop('CENTER TILES  ' + fg(DIM_TEXT) + '(★ = coins per tile)' + RESET + fg(P_LIME2) + BOLD) + '\n');
+  if (state.centerTiles.length === 0) {
+    out(panelLine('  ' + fg(DIM_TEXT) + '(empty)' + RESET) + '\n');
+  } else {
+    const cells = state.centerTiles.map(tileCell);
+    // 6 per row: even a row of all 4-star tiles fits inside INNER=66.
+    for (let i = 0; i < cells.length; i += 6) {
+      out(panelLine('  ' + cells.slice(i, i + 6).join(' ')) + '\n');
+    }
+  }
+  out(panelBottom() + '\n');
+
+  // Players.
+  out(panelTop('PLAYERS') + '\n');
+  out(panelLine('  ' + playerLineContent('YOU', Cy_BR, state.players[HUMAN])) + '\n');
+  out(
+    panelLine(
+      '  ' +
+        playerLineContent(
+          'AI (' + opts.aiDiscipline.toFixed(1) + ')',
+          Mg_BR,
+          state.players[AI],
+        ),
+    ) + '\n',
+  );
+  out(panelBottom() + '\n');
+
+  // Current turn.
+  const turnName = state.current === HUMAN ? 'YOU' : 'AI';
+  const turnColor = state.current === HUMAN ? Cy_BR : Mg_BR;
+  out(
+    panelTop(
+      'TURN: ' + fg(turnColor) + BOLD + turnName + RESET + fg(P_LIME2) + BOLD,
+    ) + '\n',
+  );
+
+  out(
+    panelLine(
+      '  ' + fg(DIM_TEXT) + 'rolled    ' + RESET + rolledLine(state, opts),
+    ) + '\n',
+  );
+
+  const sum = setAsideSum(state);
+  const hasCoin = state.setAside.includes(COIN);
+  const sumColor = hasCoin ? A_GLINT : RED;
+  const coinFlag = hasCoin
+    ? fg(P_NEON) + ' ✓coin' + RESET
+    : fg(RED) + ' no coin' + RESET;
+  const setAsideStr =
+    state.setAside.length === 0
+      ? fg(DIM_TEXT) + '(none)' + RESET
+      : state.setAside.map((f) => dieCell(f)).join(' ');
+  out(
+    panelLine(
+      '  ' + fg(DIM_TEXT) + 'set aside ' + RESET + setAsideStr + '   ' +
+        fg(DIM_TEXT) + 'sum:' + RESET + ' ' +
+        fg(sumColor) + BOLD + sum + RESET + coinFlag,
+    ) + '\n',
+  );
+  out(
+    panelLine(
+      '  ' + fg(DIM_TEXT) + 'picked    ' + RESET + pickedSummary(state) + '   ' +
+        fg(DIM_TEXT) + 'dice in hand:' + RESET + ' ' + state.diceInHand,
+    ) + '\n',
+  );
+  out(panelBottom() + '\n');
+
+  if (opts.status) {
+    out('   ' + opts.status + '\n');
+  }
+}
+
+// ─── boot/microloader with phosphor gradient ────────────────────────────────
 async function boot(): Promise<void> {
-  out(A.clear + A.hideCursor + A.green);
+  out(CLEAR + HIDE_CURSOR + fg(P_BR));
   await typewrite('> BOOT...\n', 14);
   await delay(160);
   const lines: Array<[string, number]> = [
@@ -110,16 +374,16 @@ async function boot(): Promise<void> {
     ['TILE BANK 16/16', 60],
   ];
   for (const [label, ms] of lines) {
-    out('> ' + label);
+    out(fg(P_MED) + '> ' + RESET + fg(P_BR) + label + RESET);
     const dots = 36 - label.length;
     for (let i = 0; i < dots; i++) {
-      out('.');
+      out(fg(P_DIM) + '.' + RESET);
       await delay(ms / dots);
     }
-    out(A.yellow + 'OK' + A.green + '\n');
+    out(fg(A_GLINT) + BOLD + 'OK' + RESET + '\n');
     await delay(70);
   }
-  out('> READY.\n\n');
+  out(fg(P_MED) + '> ' + fg(P_LIME2) + BOLD + 'READY.' + RESET + '\n\n');
   await delay(260);
 
   const banner = [
@@ -129,143 +393,50 @@ async function boot(): Promise<void> {
     '   ██       ██   ██  ██  ██  ████  ██    ██ ',
     '    ██████  ██   ██  ██  ██   ██    ██████  ',
   ];
-  out(A.yellow + A.bold);
-  for (const line of banner) out(line + '\n');
-  out(A.reset + A.green + '\n');
-  out('   push your luck  •  collect  •  steal  •  ');
-  out(A.yellow + A.bold + 'CHING!' + A.reset + A.green + '\n\n');
-  out(A.dim + '   [any key to start]' + A.reset);
+  out(gradientBanner(banner));
+  out(
+    '\n   ' + fg(P_BR) + 'push your luck  •  collect  •  steal  •  ' +
+    fg(A_GLINT) + BOLD + 'CHING!' + RESET + '\n\n',
+  );
+  out(fg(DIM_TEXT) + '   [any key to start]' + RESET);
   await waitKey();
 }
 
-// ─── cell renderers ─────────────────────────────────────────────────────────
-const FACE_GLYPH: Record<Face, string> = {
-  1: '1',
-  2: '2',
-  3: '3',
-  4: '4',
-  5: '5',
-  6: '$',
-};
-
-function dieCell(f: Face, glint = false): string {
-  const isCoin = f === COIN;
-  if (isCoin) {
-    return (
-      A.yellow + A.bold + '[' + (glint ? A.blink : '') + '$' + A.reset + A.yellow + A.bold + ']' + A.reset
-    );
-  }
-  return A.white + '[' + FACE_GLYPH[f] + ']' + A.reset;
-}
-
-function tileCell(t: number): string {
-  const c = tileCoins(t);
-  const color = c === 1 ? A.gray : c === 2 ? A.cyan : c === 3 ? A.magenta : A.yellow;
-  const stars = '★'.repeat(c);
-  return color + '[' + t + ' ' + stars + ']' + A.reset;
-}
-
-function row(cells: string[], indent = '   '): string {
-  return indent + cells.join(' ');
-}
-
-function setAsideSum(state: State): number {
-  return state.setAside.reduce((acc, f) => acc + (f === COIN ? 5 : f), 0);
-}
-
-function pickedSummary(state: State): string {
-  if (state.pickedFaces.length === 0) return A.dim + '(none)' + A.reset;
-  return state.pickedFaces
-    .map((f) => (f === COIN ? A.yellow + '$' + A.reset : A.white + String(f) + A.reset))
-    .join(' ');
-}
-
-const LABEL_WIDTH = 10; // keeps the tile column aligned across players
-
-function playerLine(label: string, color: string, p: State['players'][number]): string {
-  const padded = label.padEnd(LABEL_WIDTH, ' ');
-  const coins = p.tiles.reduce((s, t) => s + tileCoins(t), 0);
-  const tiles =
-    p.tiles.length === 0
-      ? A.dim + '(none)' + A.reset
-      : p.tiles.map((t) => tileCell(t)).join(' ');
-  return (
-    color + A.bold + padded + A.reset + '  ' + tiles + '   ' + A.dim + 'coins:' + A.reset + ' ' +
-    A.yellow + A.bold + coins + A.reset
-  );
-}
-
-// ─── full-frame render ──────────────────────────────────────────────────────
-function render(state: State, opts: { aiDiscipline: number; status?: string } = { aiDiscipline: DEFAULT_DISCIPLINE }): void {
-  out(A.clear);
-  const inner = 66;
-  const left = '  CHING v0.1';
-  const right = '8-BIT TERMINAL EDITION  ';
-  const gap = ' '.repeat(Math.max(1, inner - left.length - right.length));
-  out(A.green + A.bold + '╔' + '═'.repeat(inner) + '╗\n');
-  out('║' + left + gap + right + '║\n');
-  out('╚' + '═'.repeat(inner) + '╝' + A.reset + '\n\n');
-
-  out(A.green + A.bold + ' CENTER TILES' + A.reset + A.dim + '  (★ = coins per tile)' + A.reset + '\n');
-  if (state.centerTiles.length === 0) {
-    out('   ' + A.dim + '(empty)' + A.reset + '\n');
-  } else {
-    const cells = state.centerTiles.map(tileCell);
-    for (let i = 0; i < cells.length; i += 8) {
-      out(row(cells.slice(i, i + 8)) + '\n');
+function gradientBanner(lines: string[]): string {
+  const width = Math.max(...lines.map((l) => l.length));
+  let buf = '';
+  for (const line of lines) {
+    for (let col = 0; col < line.length; col++) {
+      const ch = line[col];
+      if (ch === ' ') {
+        buf += ' ';
+      } else {
+        const i = Math.min(
+          PHOSPHOR_GRADIENT.length - 1,
+          Math.floor((col / width) * PHOSPHOR_GRADIENT.length),
+        );
+        buf += fg(PHOSPHOR_GRADIENT[i]) + BOLD + ch + RESET;
+      }
     }
+    buf += '\n';
   }
-  out('\n');
-
-  out(playerLine('YOU', A.cyan, state.players[HUMAN]) + '\n');
-  out(
-    playerLine('AI (' + opts.aiDiscipline.toFixed(1) + ')', A.magenta, state.players[AI]) + '\n\n',
-  );
-
-  const whoColor = state.current === HUMAN ? A.cyan : A.magenta;
-  const whoName = state.current === HUMAN ? 'YOU' : 'AI';
-  out(A.green + ' TURN: ' + whoColor + A.bold + whoName + A.reset + '\n');
-
-  if (state.rolled.length > 0) {
-    out('   ' + A.dim + 'rolled    ' + A.reset + state.rolled.map((f) => dieCell(f, true)).join(' ') + '\n');
-  } else {
-    out('   ' + A.dim + 'rolled    ' + A.reset + A.dim + '(none yet)' + A.reset + '\n');
-  }
-  const sum = setAsideSum(state);
-  const hasCoin = state.setAside.includes(COIN);
-  const sumColor = hasCoin ? A.yellow : A.red;
-  out(
-    '   ' +
-      A.dim + 'set aside ' + A.reset +
-      (state.setAside.length === 0
-        ? A.dim + '(none)' + A.reset
-        : state.setAside.map((f) => dieCell(f)).join(' ')) +
-      '   ' + A.dim + 'sum:' + A.reset + ' ' + sumColor + A.bold + sum + A.reset +
-      (hasCoin ? A.green + ' ✓coin' + A.reset : A.red + ' no coin' + A.reset) + '\n',
-  );
-  out('   ' + A.dim + 'picked    ' + A.reset + pickedSummary(state) + '   ' + A.dim + 'dice in hand:' + A.reset + ' ' + state.diceInHand + '\n');
-
-  if (opts.status) {
-    out('\n   ' + opts.status + '\n');
-  }
+  return buf;
 }
 
-// ─── effects: ka-ching, bust, steal banners ─────────────────────────────────
-async function flashBanner(text: string, color: string, beep: boolean): Promise<void> {
+// ─── effects: ka-ching / bust / steal ───────────────────────────────────────
+async function flashBanner(text: string, color: number, beep: boolean): Promise<void> {
   if (beep) out(BELL);
   for (let i = 0; i < 3; i++) {
-    out('\n   ' + color + A.bold + A.invert + ' ' + text + ' ' + A.reset);
+    out('\n   ' + fg(color) + BOLD + INVERT + ' ' + text + ' ' + RESET);
     await delay(FLASH_MS);
-    out('\r   ' + ' '.repeat(text.length + 2) + '\r');
+    out('\r   ' + ' '.repeat(visibleLen(text) + 2) + '\r');
     await delay(FLASH_MS);
   }
-  out('\n   ' + color + A.bold + text + A.reset + '\n');
+  out('\n   ' + fg(color) + BOLD + text + RESET + '\n');
 }
 
-async function effects(prev: State, next: State, opts: { aiDiscipline: number }): Promise<void> {
-  // Only react when the turn actually ended.
+async function effects(prev: State, next: State, opts: RenderOpts): Promise<void> {
   if (next.current === prev.current && next.phase !== 'over') return;
-
   const actor = prev.current;
   const prevTiles = prev.players[actor].tiles.length;
   const nextTiles = next.players[actor].tiles.length;
@@ -274,18 +445,22 @@ async function effects(prev: State, next: State, opts: { aiDiscipline: number })
   const sum = setAsideSum(prev);
 
   if (nextTiles > prevTiles) {
+    const tile = next.players[actor].tiles[next.players[actor].tiles.length - 1];
+    const tileBadge = '[' + tile + ' ' + '★'.repeat(tileCoins(tile)) + ']';
     if (nextCenter < prevCenter) {
-      const tile = next.players[actor].tiles[next.players[actor].tiles.length - 1];
-      render(next, { aiDiscipline: opts.aiDiscipline });
-      await flashBanner('★  K A · C H I N G !  ★   banked [' + tile + ' ' + '★'.repeat(tileCoins(tile)) + ']', A.yellow, true);
+      render(next, opts);
+      await flashBanner('★  K A · C H I N G !  ★   banked ' + tileBadge, A_GLINT, true);
     } else {
-      const tile = next.players[actor].tiles[next.players[actor].tiles.length - 1];
-      render(next, { aiDiscipline: opts.aiDiscipline });
-      await flashBanner('▶  S T E A L !  ◀   took [' + tile + ' ' + '★'.repeat(tileCoins(tile)) + ']', A.magenta, true);
+      render(next, opts);
+      await flashBanner('▶  S T E A L !  ◀   took ' + tileBadge, Mg_BR, true);
     }
-  } else if (nextTiles < prevTiles || nextCenter < prevCenter || (prev.setAside.length > 0 && nextCenter > prevCenter)) {
-    render(next, { aiDiscipline: opts.aiDiscipline });
-    await flashBanner('✗  B U S T !  ✗   sum was ' + sum, A.red, false);
+  } else if (
+    nextTiles < prevTiles ||
+    nextCenter < prevCenter ||
+    (prev.setAside.length > 0 && nextCenter >= prevCenter)
+  ) {
+    render(next, opts);
+    await flashBanner('✗  B U S T !  ✗   sum was ' + sum, RED, false);
   }
 }
 
@@ -303,29 +478,39 @@ function validPickFaces(state: State): Face[] {
 function promptText(state: State): string {
   if (state.phase === 'pick') {
     const faces = validPickFaces(state);
-    const keys = faces.map((f) => (f === COIN ? A.yellow + 'C' + A.reset : A.white + String(f) + A.reset)).join(' ');
-    return A.green + '   > pick a face [' + keys + A.green + ']  ' + A.dim + '(Q to quit) ' + A.reset;
+    const keys = faces
+      .map((f) =>
+        f === COIN
+          ? fg(A_GLINT) + BOLD + 'C' + RESET
+          : fg(TEXT) + BOLD + String(f) + RESET,
+      )
+      .join(' ');
+    return (
+      fg(P_LIME) + '   > pick a face [' + keys + fg(P_LIME) + ']  ' +
+      fg(DIM_TEXT) + '(Q to quit) ' + RESET
+    );
   }
-  // phase === 'roll'
   const canStop = state.setAside.length > 0;
-  const choices = [A.green + '[' + A.bold + 'R' + A.reset + A.green + ']oll'];
-  if (canStop) choices.push(A.green + '[' + A.bold + 'S' + A.reset + A.green + ']top');
-  choices.push(A.dim + '[Q]uit' + A.reset);
-  return A.green + '   > ' + choices.join('  ') + ' ' + A.reset;
+  const choices = [fg(P_LIME) + '[' + fg(P_LIME2) + BOLD + 'R' + RESET + fg(P_LIME) + ']oll' + RESET];
+  if (canStop) {
+    choices.push(fg(P_LIME) + '[' + fg(A_GLINT) + BOLD + 'S' + RESET + fg(P_LIME) + ']top' + RESET);
+  }
+  choices.push(fg(DIM_TEXT) + '[Q]uit' + RESET);
+  return fg(P_LIME) + '   > ' + choices.join('  ') + ' ' + RESET;
 }
 
 async function readKeyMatching(predicate: (k: string) => boolean): Promise<string> {
   for (;;) {
     const raw = await waitKey();
     const k = raw.toLowerCase();
-    if (k === '' || k === 'q') return 'q'; // ^C or Q
+    if (k === '' || k === 'q') return 'q';
     if (predicate(k)) return k;
   }
 }
 
 async function promptHuman(state: State): Promise<Action | 'QUIT'> {
   out(promptText(state));
-  out(A.showCursor);
+  out(SHOW_CURSOR);
   if (state.phase === 'pick') {
     const valid = validPickFaces(state);
     const k = await readKeyMatching((k) => {
@@ -333,54 +518,75 @@ async function promptHuman(state: State): Promise<Action | 'QUIT'> {
       const n = Number(k);
       return Number.isInteger(n) && n >= 1 && n <= 5 && valid.includes(n as Face);
     });
-    out(A.hideCursor);
+    out(HIDE_CURSOR);
     if (k === 'q') return 'QUIT';
     const face: Face = k === 'c' || k === '$' ? COIN : (Number(k) as Face);
     return { type: 'PICK', face };
   }
   const canStop = state.setAside.length > 0;
   const k = await readKeyMatching((k) => k === 'r' || (canStop && k === 's'));
-  out(A.hideCursor);
+  out(HIDE_CURSOR);
   if (k === 'q') return 'QUIT';
   return k === 'r' ? { type: 'ROLL' } : { type: 'STOP' };
 }
 
-// ─── ai turn pacing ─────────────────────────────────────────────────────────
+// ─── ai pacing ──────────────────────────────────────────────────────────────
 async function aiTurnAction(state: State, ai: Difficulty): Promise<Action> {
-  // Brief "thinking" beat so the human can track what the AI saw.
   await delay(AI_THINK_MS);
   return decide(state, ai);
 }
 
-// ─── roll reveal animation ──────────────────────────────────────────────────
-async function animateRoll(before: State, after: State, opts: { aiDiscipline: number }): Promise<void> {
-  if (after.rolled.length === 0) return; // bust on roll, nothing to reveal
+// ─── roll reveal with spinning coins ────────────────────────────────────────
+async function animateRoll(before: State, after: State, opts: RenderOpts): Promise<void> {
+  if (after.rolled.length === 0) return;
   const partial: State = { ...before, rolled: [], phase: 'pick' };
-  render(partial, { aiDiscipline: opts.aiDiscipline, status: A.dim + 'rolling…' + A.reset });
+  const status = fg(DIM_TEXT) + 'rolling…' + RESET;
+
+  render(partial, { ...opts, status });
+  await delay(ROLL_REVEAL_MS);
+
   for (let i = 0; i < after.rolled.length; i++) {
+    const newDie = after.rolled[i];
     const visible = after.rolled.slice(0, i + 1);
     const snap: State = { ...partial, rolled: visible };
-    render(snap, { aiDiscipline: opts.aiDiscipline, status: A.dim + 'rolling…' + A.reset });
-    await delay(ROLL_REVEAL_MS);
+
+    if (newDie === COIN) {
+      for (let frame = 0; frame < COIN_SPIN_FRAMES; frame++) {
+        render(snap, { ...opts, status, spinIdx: i, spinFrame: frame });
+        await delay(COIN_SPIN_MS);
+      }
+      render(snap, { ...opts, status, spinIdx: i, spinGlint: true });
+      await delay(COIN_GLINT_MS);
+    } else {
+      render(snap, { ...opts, status });
+      await delay(ROLL_REVEAL_MS);
+    }
   }
 }
 
-// ─── game over screen ───────────────────────────────────────────────────────
+// ─── game over ──────────────────────────────────────────────────────────────
 function renderGameOver(state: State, aiDiscipline: number): void {
   const youCoins = state.players[HUMAN].tiles.reduce((s, t) => s + tileCoins(t), 0);
   const aiCoins = state.players[AI].tiles.reduce((s, t) => s + tileCoins(t), 0);
   out('\n');
-  const headColor = youCoins > aiCoins ? A.yellow : youCoins < aiCoins ? A.red : A.cyan;
+  const headColor = youCoins > aiCoins ? A_GLINT : youCoins < aiCoins ? RED : Cy_BR;
   const heading =
     youCoins > aiCoins
       ? '═══  YOU WIN  ═══'
       : youCoins < aiCoins
         ? '═══  AI WINS  ═══'
         : '═══  TIE GAME  ═══';
-  out('   ' + headColor + A.bold + heading + A.reset + '\n');
-  out('   ' + A.cyan + 'YOU       ' + A.reset + youCoins + ' coins   ' + state.players[HUMAN].tiles.map(tileCell).join(' ') + '\n');
-  out('   ' + A.magenta + 'AI (' + aiDiscipline.toFixed(1) + ') ' + A.reset + aiCoins + ' coins   ' + state.players[AI].tiles.map(tileCell).join(' ') + '\n\n');
-  out(A.dim + '   [any key to exit]' + A.reset);
+  out('   ' + fg(headColor) + BOLD + heading + RESET + '\n');
+  out(
+    '   ' + fg(Cy_BR) + 'YOU       ' + RESET + youCoins + ' coins   ' +
+    state.players[HUMAN].tiles.map(tileCell).join(' ') + '\n',
+  );
+  out(
+    '   ' + fg(Mg_BR) + 'AI (' + aiDiscipline.toFixed(1) + ') ' + RESET +
+    aiCoins + ' coins   ' +
+    state.players[AI].tiles.map(tileCell).join(' ') + '\n\n',
+  );
+  out(fg(DIM_TEXT) + '   [any key to exit]' + RESET);
 }
 
 // ─── main loop ──────────────────────────────────────────────────────────────
@@ -391,24 +597,24 @@ async function main(): Promise<void> {
   setupInput();
   await boot();
 
-  // Math.random is fine here: rules live in the engine, this is just the shell.
   const rng: Rng = Math.random;
   let state = initialState(['YOU', 'AI']);
+  const baseOpts: RenderOpts = { aiDiscipline };
 
   while (state.phase !== 'over') {
-    render(state, { aiDiscipline });
+    render(state, baseOpts);
 
     let action: Action;
     if (state.current === HUMAN) {
       const choice = await promptHuman(state);
       if (choice === 'QUIT') {
-        out('\n' + A.dim + '   quit.' + A.reset + '\n');
+        out('\n' + fg(DIM_TEXT) + '   quit.' + RESET + '\n');
         teardownInput();
         return;
       }
       action = choice;
     } else {
-      out('\n   ' + A.dim + 'AI thinking…' + A.reset);
+      out('\n   ' + fg(DIM_TEXT) + 'AI thinking…' + RESET);
       action = await aiTurnAction(state, ai);
     }
 
@@ -416,14 +622,14 @@ async function main(): Promise<void> {
     const after = step(state, action, rng);
 
     if (action.type === 'ROLL' && after.rolled.length > 0) {
-      await animateRoll(before, after, { aiDiscipline });
+      await animateRoll(before, after, baseOpts);
     }
 
     state = after;
-    await effects(before, state, { aiDiscipline });
+    await effects(before, state, baseOpts);
   }
 
-  render(state, { aiDiscipline });
+  render(state, baseOpts);
   renderGameOver(state, aiDiscipline);
   await waitKey();
   teardownInput();
@@ -442,7 +648,6 @@ function parseDiscipline(args: string[]): number | null {
 
 main().catch((err) => {
   teardownInput();
-  // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);
 });
