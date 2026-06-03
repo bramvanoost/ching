@@ -122,3 +122,28 @@ describe('renderGameOver', () => {
     expect(renderGameOver(s, soloView())).toMatchSnapshot();
   });
 });
+
+// All full frames must include the cursor-home + clear at the start. Without
+// it, successive draws stack down the terminal instead of repainting in
+// place. The drawFrame path also adds cursor-home + erase-tail, but the
+// CLEAR-at-start invariant in the builder is what keeps snapshot tests
+// stable and makes the rendered output safe to write through ANY drawFrame.
+describe('frame builders include CLEAR at start', () => {
+  const HOME_CLEAR = '\x1b[H\x1b[2J';
+
+  it('renderFrame starts with cursor-home + erase-screen', () => {
+    const s = initialState(['a', 'b']);
+    const out = renderFrame(s, soloView());
+    expect(out.startsWith(HOME_CLEAR)).toBe(true);
+  });
+
+  it('renderGameOver starts with cursor-home + erase-screen', () => {
+    const s: State = {
+      players: [{ id: 'a', tiles: [21] }, { id: 'b', tiles: [22] }],
+      current: 0, centerTiles: [], diceInHand: 0, rolled: [],
+      setAside: [], pickedFaces: [], phase: 'over',
+    };
+    const out = renderGameOver(s, soloView());
+    expect(out.startsWith(HOME_CLEAR)).toBe(true);
+  });
+});

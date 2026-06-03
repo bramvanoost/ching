@@ -22,6 +22,12 @@ let active = false;
 let inputBuf = '';
 const inputWaiters: Array<(c: string) => void> = [];
 
+// Row count of the most recent drawFrame, used by drawFooter to address the
+// footer row directly. Counts logical rows (one per '\n' plus the trailing
+// row with no '\n'). Reset to 0 only by teardownTerm so the in-place footer
+// path survives across frames in a session.
+let lastFrameRows = 0;
+
 function out(s: string): void {
   process.stdout.write(s);
 }
@@ -61,6 +67,9 @@ export function setupTerm(): void {
 }
 
 export function teardownTerm(): void {
+  // Always reset frame-row tracking so a fresh session (and tests) starts
+  // with drawFooter returning false until a real frame is painted.
+  lastFrameRows = 0;
   if (!active) return;
   active = false;
   process.stdin.off('data', onData);
@@ -88,7 +97,40 @@ export async function readKeyMatching(
   }
 }
 
+// Authoritative full-frame writer. Two invariants:
+//   1. Cursor goes to home before content, so the frame is always painted
+//      starting at row 1. Combined with the CLEAR escape that render builders
+//      include at the start of every frame, this guarantees in-place repaint
+//      and never appends/scrolls.
+//   2. After content, erase-tail (\x1b[J) wipes any leftover rows from a
+//      previous taller frame (center-tile depletion shrinks the frame).
+// Tracks the row count so drawFooter can address the footer line directly.
 export function drawFrame(s: string): void {
+  out('\x1b[H' + s + '\x1b[J');
+  let nl = 0;
+  for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) nl++;
+  lastFrameRows = nl + 1;
+}
+
+// In-place footer repaint. Positions to the footer row recorded by the most
+// recent drawFrame, erases the whole line, writes content (no newline so the
+// cursor stays on the footer row). Returns false if no full frame has been
+// painted yet, so the caller can fall back to a full redraw.
+//
+// Used by TURN_REMINDER countdown ticks: only the seconds-left number changes
+// between ticks; repainting the entire 22-row frame every second causes
+// visible flicker and (under bad terminal config) can stack frames.
+export function drawFooter(footer: string): boolean {
+  if (lastFrameRows === 0) return false;
+  out('\x1b[' + lastFrameRows + ';1H\x1b[2K' + footer);
+  return true;
+}
+
+// Raw incremental write. Use only for paths that intentionally append at the
+// current cursor position (boot typewriter, in-place footer overlays like
+// playFlash). NEVER use this for a full-frame paint; drawFrame is the only
+// authorized full-frame path.
+export function writeRaw(s: string): void {
   out(s);
 }
 
