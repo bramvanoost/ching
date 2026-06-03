@@ -93,7 +93,27 @@ const AI_THINK_MS = 380;
 const FLASH_MS = 110;
 
 const COIN_SPIN: readonly string[] = ['◐', '◓', '◑', '◒'];
-const COIN_STATIC = '✦';
+const COIN_STATIC = '◆';
+
+// Gem glyphs. ◆ is a banked gem; ◇ marks an empty or dimmed slot.
+const GEM = '◆';
+const GEM_EMPTY = '◇';
+// Bright cycling palette so a row of gems shimmers as a single glint.
+const GEM_GRADIENT: readonly number[] = [220, 226, 230];
+
+function gems(count: number): string {
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    s += fg(GEM_GRADIENT[i % GEM_GRADIENT.length]) + BOLD + GEM + RESET;
+  }
+  return s;
+}
+
+// Inert ◆ for places where ANSI gradient isn't readable (flash banner inverts,
+// game-over heading already uses a single colour).
+function plainGems(count: number): string {
+  return GEM.repeat(count);
+}
 
 // ─── tty plumbing ───────────────────────────────────────────────────────────
 function out(s: string): void {
@@ -196,8 +216,7 @@ function panelBottom(inner = INNER): string {
 function tileCell(t: number): string {
   const c = tileCoins(t);
   const color = c === 1 ? TIER1 : c === 2 ? TIER2 : c === 3 ? TIER3 : TIER4;
-  const stars = '★'.repeat(c);
-  return fg(color) + '[' + t + ' ' + stars + ']' + RESET;
+  return fg(color) + '[' + t + ' ' + RESET + gems(c) + fg(color) + ']' + RESET;
 }
 
 function coinCell(spinFrame?: number, glint?: boolean): string {
@@ -249,7 +268,7 @@ function playerLineContent(
   const coins = p.tiles.reduce((s, t) => s + tileCoins(t), 0);
   const tiles =
     p.tiles.length === 0
-      ? fg(DIM_TEXT) + '(none)' + RESET
+      ? fg(DIM_TEXT) + GEM_EMPTY + ' empty vault' + RESET
       : p.tiles.map(tileCell).join(' ');
   return (
     fg(color) + BOLD + padded + RESET + '  ' + tiles + '   ' +
@@ -295,7 +314,15 @@ function render(state: State, opts: RenderOpts): void {
   out(panelBottom() + '\n');
 
   // Center tiles.
-  out(panelTop('CENTER TILES  ' + fg(DIM_TEXT) + '(★ = coins per tile)' + RESET + fg(P_LIME2) + BOLD) + '\n');
+  out(
+    panelTop(
+      'CENTER TILES  ' +
+        fg(DIM_TEXT) + '(' + RESET +
+        fg(GEM_GRADIENT[1]) + BOLD + GEM + RESET +
+        fg(DIM_TEXT) + ' = coins per tile)' + RESET +
+        fg(P_LIME2) + BOLD,
+    ) + '\n',
+  );
   if (state.centerTiles.length === 0) {
     out(panelLine('  ' + fg(DIM_TEXT) + '(empty)' + RESET) + '\n');
   } else {
@@ -308,7 +335,7 @@ function render(state: State, opts: RenderOpts): void {
   out(panelBottom() + '\n');
 
   // Players.
-  out(panelTop('PLAYERS') + '\n');
+  out(panelTop('VAULTS') + '\n');
   out(panelLine('  ' + playerLineContent('YOU', Cy_BR, state.players[HUMAN])) + '\n');
   out(
     panelLine(
@@ -458,10 +485,10 @@ async function effects(prev: State, next: State, opts: RenderOpts): Promise<void
 
   if (nextTiles > prevTiles) {
     const tile = next.players[actor].tiles[next.players[actor].tiles.length - 1];
-    const tileBadge = '[' + tile + ' ' + '★'.repeat(tileCoins(tile)) + ']';
+    const tileBadge = '[' + tile + ' ' + plainGems(tileCoins(tile)) + ']';
     if (nextCenter < prevCenter) {
       render(next, opts);
-      await flashBanner('★  K A · C H I N G !  ★   banked ' + tileBadge, A_GLINT, true);
+      await flashBanner('◆  K A · C H I N G !  ◆   banked ' + tileBadge, A_GLINT, true);
     } else {
       render(next, opts);
       await flashBanner('▶  S T E A L !  ◀   took ' + tileBadge, Mg_BR, true);
@@ -581,17 +608,17 @@ function renderGameOver(state: State, aiDiscipline: number): void {
   const headColor = youCoins > aiCoins ? A_GLINT : youCoins < aiCoins ? RED : Cy_BR;
   const heading =
     youCoins > aiCoins
-      ? '★  ★  ★    Y O U   W I N    ★  ★  ★'
+      ? '◆  ◆  ◆    Y O U   W I N    ◆  ◆  ◆'
       : youCoins < aiCoins
         ? '✗  ✗  ✗    A I   W I N S    ✗  ✗  ✗'
         : '◇  ◇  ◇    T I E   G A M E    ◇  ◇  ◇';
   const youTiles =
     state.players[HUMAN].tiles.length === 0
-      ? fg(DIM_TEXT) + '(none)' + RESET
+      ? fg(DIM_TEXT) + GEM_EMPTY + ' empty vault' + RESET
       : state.players[HUMAN].tiles.map(tileCell).join(' ');
   const aiTiles =
     state.players[AI].tiles.length === 0
-      ? fg(DIM_TEXT) + '(none)' + RESET
+      ? fg(DIM_TEXT) + GEM_EMPTY + ' empty vault' + RESET
       : state.players[AI].tiles.map(tileCell).join(' ');
 
   out(CLEAR);
