@@ -5,9 +5,9 @@
 // leave a wrecked terminal.
 
 import * as net from 'node:net';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join as pathJoin } from 'node:path';
+import { dirname, join as pathJoin } from 'node:path';
 import {
   A_GLINT,
   BOLD,
@@ -54,30 +54,45 @@ import { lobbyFooter, viewOptsFor } from './clientcore.js';
 import { COIN, type Action, type Face, type State } from './engine.js';
 
 const DEFAULT_SOCK = '/tmp/ching.sock';
-const SESSION_FILE = pathJoin(homedir(), '.ching', 'session.json');
+const DEFAULT_SESSION_FILE = pathJoin(homedir(), '.ching', 'session.json');
+
+// CHING_SESSION overrides the session file path. Lets two clients on the
+// same OS account hold separate tokens (e.g. testing, or shared Pi accounts).
+export function resolveSessionFile(): string {
+  return process.env.CHING_SESSION ?? DEFAULT_SESSION_FILE;
+}
 
 // ─── session token persistence ──────────────────────────────────────────────
+// File keyed by socket path so the same file can hold tokens for multiple
+// daemons. CHING_SESSION just picks which file is used.
 type Session = Record<string, { token: string }>;
 
-function loadSession(sockPath: string): { token: string | null; name: string } {
+export function loadSession(
+  sessionFile: string,
+  sockPath: string,
+): { token: string | null; name: string } {
   let token: string | null = null;
   try {
-    const raw = JSON.parse(readFileSync(SESSION_FILE, 'utf8')) as Session;
+    const raw = JSON.parse(readFileSync(sessionFile, 'utf8')) as Session;
     if (raw[sockPath]?.token) token = raw[sockPath].token;
   } catch {}
   const name = process.env.CHING_NAME ?? process.env.USER ?? 'player';
   return { token, name };
 }
 
-function saveToken(sockPath: string, token: string): void {
+export function saveToken(
+  sessionFile: string,
+  sockPath: string,
+  token: string,
+): void {
   let raw: Session = {};
   try {
-    raw = JSON.parse(readFileSync(SESSION_FILE, 'utf8')) as Session;
+    raw = JSON.parse(readFileSync(sessionFile, 'utf8')) as Session;
   } catch {}
   raw[sockPath] = { token };
   try {
-    mkdirSync(pathJoin(homedir(), '.ching'), { recursive: true });
-    writeFileSync(SESSION_FILE, JSON.stringify(raw, null, 2));
+    mkdirSync(dirname(sessionFile), { recursive: true });
+    writeFileSync(sessionFile, JSON.stringify(raw, null, 2));
   } catch {}
 }
 
@@ -235,7 +250,7 @@ export type ClientHandle = { shutdown: (code: number) => void };
 export async function runClient(
   conn: Conn,
   term: Term,
-  opts: { sockPath: string; name: string; token: string | null },
+  opts: { sockPath: string; sessionFile: string; name: string; token: string | null },
 ): Promise<number> {
   type MenuKey = 'menu' | 'joining-code' | 'lobby' | 'game' | 'over';
   type LobbyData = { code: string; host: number; seats: SeatView[]; mySeat: number };
@@ -287,7 +302,7 @@ export async function runClient(
     while (messagesRunning) {
       const m = await nextMsg();
       if (m.t === 'WELCOME') {
-        saveToken(opts.sockPath, m.token);
+        saveToken(opts.sessionFile, opts.sockPath, m.token);
         if (m.seatHint) {
           menuKey = 'lobby';
         }
@@ -528,7 +543,8 @@ async function readSeatNumber(term: Term, max: number): Promise<number | null> {
 // ─── entry point ────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   const sockPath = process.env.CHING_SOCK ?? DEFAULT_SOCK;
-  const sess = loadSession(sockPath);
+  const sessionFile = resolveSessionFile();
+  const sess = loadSession(sessionFile, sockPath);
 
   let conn: Conn;
   try {
@@ -551,6 +567,7 @@ async function main(): Promise<void> {
 
   const code = await runClient(conn, realTerm, {
     sockPath,
+    sessionFile,
     name: sess.name,
     token: sess.token,
   });

@@ -98,7 +98,12 @@ Each player sshes into the Pi and runs:
 npm run join
 ```
 
-Set `CHING_NAME` to override your display name (defaults to `$USER`). Set `CHING_SOCK` to point at a different socket path.
+Set `CHING_NAME` to override your display name (defaults to `$USER`). Set `CHING_SOCK` to point at a different socket path. Set `CHING_SESSION` to override the session-token file (defaults to `~/.ching/session.json`); two clients on the same OS account must use separate session files or they'll collide on the same token. Quick local two-client test against a running daemon:
+
+```
+CHING_SESSION=/tmp/ching-a.json CHING_NAME=alice npm run join   # terminal A
+CHING_SESSION=/tmp/ching-b.json CHING_NAME=bob   npm run join   # terminal B
+```
 
 ### Lobby flow
 

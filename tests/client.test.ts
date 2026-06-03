@@ -1,7 +1,59 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join as pathJoin } from 'node:path';
+import { readFileSync, rmSync } from 'node:fs';
 import { reduce, initial } from '../src/clientcore.js';
 import type { S2C } from '../src/net/protocol.js';
-import { runClient } from '../src/client.js';
+import { runClient, resolveSessionFile, loadSession, saveToken } from '../src/client.js';
+
+describe('resolveSessionFile', () => {
+  const prev = process.env.CHING_SESSION;
+  afterEach(() => {
+    if (prev === undefined) delete process.env.CHING_SESSION;
+    else process.env.CHING_SESSION = prev;
+  });
+
+  it('honors CHING_SESSION', () => {
+    process.env.CHING_SESSION = '/tmp/ching-test-override.json';
+    expect(resolveSessionFile()).toBe('/tmp/ching-test-override.json');
+  });
+
+  it('falls back to ~/.ching/session.json when CHING_SESSION is unset', () => {
+    delete process.env.CHING_SESSION;
+    expect(resolveSessionFile()).toMatch(/\.ching\/session\.json$/);
+  });
+});
+
+describe('session token file', () => {
+  const file = pathJoin(tmpdir(), 'ching-test-session-' + process.pid + '.json');
+  afterEach(() => {
+    try { rmSync(file); } catch {}
+  });
+
+  it('keys tokens by socket path within one file', () => {
+    saveToken(file, '/tmp/sock-a.sock', 'tok-A');
+    saveToken(file, '/tmp/sock-b.sock', 'tok-B');
+    expect(loadSession(file, '/tmp/sock-a.sock').token).toBe('tok-A');
+    expect(loadSession(file, '/tmp/sock-b.sock').token).toBe('tok-B');
+  });
+
+  it('two separate session files hold independent tokens for the same socket', () => {
+    const fileA = file + '.A';
+    const fileB = file + '.B';
+    try {
+      saveToken(fileA, '/tmp/ching.sock', 'tok-alice');
+      saveToken(fileB, '/tmp/ching.sock', 'tok-bob');
+      expect(loadSession(fileA, '/tmp/ching.sock').token).toBe('tok-alice');
+      expect(loadSession(fileB, '/tmp/ching.sock').token).toBe('tok-bob');
+      // Sanity: file A still has its token unchanged after writing file B.
+      const rawA = JSON.parse(readFileSync(fileA, 'utf8')) as Record<string, { token: string }>;
+      expect(rawA['/tmp/ching.sock'].token).toBe('tok-alice');
+    } finally {
+      try { rmSync(fileA); } catch {}
+      try { rmSync(fileB); } catch {}
+    }
+  });
+});
 
 describe('clientcore reducer', () => {
   it('persists token on WELCOME', () => {
@@ -85,7 +137,7 @@ describe('runClient teardown invariant', () => {
     const c = fakeConn();
     const t = fakeTerm();
     const runPromise = runClient(c.conn as never, t.term as never, {
-      sockPath: '/tmp/fake.sock', name: 'alice', token: 'tok-1',
+      sockPath: '/tmp/fake.sock', sessionFile: '/tmp/fake-session.json', name: 'alice', token: 'tok-1',
     });
     // Give the message loop a tick to start.
     await Promise.resolve();
@@ -100,7 +152,7 @@ describe('runClient teardown invariant', () => {
     const c = fakeConn();
     const t = fakeTerm();
     const runPromise = runClient(c.conn as never, t.term as never, {
-      sockPath: '/tmp/fake.sock', name: 'alice', token: null,
+      sockPath: '/tmp/fake.sock', sessionFile: '/tmp/fake-session.json', name: 'alice', token: null,
     });
     await Promise.resolve();
     c.inject({ v: 1, t: 'BYE', reason: 'server shutting down' });
@@ -113,7 +165,7 @@ describe('runClient teardown invariant', () => {
     const c = fakeConn();
     const t = fakeTerm();
     const runPromise = runClient(c.conn as never, t.term as never, {
-      sockPath: '/tmp/fake.sock', name: 'alice', token: null,
+      sockPath: '/tmp/fake.sock', sessionFile: '/tmp/fake-session.json', name: 'alice', token: null,
     });
     await Promise.resolve();
     c.triggerClose();
