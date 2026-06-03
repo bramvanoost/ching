@@ -5,12 +5,14 @@
 import {
   initialState,
   step,
+  tileCoins,
   type Action,
   type Rng,
   type State,
 } from '../engine.js';
 import { decide, type Difficulty } from '../ai.js';
 import type { GameEvent, S2C, SeatView, SeatKind } from './protocol.js';
+import type { LogFn } from './log.js';
 
 const MAX_SEATS = 4;
 const MIN_SEATS = 2;
@@ -47,6 +49,7 @@ export type RoomDeps = {
   now: () => number;
   bus: (e: RoomEvent) => void;
   mintToken: () => string;
+  log?: LogFn;
 };
 
 export class Room {
@@ -57,11 +60,13 @@ export class Room {
   state: State | null = null;
   private lastHumanLiveAtMs: number;
   private timers: Timer[] = [];
+  private readonly log: LogFn;
   reaped = false;
 
   constructor(code: string, private readonly deps: RoomDeps) {
     this.code = code;
     this.lastHumanLiveAtMs = deps.now();
+    this.log = deps.log ?? (() => {});
   }
 
   // ─── lobby ────────────────────────────────────────────────────────────────
@@ -116,6 +121,10 @@ export class Room {
     s.connId = connId;
     s.downSinceMs = null;
     this.lastHumanLiveAtMs = this.deps.now();
+    this.log({
+      level: 'info', msg: 'reattach', room: this.code, seat,
+      name: s.name, ai_takeover: s.aiTakingOver,
+    });
 
     // If they reconnected while AI was taking over their turn, do NOT yank
     // control: leave aiTakingOver true; the next endTurn flips it off. They
@@ -135,6 +144,7 @@ export class Room {
     if (s.connId === null) return;
     s.connId = null;
     s.downSinceMs = this.deps.now();
+    this.log({ level: 'info', msg: 'detach', room: this.code, seat, name: s.name });
     this.transferHostIfNeeded();
 
     if (
@@ -166,6 +176,7 @@ export class Room {
       token: '',
       discipline,
     });
+    this.log({ level: 'info', msg: 'ADD_AI_SEAT', room: this.code, seat, discipline });
     this.pushRoomState();
   }
 
@@ -181,6 +192,7 @@ export class Room {
     for (let i = 0; i < this.seats.length; i++) this.seats[i].seat = i;
     if (this.host >= this.seats.length) this.host = Math.max(0, this.seats.length - 1);
     this.transferHostIfNeeded();
+    this.log({ level: 'info', msg: 'REMOVE_SEAT', room: this.code, seat });
     this.pushRoomState();
   }
 
@@ -190,6 +202,7 @@ export class Room {
     const s = this.seats[idx];
     if (s.kindBase !== 'human') throw new RoomError('NOT_HUMAN', 'seat is not human');
     s.ready = ready;
+    this.log({ level: 'info', msg: 'READY', room: this.code, seat: idx, ready });
     this.pushRoomState();
   }
 
@@ -204,6 +217,7 @@ export class Room {
     }
     this.phase = 'playing';
     this.state = initialState(this.seats.map((s) => s.name));
+    this.log({ level: 'info', msg: 'START', room: this.code, seats: this.seats.length });
     this.pushRoomState();
     this.pushGameState();
     this.maybeRunAi();
@@ -359,6 +373,19 @@ export class Room {
     const evt = this.classifyEvent(prev, next);
     const turnEnded = next.current !== prev.current || next.phase === 'over';
 
+    const actorSeat = prev.current;
+    const actorRec = this.seats[actorSeat];
+    this.log({
+      level: 'info', msg: 'ACTION', room: this.code, seat: actorSeat,
+      type: action.type,
+      ...(action.type === 'PICK' ? { face: action.face } : {}),
+      ...(actorRec?.aiTakingOver ? { source: 'ai-takeover' } : {}),
+      ...(actorRec?.kindBase === 'ai' ? { source: 'ai' } : {}),
+    });
+    if (evt) {
+      this.log({ level: 'info', msg: evt, room: this.code, seat: actorSeat });
+    }
+
     if (turnEnded) {
       // If the seat that just acted was a human under ai-takeover, flip
       // takeover off and route to either live (if reconnected) or down.
@@ -372,10 +399,24 @@ export class Room {
         }
         this.pushRoomState();
       }
+      if (next.phase !== 'over') {
+        this.log({
+          level: 'info', msg: 'turn', room: this.code, seat: next.current,
+          score: next.players.map((p) => p.tiles.reduce((n, t) => n + tileCoins(t), 0)).join(','),
+        });
+      }
     }
 
     if (next.phase === 'over') {
       this.phase = 'over';
+      const finalScores = next.players.map(
+        (p) => p.tiles.reduce((n, t) => n + tileCoins(t), 0),
+      );
+      const winner = finalScores.indexOf(Math.max(...finalScores));
+      this.log({
+        level: 'info', msg: 'over', room: this.code,
+        winner, scores: finalScores.join(','),
+      });
       this.pushGameState(evt);
       this.pushRoomState();
       return;
@@ -412,6 +453,7 @@ export class Room {
 
   private startGraceTimer(seat: number, nowMs: number): void {
     this.cancelTimers((t) => t.kind === 'reminder' || t.kind === 'expire');
+    this.log({ level: 'info', msg: 'grace_start', room: this.code, seat, ms: GRACE_MS });
     for (const id of this.liveConnIds()) {
       this.deps.bus({
         t: 'send',
@@ -436,6 +478,7 @@ export class Room {
       const downSince = s.downSinceMs ?? nowMs;
       const elapsed = nowMs - downSince;
       const secondsLeft = Math.max(0, Math.round((GRACE_MS - elapsed) / 1000));
+      this.log({ level: 'debug', msg: 'grace_tick', room: this.code, seat, secondsLeft });
       for (const id of this.liveConnIds()) {
         this.deps.bus({
           t: 'send',
@@ -450,6 +493,7 @@ export class Room {
     }
     if (t.kind === 'expire') {
       s.aiTakingOver = true;
+      this.log({ level: 'info', msg: 'ai_takeover', room: this.code, seat });
       this.pushRoomState();
       this.scheduleAiStep();
     }
@@ -481,6 +525,7 @@ export class Room {
   private reap(): void {
     if (this.reaped) return;
     this.reaped = true;
+    this.log({ level: 'info', msg: 'reap', room: this.code });
     for (const s of this.seats) {
       if (s.kindBase === 'human' && s.connId !== null) {
         this.deps.bus({ t: 'bye', connId: s.connId, reason: 'room reaped' });

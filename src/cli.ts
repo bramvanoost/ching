@@ -46,6 +46,7 @@ import {
   teardownTerm,
   typewrite,
   waitKey,
+  writeRaw,
 } from './term.js';
 
 const HUMAN = 0;
@@ -126,7 +127,11 @@ async function aiTurnAction(state: State, ai: Difficulty): Promise<Action> {
 }
 
 async function boot(): Promise<void> {
-  drawFrame(CLEAR + fg(P_BR));
+  // Boot is an incremental typewriter sequence: each line builds on the
+  // previous cursor position (label, then dots that ACCUMULATE horizontally,
+  // then 'OK\n'). Use writeRaw, not drawFrame: drawFrame is cursor-home +
+  // erase-tail and would wipe each prior line.
+  writeRaw(CLEAR + fg(P_BR));
   await typewrite('> BOOT...\n', 14);
   await delay(160);
   const lines: Array<[string, number]> = [
@@ -137,24 +142,23 @@ async function boot(): Promise<void> {
     ['TILE BANK 16/16', 60],
   ];
   for (const [label, ms] of lines) {
-    drawFrame(fg(P_MED) + '> ' + RESET + fg(P_BR) + label + RESET);
+    writeRaw(fg(P_MED) + '> ' + RESET + fg(P_BR) + label + RESET);
     const dots = 36 - label.length;
     for (let i = 0; i < dots; i++) {
-      drawFrame(fg(P_DIM) + '.' + RESET);
+      writeRaw(fg(P_DIM) + '.' + RESET);
       await delay(ms / dots);
     }
-    drawFrame(fg(A_GLINT) + BOLD + 'OK' + RESET + '\n');
+    writeRaw(fg(A_GLINT) + BOLD + 'OK' + RESET + '\n');
     await delay(70);
   }
-  drawFrame(fg(P_MED) + '> ' + fg(P_LIME2) + BOLD + 'READY.' + RESET + '\n\n');
+  writeRaw(fg(P_MED) + '> ' + fg(P_LIME2) + BOLD + 'READY.' + RESET + '\n\n');
   await delay(260);
 
-  drawFrame(bootBanner());
-  drawFrame(
+  // From here on we paint full screens via drawFrame.
+  drawFrame(CLEAR + bootBanner() +
     '\n   ' + fg(P_BR) + 'push your luck  •  collect  •  steal  •  ' +
-    fg(A_GLINT) + BOLD + 'CHING!' + RESET + '\n\n',
-  );
-  drawFrame(fg(DIM_TEXT) + '   [any key to start]' + RESET);
+    fg(A_GLINT) + BOLD + 'CHING!' + RESET + '\n\n' +
+    fg(DIM_TEXT) + '   [any key to start]' + RESET);
   await waitKey();
 }
 
@@ -205,11 +209,14 @@ async function animateRollFor(
   });
 }
 
-async function main(): Promise<void> {
-  const aiDiscipline = parseDiscipline(process.argv.slice(2)) ?? DEFAULT_DISCIPLINE;
+// Pure solo-vs-AI game loop. Assumes term is already set up by the caller
+// (the launcher or this file's own main). Identical to the pre-launcher
+// experience under `npm run play` so a CLAUDE.md "Single player must remain
+// bit-for-bit current" guarantee holds.
+export async function runSolo(opts: { discipline?: number } = {}): Promise<void> {
+  const aiDiscipline = opts.discipline ?? DEFAULT_DISCIPLINE;
   const ai: Difficulty = { discipline: aiDiscipline };
 
-  setupTerm();
   await boot();
 
   const rng: Rng = Math.random;
@@ -223,10 +230,7 @@ async function main(): Promise<void> {
       showCursor();
       const choice = await promptHuman(state);
       hideCursor();
-      if (choice === 'QUIT') {
-        teardownTerm();
-        return;
-      }
+      if (choice === 'QUIT') return;
       action = choice;
     } else {
       drawFrame(
@@ -251,8 +255,19 @@ async function main(): Promise<void> {
 
   drawFrame(renderGameOver(state, baseView));
   await waitKey();
-  teardownTerm();
 }
+
+async function main(): Promise<void> {
+  const aiDiscipline = parseDiscipline(process.argv.slice(2)) ?? DEFAULT_DISCIPLINE;
+  setupTerm();
+  try {
+    await runSolo({ discipline: aiDiscipline });
+  } finally {
+    teardownTerm();
+  }
+}
+
+export { DEFAULT_DISCIPLINE, parseDiscipline };
 
 function parseDiscipline(args: string[]): number | null {
   for (const a of args) {
@@ -265,8 +280,14 @@ function parseDiscipline(args: string[]): number | null {
   return null;
 }
 
-main().catch((err) => {
-  teardownTerm();
-  console.error(err);
-  process.exit(1);
-});
+// Only run main() when cli.ts is the script entry. Without this guard,
+// importing runSolo from launcher.ts (or tests) would fire main() at import
+// time and enter alt-screen mode, breaking everything.
+const isEntry = process.argv[1] && import.meta.url === 'file://' + process.argv[1];
+if (isEntry) {
+  main().catch((err) => {
+    teardownTerm();
+    console.error(err);
+    process.exit(1);
+  });
+}

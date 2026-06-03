@@ -31,9 +31,13 @@ type Client = {
   close: () => void;
 };
 
-function openClient(sockPath: string): Promise<Client> {
+type Target = string | { host: string; port: number };
+
+function openClient(target: Target): Promise<Client> {
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection(sockPath);
+    const socket = typeof target === 'string'
+      ? net.createConnection(target)
+      : net.createConnection(target.port, target.host);
     const decoder = new FrameDecoder();
     const inbox: S2C[] = [];
     const waiters: Array<(m: S2C) => void> = [];
@@ -68,16 +72,139 @@ async function nextMatching(c: Client, pred: (m: S2C) => boolean): Promise<S2C> 
   }
 }
 
+async function playFullGameVia(target: Target): Promise<void> {
+  const a = await openClient(target);
+  const b = await openClient(target);
+
+  a.send({ v: 1, t: 'HELLO', name: 'alice' });
+  b.send({ v: 1, t: 'HELLO', name: 'bob' });
+  await nextMatching(a, (m) => m.t === 'WELCOME');
+  await nextMatching(b, (m) => m.t === 'WELCOME');
+
+  a.send({ v: 1, t: 'CREATE_ROOM' });
+  const aRoom = (await nextMatching(a, (m) => m.t === 'ROOM_STATE')) as Extract<S2C, { t: 'ROOM_STATE' }>;
+  const code = aRoom.code;
+
+  b.send({ v: 1, t: 'JOIN_ROOM', code });
+  await nextMatching(a, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2);
+  await nextMatching(b, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2);
+
+  a.send({ v: 1, t: 'READY', ready: true });
+  b.send({ v: 1, t: 'READY', ready: true });
+  await nextMatching(a, (m) => m.t === 'ROOM_STATE' && m.seats.every((s) => s.ready));
+
+  a.send({ v: 1, t: 'START' });
+
+  // Play loop: read GAME_STATE pushes, whoever is current sends ACTION
+  // chosen by decide() with discipline 0.6.
+  const difficulty = { discipline: 0.6 };
+  let aLastState = null as null | Extract<S2C, { t: 'GAME_STATE' }>;
+  let bLastState = null as null | Extract<S2C, { t: 'GAME_STATE' }>;
+
+  const seenOver = { a: false, b: false };
+  const consume = async (cl: Client, who: 'a' | 'b') => {
+    while (!seenOver[who]) {
+      const m = await cl.next();
+      if (m.t === 'GAME_STATE') {
+        if (who === 'a') aLastState = m;
+        else bLastState = m;
+        if (m.state.phase === 'over') {
+          seenOver[who] = true;
+          break;
+        }
+      }
+    }
+  };
+  const pumpA = consume(a, 'a');
+  const pumpB = consume(b, 'b');
+
+  const drive = async () => {
+    let safety = 5_000;
+    while (!seenOver.a && safety-- > 0) {
+      const cur = (aLastState ?? bLastState);
+      if (!cur) {
+        await new Promise((r) => setTimeout(r, 5));
+        continue;
+      }
+      if (cur.state.phase === 'over') break;
+      const seat = cur.state.current;
+      const action: Action = decide(cur.state, difficulty);
+      const owner = seat === 0 ? a : b;
+      const beforeSeat = cur.state.current;
+      const beforeRolled = cur.state.rolled.length;
+      const beforeSetAside = cur.state.setAside.length;
+      owner.send({ v: 1, t: 'ACTION', action });
+      const waitStart = Date.now();
+      while (Date.now() - waitStart < 1000) {
+        const latest = aLastState;
+        if (
+          latest &&
+          (latest.state.current !== beforeSeat ||
+            latest.state.rolled.length !== beforeRolled ||
+            latest.state.setAside.length !== beforeSetAside ||
+            latest.state.phase === 'over')
+        ) {
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 2));
+      }
+    }
+  };
+
+  await drive();
+  await pumpA;
+  await pumpB;
+
+  expect(aLastState).not.toBeNull();
+  expect(bLastState).not.toBeNull();
+  expect(aLastState!.state.phase).toBe('over');
+  expect(bLastState!.state.phase).toBe('over');
+  expect(aLastState!.state.players).toEqual(bLastState!.state.players);
+
+  a.close();
+  b.close();
+}
+
 describe('integration', () => {
-  it('two clients play a full game through the daemon', async () => {
-    const sockPath = pathJoin(tmpdir(), 'ching-test-' + process.pid + '-' + Date.now() + '.sock');
+  it('two clients play a full game over the unix socket', async () => {
+    const sockPath = pathJoin(tmpdir(), 'ching-test-unix-' + process.pid + '-' + Date.now() + '.sock');
     const rng = mulberry32(42);
     const daemon = new Daemon({ rng, log: () => {} });
     await daemon.listen(sockPath);
+    try {
+      await playFullGameVia(sockPath);
+    } finally {
+      await daemon.close();
+    }
+  }, 20_000);
 
+  it('two clients play a full game over TCP', async () => {
+    // port: 0 asks the OS for any free port. host 127.0.0.1 keeps the test
+    // bound to loopback so we never accidentally expose a CI runner to the
+    // wider network. The production default is 0.0.0.0:4321.
+    const sockPath = pathJoin(tmpdir(), 'ching-test-tcp-' + process.pid + '-' + Date.now() + '.sock');
+    const rng = mulberry32(42);
+    const daemon = new Daemon({ rng, log: () => {} });
+    await daemon.listen({ sockPath, port: 0, host: '127.0.0.1' });
+    expect(daemon.tcpPort).toBeGreaterThan(0);
+    try {
+      await playFullGameVia({ host: '127.0.0.1', port: daemon.tcpPort! });
+    } finally {
+      await daemon.close();
+    }
+  }, 20_000);
+
+  it('exposes both transports concurrently from one daemon', async () => {
+    // Same daemon, one client over unix, one over TCP. Both should land in
+    // the same room and see the same game state.
+    const sockPath = pathJoin(tmpdir(), 'ching-test-both-' + process.pid + '-' + Date.now() + '.sock');
+    const rng = mulberry32(7);
+    const daemon = new Daemon({ rng, log: () => {} });
+    await daemon.listen({ sockPath, port: 0, host: '127.0.0.1' });
+    const port = daemon.tcpPort!;
     try {
       const a = await openClient(sockPath);
-      const b = await openClient(sockPath);
+      const b = await openClient({ host: '127.0.0.1', port });
 
       a.send({ v: 1, t: 'HELLO', name: 'alice' });
       b.send({ v: 1, t: 'HELLO', name: 'bob' });
@@ -86,91 +213,15 @@ describe('integration', () => {
 
       a.send({ v: 1, t: 'CREATE_ROOM' });
       const aRoom = (await nextMatching(a, (m) => m.t === 'ROOM_STATE')) as Extract<S2C, { t: 'ROOM_STATE' }>;
-      const code = aRoom.code;
-
-      b.send({ v: 1, t: 'JOIN_ROOM', code });
-      await nextMatching(a, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2);
-      await nextMatching(b, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2);
-
-      a.send({ v: 1, t: 'READY', ready: true });
-      b.send({ v: 1, t: 'READY', ready: true });
-      await nextMatching(a, (m) => m.t === 'ROOM_STATE' && m.seats.every((s) => s.ready));
-
-      a.send({ v: 1, t: 'START' });
-
-      // Play loop: read GAME_STATE pushes, whoever is current sends ACTION
-      // chosen by decide() with discipline 0.6.
-      const difficulty = { discipline: 0.6 };
-      let aLastState = null as null | Extract<S2C, { t: 'GAME_STATE' }>;
-      let bLastState = null as null | Extract<S2C, { t: 'GAME_STATE' }>;
-
-      // Pump both clients' pushes in parallel until phase === 'over'.
-      const seenOver = { a: false, b: false };
-      const consume = async (cl: Client, who: 'a' | 'b') => {
-        while (!seenOver[who]) {
-          const m = await cl.next();
-          if (m.t === 'GAME_STATE') {
-            if (who === 'a') aLastState = m;
-            else bLastState = m;
-            if (m.state.phase === 'over') {
-              seenOver[who] = true;
-              break;
-            }
-          }
-        }
-      };
-      const pumpA = consume(a, 'a');
-      const pumpB = consume(b, 'b');
-
-      const drive = async () => {
-        let safety = 5_000;
-        while (!seenOver.a && safety-- > 0) {
-          const cur = (aLastState ?? bLastState);
-          if (!cur) {
-            await new Promise((r) => setTimeout(r, 5));
-            continue;
-          }
-          if (cur.state.phase === 'over') break;
-          const seat = cur.state.current;
-          const action: Action = decide(cur.state, difficulty);
-          const owner = seat === 0 ? a : b;
-          // Snapshot current state and seat to detect progress.
-          const beforeSeat = cur.state.current;
-          const beforeRolled = cur.state.rolled.length;
-          const beforeSetAside = cur.state.setAside.length;
-          owner.send({ v: 1, t: 'ACTION', action });
-          // Wait until a GAME_STATE reflecting the action arrives.
-          const waitStart = Date.now();
-          while (Date.now() - waitStart < 1000) {
-            const latest = aLastState;
-            if (
-              latest &&
-              (latest.state.current !== beforeSeat ||
-                latest.state.rolled.length !== beforeRolled ||
-                latest.state.setAside.length !== beforeSetAside ||
-                latest.state.phase === 'over')
-            ) {
-              break;
-            }
-            await new Promise((r) => setTimeout(r, 2));
-          }
-        }
-      };
-
-      await drive();
-      await pumpA;
-      await pumpB;
-
-      expect(aLastState).not.toBeNull();
-      expect(bLastState).not.toBeNull();
-      expect(aLastState!.state.phase).toBe('over');
-      expect(bLastState!.state.phase).toBe('over');
-      expect(aLastState!.state.players).toEqual(bLastState!.state.players);
+      b.send({ v: 1, t: 'JOIN_ROOM', code: aRoom.code });
+      const bRoom = (await nextMatching(b, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2)) as Extract<S2C, { t: 'ROOM_STATE' }>;
+      expect(bRoom.code).toBe(aRoom.code);
+      expect(bRoom.seats.map((s) => s.name).sort()).toEqual(['alice', 'bob']);
 
       a.close();
       b.close();
     } finally {
       await daemon.close();
     }
-  }, 20_000);
+  }, 10_000);
 });

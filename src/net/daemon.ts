@@ -13,12 +13,27 @@ import {
   type S2C,
 } from './protocol.js';
 import { Room, RoomError, type RoomEvent } from './room.js';
+import { makeDefaultLog, type LogFn } from './log.js';
 
 export const DEFAULT_SOCK = '/tmp/ching.sock';
+export const DEFAULT_PORT = 4321;
+export const DEFAULT_HOST = '0.0.0.0';
 
-const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // excludes 0,O,I,L,1
+// Excludes ambiguous chars (0,1,I,L,O) AND every reserved single-key hotkey
+// (A add-AI, C create, J join, K kick, L leave, Q quit, R ready/roll, S start/stop)
+// so a room code can never collide with the global hotkey set. 16 letters +
+// 8 digits = 24 chars; 24^4 = 331,776 codes, plenty for a 4-char space.
+export const CODE_CHARS = 'BDEFGHMNPTUVWXYZ23456789';
 const CODE_LEN = 4;
-const TICK_MS = 1_000;
+const DEFAULT_TICK_MS = 1_000;
+
+// listen() accepts either a legacy string (the unix socket path; TCP stays
+// off) or this opts object. main() uses the opts form to enable both.
+export type ListenOpts = {
+  sockPath?: string | null;  // unix socket path; null disables unix transport
+  port?: number | null;      // TCP port; null disables TCP transport
+  host?: string;             // TCP bind host, defaults to 0.0.0.0
+};
 
 type Conn = {
   id: string;
@@ -32,38 +47,80 @@ type Conn = {
 export type DaemonDeps = {
   rng?: Rng;
   now?: () => number;
-  log?: (line: object) => void;
+  log?: LogFn;
 };
 
 export class Daemon {
   private rooms = new Map<string, Room>();
   private conns = new Map<string, Conn>();
   private tickHandle: NodeJS.Timeout | null = null;
-  private server: net.Server | null = null;
+  private unixServer: net.Server | null = null;
+  private tcpServer: net.Server | null = null;
+  // Populated by listen() if a TCP server is started. Useful for tests that
+  // ask the OS for a port (port: 0) and need to know which one was assigned.
+  tcpPort: number | null = null;
   private readonly rng: Rng;
   private readonly now: () => number;
-  private readonly log: (line: object) => void;
+  private readonly log: LogFn;
 
   constructor(deps: DaemonDeps = {}) {
     this.rng = deps.rng ?? Math.random;
     this.now = deps.now ?? Date.now;
-    this.log = deps.log ?? ((line) => console.log(JSON.stringify(line)));
+    this.log = deps.log ?? makeDefaultLog(this.now);
   }
 
   // ─── lifecycle ────────────────────────────────────────────────────────────
-  async listen(sockPath: string = DEFAULT_SOCK): Promise<void> {
+  // Accepts a string (legacy: unix socket only, TCP stays off) OR an opts
+  // object that can enable TCP, unix, or both. The room/daemon logic is
+  // transport-agnostic: acceptConn just takes a net.Socket.
+  async listen(target: string | ListenOpts = DEFAULT_SOCK): Promise<void> {
+    const opts: ListenOpts = typeof target === 'string'
+      ? { sockPath: target, port: null }
+      : target;
+    const sockPath = opts.sockPath === undefined ? DEFAULT_SOCK : opts.sockPath;
+    const port = opts.port === undefined ? null : opts.port;
+    const host = opts.host ?? DEFAULT_HOST;
+
+    if (sockPath === null && port === null) {
+      throw new Error('Daemon.listen requires sockPath, port, or both');
+    }
+
+    if (sockPath !== null) await this.startUnix(sockPath);
+    if (port !== null) await this.startTcp(host, port);
+
+    this.tickHandle = setInterval(() => this.tickRooms(), DEFAULT_TICK_MS);
+  }
+
+  private async startUnix(sockPath: string): Promise<void> {
     await this.cleanStaleSocket(sockPath);
     await new Promise<void>((resolve, reject) => {
       const server = net.createServer((socket) => this.acceptConn(socket));
       server.on('error', reject);
       server.listen(sockPath, () => {
         try { chmodSync(sockPath, 0o660); } catch {}
-        this.server = server;
+        this.unixServer = server;
         resolve();
       });
     });
-    this.tickHandle = setInterval(() => this.tickRooms(), TICK_MS);
-    this.log({ ts: this.now(), level: 'info', msg: 'daemon listening', sock: sockPath });
+    this.log({ level: 'info', msg: 'listening', transport: 'unix', sock: sockPath });
+  }
+
+  private async startTcp(host: string, port: number): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const server = net.createServer((socket) => this.acceptConn(socket));
+      server.on('error', reject);
+      server.listen(port, host, () => {
+        const addr = server.address();
+        if (addr && typeof addr === 'object') this.tcpPort = addr.port;
+        else this.tcpPort = port;
+        this.tcpServer = server;
+        resolve();
+      });
+    });
+    this.log({
+      level: 'info', msg: 'listening', transport: 'tcp',
+      host, port: this.tcpPort ?? port,
+    });
   }
 
   async close(reason = 'server shutting down'): Promise<void> {
@@ -71,14 +128,24 @@ export class Daemon {
       clearInterval(this.tickHandle);
       this.tickHandle = null;
     }
+    this.log({ level: 'info', msg: 'shutdown', reason });
     for (const c of this.conns.values()) {
       this.sendRaw(c, { v: 1, t: 'BYE', reason });
       c.socket.end();
     }
-    if (this.server) {
-      await new Promise<void>((resolve) => this.server!.close(() => resolve()));
-      this.server = null;
+    const closers: Promise<void>[] = [];
+    if (this.unixServer) {
+      const s = this.unixServer;
+      closers.push(new Promise<void>((r) => s.close(() => r())));
+      this.unixServer = null;
     }
+    if (this.tcpServer) {
+      const s = this.tcpServer;
+      closers.push(new Promise<void>((r) => s.close(() => r())));
+      this.tcpServer = null;
+    }
+    this.tcpPort = null;
+    await Promise.all(closers);
   }
 
   private async cleanStaleSocket(sockPath: string): Promise<void> {
@@ -115,6 +182,7 @@ export class Daemon {
       roomCode: null,
     };
     this.conns.set(id, conn);
+    this.log({ level: 'debug', msg: 'connect', conn: id.slice(0, 8) });
     socket.on('data', (chunk) => this.onData(conn, chunk));
     socket.on('close', () => this.onClose(conn));
     socket.on('error', () => this.onClose(conn));
@@ -139,13 +207,26 @@ export class Daemon {
   private onClose(conn: Conn): void {
     if (!this.conns.has(conn.id)) return;
     this.conns.delete(conn.id);
+    this.log({
+      level: 'debug',
+      msg: 'disconnect',
+      conn: conn.id.slice(0, 8),
+      ...(conn.roomCode ? { room: conn.roomCode } : {}),
+      ...(conn.name ? { name: conn.name } : {}),
+    });
     if (conn.roomCode) {
       const room = this.rooms.get(conn.roomCode);
       if (room) {
         const seat = room.seatByConnId(conn.id);
+        // detach() pushes ROOM_STATE (lobby) or GAME_STATE (playing) to all
+        // remaining live conns with connected:false for this seat, and if
+        // the dropped seat is currently active, starts the 15s grace timer
+        // which immediately emits TURN_REMINDER(secondsLeft=15) to everyone
+        // else.
         if (seat !== -1) room.detach(seat);
         if (!room.hasAnyHumans()) {
           this.rooms.delete(conn.roomCode);
+          this.log({ level: 'info', msg: 'room_closed', room: conn.roomCode, reason: 'no_humans' });
         }
       }
     }
@@ -171,6 +252,10 @@ export class Daemon {
       }
     } catch (e) {
       if (e instanceof RoomError || e instanceof ProtocolError) {
+        this.log({
+          level: 'info', msg: 'error', code: e.code,
+          err: e.message, ...(conn.roomCode ? { room: conn.roomCode } : {}),
+        });
         this.sendRaw(conn, { v: 1, t: 'ERROR', code: e.code, message: e.message });
         return;
       }
@@ -200,6 +285,10 @@ export class Daemon {
           const r = room.joinHuman(msg.name, conn.id, msg.token);
           conn.token = r.token;
           conn.roomCode = code;
+          this.log({
+            level: 'info', msg: 'HELLO', room: code, seat: r.seat,
+            name: msg.name, kind: 'reclaim',
+          });
           this.sendRaw(conn, {
             v: 1, t: 'WELCOME', token: r.token,
             seatHint: { code, seat: r.seat },
@@ -211,6 +300,7 @@ export class Daemon {
     // No matching seat: just mint/echo a token; client will create or join.
     const token = msg.token ?? randomUUID();
     conn.token = token;
+    this.log({ level: 'info', msg: 'HELLO', name: msg.name, kind: msg.token ? 'rehello' : 'new' });
     this.sendRaw(conn, { v: 1, t: 'WELCOME', token });
   }
 
@@ -223,11 +313,13 @@ export class Daemon {
       now: this.now,
       bus: (e) => this.dispatch(e),
       mintToken: () => randomUUID(),
+      log: this.log,
     });
     this.rooms.set(code, room);
     const r = room.joinHuman(conn.name, conn.id, conn.token);
     conn.token = r.token;
     conn.roomCode = code;
+    this.log({ level: 'info', msg: 'CREATE_ROOM', room: code, seat: r.seat, name: conn.name });
   }
 
   private onJoinRoom(conn: Conn, code: string): void {
@@ -238,6 +330,7 @@ export class Daemon {
     const r = room.joinHuman(conn.name, conn.id, conn.token);
     conn.token = r.token;
     conn.roomCode = code;
+    this.log({ level: 'info', msg: 'JOIN_ROOM', room: code, seat: r.seat, name: conn.name });
   }
 
   private onLeave(conn: Conn): void {
@@ -246,8 +339,12 @@ export class Daemon {
       if (room) {
         const seat = room.seatByConnId(conn.id);
         if (seat !== -1) room.detach(seat);
-        if (!room.hasAnyHumans()) this.rooms.delete(conn.roomCode);
+        if (!room.hasAnyHumans()) {
+          this.rooms.delete(conn.roomCode);
+          this.log({ level: 'info', msg: 'room_closed', room: conn.roomCode, reason: 'last_left' });
+        }
       }
+      this.log({ level: 'info', msg: 'LEAVE', room: conn.roomCode, name: conn.name ?? undefined });
     }
     this.sendRaw(conn, { v: 1, t: 'BYE', reason: 'left' });
     conn.socket.end();
@@ -265,7 +362,10 @@ export class Daemon {
     const now = this.now();
     for (const [code, room] of [...this.rooms]) {
       room.tick(now);
-      if (room.reaped) this.rooms.delete(code);
+      if (room.reaped) {
+        this.rooms.delete(code);
+        this.log({ level: 'info', msg: 'reaped', room: code });
+      }
     }
   }
 
@@ -275,6 +375,11 @@ export class Daemon {
     if (e.t === 'send') {
       this.sendRaw(conn, e.msg);
     } else {
+      this.log({
+        level: 'info', msg: 'BYE', reason: e.reason,
+        ...(conn.roomCode ? { room: conn.roomCode } : {}),
+        ...(conn.name ? { name: conn.name } : {}),
+      });
       this.sendRaw(conn, { v: 1, t: 'BYE', reason: e.reason });
       conn.socket.end();
       this.conns.delete(conn.id);
@@ -304,9 +409,18 @@ export class Daemon {
 
 async function main(): Promise<void> {
   const daemon = new Daemon();
-  await daemon.listen();
-  const shutdown = async (sig: string) => {
-    console.log(JSON.stringify({ ts: Date.now(), level: 'info', msg: 'shutdown', sig }));
+  // Listen on BOTH transports by default: unix for local players (no auth
+  // setup needed) and TCP for LAN peers (set CHING_HOST=<ip> on the client).
+  // CHING_PORT=0 disables the TCP listener; any other parses as a port.
+  const portEnv = process.env.CHING_PORT;
+  const port = portEnv === undefined ? DEFAULT_PORT : Number(portEnv);
+  await daemon.listen({
+    sockPath: process.env.CHING_SOCK ?? DEFAULT_SOCK,
+    port: Number.isFinite(port) && port > 0 ? port : null,
+    host: process.env.CHING_BIND ?? DEFAULT_HOST,
+  });
+  const shutdown = async (_sig: string) => {
+    // daemon.close already logs the shutdown event with its reason.
     await daemon.close();
     process.exit(0);
   };

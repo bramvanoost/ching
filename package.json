@@ -6,8 +6,9 @@
   "scripts": {
     "test": "vitest run",
     "sim": "tsx sim/regression.ts",
-    "play": "tsx src/cli.ts",
+    "ching": "tsx src/launcher.ts",
     "daemon": "tsx src/net/daemon.ts",
+    "play": "tsx src/cli.ts",
     "join": "tsx src/client.ts"
   },
   "devDependencies": {

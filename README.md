@@ -15,10 +15,18 @@ npm install
 ## Play
 
 ```
-npm run play
+npm run ching
 ```
 
-For a different difficulty: `npm run play -- --discipline=0.3` (greedier, easier to beat) or `0.9` (more disciplined, harder). Default is `0.6`.
+That's the only command players need. On first run it asks for your display name (persisted under `~/.ching/session.json`). On every run it shows:
+
+- `[1] Single player` — solo vs AI, no network, no daemon.
+- `[2] Multiplayer` — local or LAN; see below.
+- `[N]` rename you. `[Q]` quit.
+
+For a different solo difficulty: `npm run ching -- --discipline=0.3` (greedier, easier to beat) or `0.9` (more disciplined, harder). Default is `0.6`.
+
+`npm run play` (solo) and `npm run join` (multiplayer) are kept as aliases for the old entry points and still work.
 
 ## Controls
 
@@ -76,34 +84,61 @@ npm run sim         # 200-game AI-vs-AI regression
 
 The regression sim asserts that a higher-discipline AI beats a lower-discipline one over the sample, so AI tiers are never cosmetic.
 
-## Multiplayer on a Raspberry Pi
+## Multiplayer
 
-CHING multiplayer is designed to live on a Pi and be reached over ssh. The daemon process owns every room and every dice roll; clients are thin TUIs that connect over a unix socket.
+CHING multiplayer is designed for trusted environments: a laptop on a home LAN, or a Pi reached over ssh. A daemon process owns every room and every dice roll; clients are thin TUIs that connect either over a local unix socket or plain TCP. Same wire protocol over both.
 
-### Run the daemon
+Players never need to start the daemon manually — the launcher does it. Just `npm run ching` → `[2] Multiplayer`:
 
-On the Pi (inside `tmux` or `screen` so it survives logout):
+- `[H]ost` — creates a room on this machine. If no daemon is running, the launcher auto-starts one in the background and connects to it.
+- `[J]oin remote` — prompts for the host's IP / hostname (last one is remembered, so `J` then Enter reconnects), then for the 4-character room code.
+- `[B]ack` returns to the top menu.
+
+So a typical session: the host runs `npm run ching` → `2` → `H` → the launcher mints a room code and shows it in the lobby. Each friend runs `npm run ching` → `2` → `J` → types the host's IP → types the code.
+
+Find the host's LAN IP with `ipconfig getifaddr en0` (macOS) or `hostname -I | awk '{print $1}'` (Linux).
+
+### Auto-spawned daemon lifecycle
+
+When `[H]ost` starts a daemon for you, that daemon is a **managed child** of the launcher: it shares the launcher's process group and exits when the launcher does (Ctrl-C, `[Q]uit`, normal termination, SIGTERM). Quitting the host therefore tears the room down for everyone — there's no orphan daemon for you to remember to kill later.
+
+If you want a daemon that survives the host quitting (for an always-on Pi, for example), see "Hosting (always-on)" below.
+
+### Hosting (always-on)
+
+For a Pi or any persistent host where the daemon should outlive any single client:
 
 ```
 npm run daemon
 ```
 
-The daemon listens on `/tmp/ching.sock` (mode `0660`). On startup, if a stale socket file is left over from an unclean restart, the daemon checks whether anything is actually listening; if not, it unlinks the path and rebinds. So a Ctrl-C plus immediate restart is a no-op for the operator. If another daemon is already running, startup fails with a clear error.
+(Inside `tmux` or `screen` if you want it to survive your ssh session.)
 
-### Players connect
+The daemon listens on both transports:
 
-Each player sshes into the Pi and runs:
+- **Unix socket** `/tmp/ching.sock` (mode `0660`) for same-machine players. On startup it detects a stale socket file from an unclean restart, unlinks it, and rebinds, so Ctrl-C plus immediate restart is a no-op for the operator.
+- **TCP** on `0.0.0.0:4321` for LAN players. `CHING_PORT` overrides the port; `CHING_PORT=0` disables TCP. `CHING_BIND` overrides the bind host.
 
-```
-npm run join
-```
+The launcher's `[H]ost` will detect this standalone daemon on the socket and just connect to it instead of spawning its own.
 
-Set `CHING_NAME` to override your display name (defaults to `$USER`). Set `CHING_SOCK` to point at a different socket path. Set `CHING_SESSION` to override the session-token file (defaults to `~/.ching/session.json`); two clients on the same OS account must use separate session files or they'll collide on the same token. Quick local two-client test against a running daemon:
+> **Security**: there is no auth or TLS on the TCP port. This is intended for a **trusted home LAN** (the kind where you'd hand someone the wifi password). Anyone who can reach `host:4321` on the network can join or create rooms. Do not expose the port to the public internet without a VPN, firewall, or reverse proxy in front.
+
+The daemon logs one line per event to stdout (`HH:MM:SS LEVEL room=XXXX seat=N MSG key=val`). Set `LOG_LEVEL=debug` to also see grace-timer ticks and per-connection lifecycle.
+
+### Testing on one machine
+
+For exercising both sides of a multiplayer session on a single host, set these env vars to bypass the interactive prompts:
+
+- `CHING_NAME` overrides the display name (skips the first-run name prompt).
+- `CHING_HOST` (and optional `CHING_PORT`) skip the menus and connect directly over TCP. Useful for headless / CI clients.
+- `CHING_SESSION` points at a different session-token file so two clients on the same OS account don't clobber each other's reconnect tokens.
 
 ```
 CHING_SESSION=/tmp/ching-a.json CHING_NAME=alice npm run join   # terminal A
 CHING_SESSION=/tmp/ching-b.json CHING_NAME=bob   npm run join   # terminal B
 ```
+
+The session file is keyed by transport target (`/tmp/ching.sock` or `tcp://host:port`) so one file can hold tokens for several daemons at once.
 
 ### Lobby flow
 

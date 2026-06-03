@@ -209,6 +209,44 @@ describe('Room reconnect token semantics', () => {
   });
 });
 
+describe('Room READY broadcast', () => {
+  it('pushes ROOM_STATE to every live human seat after a READY, not just the caller', () => {
+    const h = mkRoom();
+    h.room.joinHuman('alice', 'c1');
+    h.room.joinHuman('bob', 'c2');
+    h.events.length = 0;
+
+    h.room.setReady('c1', true);
+    const afterAlice = h.sends.filter((s) => s.msg.t === 'ROOM_STATE');
+    // BOTH connections must see Alice's ready flip.
+    const toAlice = afterAlice.filter((s) => s.connId === 'c1');
+    const toBob = afterAlice.filter((s) => s.connId === 'c2');
+    expect(toAlice.length).toBeGreaterThan(0);
+    expect(toBob.length).toBeGreaterThan(0);
+    for (const s of [...toAlice, ...toBob]) {
+      const msg = s.msg as Extract<S2C, { t: 'ROOM_STATE' }>;
+      expect(msg.seats[0].ready).toBe(true);
+      expect(msg.seats[1].ready).toBe(false);
+    }
+
+    h.events.length = 0;
+    h.room.setReady('c2', true);
+    const afterBob = h.sends.filter((s) => s.msg.t === 'ROOM_STATE');
+    const toAlice2 = afterBob.filter((s) => s.connId === 'c1');
+    const toBob2 = afterBob.filter((s) => s.connId === 'c2');
+    expect(toAlice2.length).toBeGreaterThan(0);
+    expect(toBob2.length).toBeGreaterThan(0);
+    for (const s of [...toAlice2, ...toBob2]) {
+      const msg = s.msg as Extract<S2C, { t: 'ROOM_STATE' }>;
+      expect(msg.seats.every((seat) => seat.ready)).toBe(true);
+    }
+
+    // And now START actually unlocks (no NOT_READY thrown).
+    expect(() => h.room.start('c1')).not.toThrow();
+    expect(h.room.phase).toBe('playing');
+  });
+});
+
 describe('Room idle reaper', () => {
   it('reaps a paused room with 1 human + 1 AI 30 minutes after the human drops', () => {
     const h = mkRoom({ nowStart: 0 });
