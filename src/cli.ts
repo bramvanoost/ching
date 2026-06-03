@@ -20,9 +20,11 @@ const RESET = ESC + '0m';
 const BOLD = ESC + '1m';
 const DIM = ESC + '2m';
 const INVERT = ESC + '7m';
-const CLEAR = ESC + '2J' + ESC + 'H';
+const CLEAR = ESC + 'H' + ESC + '2J';
 const HIDE_CURSOR = ESC + '?25l';
 const SHOW_CURSOR = ESC + '?25h';
+const ENTER_ALT = ESC + '?1049h';
+const EXIT_ALT = ESC + '?1049l';
 const BELL = '\x07';
 
 // Phosphor green (dim → neon → lime)
@@ -126,12 +128,14 @@ function setupInput(): void {
     inputBuf += 'q';
     flushInput();
   });
+  // Alternate screen buffer: no scrollback pollution, no spillover.
+  out(ENTER_ALT + HIDE_CURSOR);
 }
 
 function teardownInput(): void {
   if (process.stdin.isTTY) process.stdin.setRawMode(false);
   process.stdin.pause();
-  out(SHOW_CURSOR + RESET);
+  out(SHOW_CURSOR + RESET + EXIT_ALT);
 }
 
 function waitKey(): Promise<string> {
@@ -271,7 +275,9 @@ function rolledLine(state: State, opts: RenderOpts): string {
 // ─── full-frame render ──────────────────────────────────────────────────────
 type RenderOpts = {
   aiDiscipline: number;
-  status?: string;
+  // Single line shown below all panels (prompt, AI think, animation hint).
+  // No trailing newline: the cursor parks here so input/spinning stays inline.
+  footer?: string;
   spinIdx?: number;
   spinFrame?: number;
   spinGlint?: boolean;
@@ -356,8 +362,9 @@ function render(state: State, opts: RenderOpts): void {
   );
   out(panelBottom() + '\n');
 
-  if (opts.status) {
-    out('   ' + opts.status + '\n');
+  // Footer line, drawn into the same frame so nothing scrolls below.
+  if (opts.footer) {
+    out('   ' + opts.footer);
   }
 }
 
@@ -426,13 +433,18 @@ function gradientBanner(lines: string[]): string {
 // ─── effects: ka-ching / bust / steal ───────────────────────────────────────
 async function flashBanner(text: string, color: number, beep: boolean): Promise<void> {
   if (beep) out(BELL);
+  // Flash in place on the footer row so we never grow the frame.
+  const onText = '   ' + fg(color) + BOLD + INVERT + ' ' + text + ' ' + RESET;
+  const blank = '   ' + ' '.repeat(visibleLen(text) + 2);
+  const settle = '   ' + fg(color) + BOLD + text + RESET;
   for (let i = 0; i < 3; i++) {
-    out('\n   ' + fg(color) + BOLD + INVERT + ' ' + text + ' ' + RESET);
+    out('\r' + onText);
     await delay(FLASH_MS);
-    out('\r   ' + ' '.repeat(visibleLen(text) + 2) + '\r');
+    out('\r' + blank);
     await delay(FLASH_MS);
   }
-  out('\n   ' + fg(color) + BOLD + text + RESET + '\n');
+  out('\r' + settle);
+  await delay(FLASH_MS * 2);
 }
 
 async function effects(prev: State, next: State, opts: RenderOpts): Promise<void> {
@@ -476,6 +488,7 @@ function validPickFaces(state: State): Face[] {
 }
 
 function promptText(state: State): string {
+  // Indent is provided by render()'s footer prefix; promptText starts at "> ".
   if (state.phase === 'pick') {
     const faces = validPickFaces(state);
     const keys = faces
@@ -486,7 +499,7 @@ function promptText(state: State): string {
       )
       .join(' ');
     return (
-      fg(P_LIME) + '   > pick a face [' + keys + fg(P_LIME) + ']  ' +
+      fg(P_LIME) + '> pick a face [' + keys + fg(P_LIME) + ']  ' +
       fg(DIM_TEXT) + '(Q to quit) ' + RESET
     );
   }
@@ -496,7 +509,7 @@ function promptText(state: State): string {
     choices.push(fg(P_LIME) + '[' + fg(A_GLINT) + BOLD + 'S' + RESET + fg(P_LIME) + ']top' + RESET);
   }
   choices.push(fg(DIM_TEXT) + '[Q]uit' + RESET);
-  return fg(P_LIME) + '   > ' + choices.join('  ') + ' ' + RESET;
+  return fg(P_LIME) + '> ' + choices.join('  ') + ' ' + RESET;
 }
 
 async function readKeyMatching(predicate: (k: string) => boolean): Promise<string> {
@@ -509,8 +522,7 @@ async function readKeyMatching(predicate: (k: string) => boolean): Promise<strin
 }
 
 async function promptHuman(state: State): Promise<Action | 'QUIT'> {
-  out(promptText(state));
-  out(SHOW_CURSOR);
+  // The prompt text is drawn by render() as the footer; we just wait for a key.
   if (state.phase === 'pick') {
     const valid = validPickFaces(state);
     const k = await readKeyMatching((k) => {
@@ -518,14 +530,12 @@ async function promptHuman(state: State): Promise<Action | 'QUIT'> {
       const n = Number(k);
       return Number.isInteger(n) && n >= 1 && n <= 5 && valid.includes(n as Face);
     });
-    out(HIDE_CURSOR);
     if (k === 'q') return 'QUIT';
     const face: Face = k === 'c' || k === '$' ? COIN : (Number(k) as Face);
     return { type: 'PICK', face };
   }
   const canStop = state.setAside.length > 0;
   const k = await readKeyMatching((k) => k === 'r' || (canStop && k === 's'));
-  out(HIDE_CURSOR);
   if (k === 'q') return 'QUIT';
   return k === 'r' ? { type: 'ROLL' } : { type: 'STOP' };
 }
@@ -540,9 +550,9 @@ async function aiTurnAction(state: State, ai: Difficulty): Promise<Action> {
 async function animateRoll(before: State, after: State, opts: RenderOpts): Promise<void> {
   if (after.rolled.length === 0) return;
   const partial: State = { ...before, rolled: [], phase: 'pick' };
-  const status = fg(DIM_TEXT) + 'rolling…' + RESET;
+  const footer = fg(DIM_TEXT) + 'rolling…' + RESET;
 
-  render(partial, { ...opts, status });
+  render(partial, { ...opts, footer });
   await delay(ROLL_REVEAL_MS);
 
   for (let i = 0; i < after.rolled.length; i++) {
@@ -552,13 +562,13 @@ async function animateRoll(before: State, after: State, opts: RenderOpts): Promi
 
     if (newDie === COIN) {
       for (let frame = 0; frame < COIN_SPIN_FRAMES; frame++) {
-        render(snap, { ...opts, status, spinIdx: i, spinFrame: frame });
+        render(snap, { ...opts, footer, spinIdx: i, spinFrame: frame });
         await delay(COIN_SPIN_MS);
       }
-      render(snap, { ...opts, status, spinIdx: i, spinGlint: true });
+      render(snap, { ...opts, footer, spinIdx: i, spinGlint: true });
       await delay(COIN_GLINT_MS);
     } else {
-      render(snap, { ...opts, status });
+      render(snap, { ...opts, footer });
       await delay(ROLL_REVEAL_MS);
     }
   }
@@ -568,25 +578,46 @@ async function animateRoll(before: State, after: State, opts: RenderOpts): Promi
 function renderGameOver(state: State, aiDiscipline: number): void {
   const youCoins = state.players[HUMAN].tiles.reduce((s, t) => s + tileCoins(t), 0);
   const aiCoins = state.players[AI].tiles.reduce((s, t) => s + tileCoins(t), 0);
-  out('\n');
   const headColor = youCoins > aiCoins ? A_GLINT : youCoins < aiCoins ? RED : Cy_BR;
   const heading =
     youCoins > aiCoins
-      ? '═══  YOU WIN  ═══'
+      ? '★  ★  ★    Y O U   W I N    ★  ★  ★'
       : youCoins < aiCoins
-        ? '═══  AI WINS  ═══'
-        : '═══  TIE GAME  ═══';
-  out('   ' + fg(headColor) + BOLD + heading + RESET + '\n');
+        ? '✗  ✗  ✗    A I   W I N S    ✗  ✗  ✗'
+        : '◇  ◇  ◇    T I E   G A M E    ◇  ◇  ◇';
+  const youTiles =
+    state.players[HUMAN].tiles.length === 0
+      ? fg(DIM_TEXT) + '(none)' + RESET
+      : state.players[HUMAN].tiles.map(tileCell).join(' ');
+  const aiTiles =
+    state.players[AI].tiles.length === 0
+      ? fg(DIM_TEXT) + '(none)' + RESET
+      : state.players[AI].tiles.map(tileCell).join(' ');
+
+  out(CLEAR);
+  out('\n\n');
+  out(panelTop('GAME OVER') + '\n');
+  out(panelLine('') + '\n');
+  out(panelLine('  ' + fg(headColor) + BOLD + heading + RESET) + '\n');
+  out(panelLine('') + '\n');
   out(
-    '   ' + fg(Cy_BR) + 'YOU       ' + RESET + youCoins + ' coins   ' +
-    state.players[HUMAN].tiles.map(tileCell).join(' ') + '\n',
+    panelLine(
+      '  ' + fg(Cy_BR) + BOLD + 'YOU       '.padEnd(LABEL_WIDTH, ' ') + RESET +
+        '  ' + fg(A_GLINT) + BOLD + youCoins + RESET + ' coins',
+    ) + '\n',
   );
+  out(panelLine('                ' + youTiles) + '\n');
+  out(panelLine('') + '\n');
   out(
-    '   ' + fg(Mg_BR) + 'AI (' + aiDiscipline.toFixed(1) + ') ' + RESET +
-    aiCoins + ' coins   ' +
-    state.players[AI].tiles.map(tileCell).join(' ') + '\n\n',
+    panelLine(
+      '  ' + fg(Mg_BR) + BOLD + ('AI (' + aiDiscipline.toFixed(1) + ')').padEnd(LABEL_WIDTH, ' ') + RESET +
+        '  ' + fg(A_GLINT) + BOLD + aiCoins + RESET + ' coins',
+    ) + '\n',
   );
-  out(fg(DIM_TEXT) + '   [any key to exit]' + RESET);
+  out(panelLine('                ' + aiTiles) + '\n');
+  out(panelLine('') + '\n');
+  out(panelBottom() + '\n');
+  out('   ' + fg(DIM_TEXT) + '[any key to exit]' + RESET);
 }
 
 // ─── main loop ──────────────────────────────────────────────────────────────
@@ -602,19 +633,22 @@ async function main(): Promise<void> {
   const baseOpts: RenderOpts = { aiDiscipline };
 
   while (state.phase !== 'over') {
-    render(state, baseOpts);
-
     let action: Action;
     if (state.current === HUMAN) {
+      render(state, { ...baseOpts, footer: promptText(state) });
+      out(SHOW_CURSOR);
       const choice = await promptHuman(state);
+      out(HIDE_CURSOR);
       if (choice === 'QUIT') {
-        out('\n' + fg(DIM_TEXT) + '   quit.' + RESET + '\n');
         teardownInput();
         return;
       }
       action = choice;
     } else {
-      out('\n   ' + fg(DIM_TEXT) + 'AI thinking…' + RESET);
+      render(state, {
+        ...baseOpts,
+        footer: fg(DIM_TEXT) + 'AI thinking…' + RESET,
+      });
       action = await aiTurnAction(state, ai);
     }
 
@@ -629,7 +663,6 @@ async function main(): Promise<void> {
     await effects(before, state, baseOpts);
   }
 
-  render(state, baseOpts);
   renderGameOver(state, aiDiscipline);
   await waitKey();
   teardownInput();
