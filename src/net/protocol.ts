@@ -27,6 +27,11 @@ export type C2SReady = { v: 1; t: 'READY'; ready: boolean };
 export type C2SStart = { v: 1; t: 'START' };
 export type C2SAction = { v: 1; t: 'ACTION'; action: Action };
 export type C2SLeave = { v: 1; t: 'LEAVE' };
+// App-level heartbeat. Receiving any data resets the daemon's per-conn
+// activity clock; PING is just an explicit "I'm still here" the client can
+// send when there's nothing else to say. Daemon needn't ack — silence from
+// the daemon's side is detected by the OS-level 'close' on the client.
+export type C2SPing = { v: 1; t: 'PING' };
 
 export type C2S =
   | C2SHello
@@ -37,7 +42,8 @@ export type C2S =
   | C2SReady
   | C2SStart
   | C2SAction
-  | C2SLeave;
+  | C2SLeave
+  | C2SPing;
 
 // ─── server → client ────────────────────────────────────────────────────────
 export type S2CWelcome = {

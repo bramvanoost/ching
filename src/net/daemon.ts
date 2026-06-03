@@ -18,6 +18,9 @@ import { makeDefaultLog, type LogFn } from './log.js';
 export const DEFAULT_SOCK = '/tmp/ching.sock';
 export const DEFAULT_PORT = 4321;
 export const DEFAULT_HOST = '0.0.0.0';
+// Heartbeat defaults. Client sends PING every 5s; daemon drops the conn if
+// it hasn't heard anything for 10s. Two consecutive missed pings = drop.
+export const DEFAULT_HEARTBEAT_TIMEOUT_MS = 10_000;
 
 // Excludes ambiguous chars (0,1,I,L,O) AND every reserved single-key hotkey
 // (A add-AI, C create, J join, K kick, L leave, Q quit, R ready/roll, S start/stop)
@@ -42,12 +45,20 @@ type Conn = {
   token: string | null;
   name: string | null;
   roomCode: string | null;
+  // Wall-clock timestamp (from deps.now) of the last byte we received on
+  // this conn. The heartbeat check in tickRooms drops conns that have gone
+  // silent for longer than heartbeatTimeoutMs. Without this, a killed
+  // client (closed laptop, dropped wifi) wouldn't emit 'close' and its
+  // seat would appear connected forever to other players.
+  lastActivityMs: number;
 };
 
 export type DaemonDeps = {
   rng?: Rng;
   now?: () => number;
   log?: LogFn;
+  heartbeatTimeoutMs?: number;
+  tickMs?: number;
 };
 
 export class Daemon {
@@ -62,11 +73,15 @@ export class Daemon {
   private readonly rng: Rng;
   private readonly now: () => number;
   private readonly log: LogFn;
+  private readonly heartbeatTimeoutMs: number;
+  private readonly tickMs: number;
 
   constructor(deps: DaemonDeps = {}) {
     this.rng = deps.rng ?? Math.random;
     this.now = deps.now ?? Date.now;
     this.log = deps.log ?? makeDefaultLog(this.now);
+    this.heartbeatTimeoutMs = deps.heartbeatTimeoutMs ?? DEFAULT_HEARTBEAT_TIMEOUT_MS;
+    this.tickMs = deps.tickMs ?? DEFAULT_TICK_MS;
   }
 
   // ─── lifecycle ────────────────────────────────────────────────────────────
@@ -88,7 +103,7 @@ export class Daemon {
     if (sockPath !== null) await this.startUnix(sockPath);
     if (port !== null) await this.startTcp(host, port);
 
-    this.tickHandle = setInterval(() => this.tickRooms(), DEFAULT_TICK_MS);
+    this.tickHandle = setInterval(() => this.tickRooms(), this.tickMs);
   }
 
   private async startUnix(sockPath: string): Promise<void> {
@@ -173,6 +188,14 @@ export class Daemon {
   // ─── per-connection ───────────────────────────────────────────────────────
   private acceptConn(socket: net.Socket): void {
     const id = randomUUID();
+    // Enable OS-level TCP keepalive on the accepted socket. The second arg is
+    // the idle time before the first probe. No-op on unix sockets (the call
+    // either silently ignores or errors, which we swallow). This is a backup
+    // to the app-level heartbeat: app heartbeat catches most silent drops
+    // first, keepalive handles the OS-stack-stuck cases.
+    try {
+      socket.setKeepAlive(true, this.heartbeatTimeoutMs);
+    } catch {}
     const conn: Conn = {
       id,
       socket,
@@ -180,6 +203,7 @@ export class Daemon {
       token: null,
       name: null,
       roomCode: null,
+      lastActivityMs: this.now(),
     };
     this.conns.set(id, conn);
     this.log({ level: 'debug', msg: 'connect', conn: id.slice(0, 8) });
@@ -189,6 +213,8 @@ export class Daemon {
   }
 
   private onData(conn: Conn, chunk: Buffer): void {
+    // Any byte resets the activity clock. PING, ACTION, READY, all the same.
+    conn.lastActivityMs = this.now();
     let msgs: (C2S | S2C)[];
     try {
       msgs = conn.decoder.push(chunk);
@@ -205,12 +231,20 @@ export class Daemon {
   }
 
   private onClose(conn: Conn): void {
+    this.dropConn(conn, 'close');
+  }
+
+  // Shared by 'close'/'error' events and by the heartbeat-timeout sweep.
+  // Idempotent — calling it twice (e.g. heartbeat first, then 'close' from
+  // the destroyed socket) is a no-op the second time.
+  private dropConn(conn: Conn, reason: 'close' | 'heartbeat'): void {
     if (!this.conns.has(conn.id)) return;
     this.conns.delete(conn.id);
     this.log({
       level: 'debug',
       msg: 'disconnect',
       conn: conn.id.slice(0, 8),
+      reason,
       ...(conn.roomCode ? { room: conn.roomCode } : {}),
       ...(conn.name ? { name: conn.name } : {}),
     });
@@ -229,6 +263,11 @@ export class Daemon {
           this.log({ level: 'info', msg: 'room_closed', room: conn.roomCode, reason: 'no_humans' });
         }
       }
+    }
+    if (reason === 'heartbeat') {
+      // Force-close the underlying socket so the OS releases it. 'close'
+      // will fire later; dropConn is idempotent so that's fine.
+      try { conn.socket.destroy(); } catch {}
     }
   }
 
@@ -249,6 +288,7 @@ export class Daemon {
         case 'ACTION': return this.withRoom(conn, (room) =>
           room.submitAction(conn.id, msg.action));
         case 'LEAVE': return this.onLeave(conn);
+        case 'PING': return; // activity already recorded in onData
       }
     } catch (e) {
       if (e instanceof RoomError || e instanceof ProtocolError) {
@@ -358,8 +398,27 @@ export class Daemon {
   }
 
   // ─── tick / dispatch ──────────────────────────────────────────────────────
-  private tickRooms(): void {
+  // Test hook: invoked by tickHandle but also callable by integration tests.
+  tickRooms(): void {
     const now = this.now();
+
+    // Heartbeat sweep: any conn that hasn't sent a byte (including PING) in
+    // heartbeatTimeoutMs is presumed silently dropped. A killed / suspended
+    // client or a dropped wifi link often never emits 'close', so without
+    // this its seat appears connected forever to other players.
+    for (const conn of [...this.conns.values()]) {
+      const idleMs = now - conn.lastActivityMs;
+      if (idleMs >= this.heartbeatTimeoutMs) {
+        this.log({
+          level: 'info', msg: 'heartbeat_timeout',
+          conn: conn.id.slice(0, 8), idle_ms: idleMs,
+          ...(conn.roomCode ? { room: conn.roomCode } : {}),
+          ...(conn.name ? { name: conn.name } : {}),
+        });
+        this.dropConn(conn, 'heartbeat');
+      }
+    }
+
     for (const [code, room] of [...this.rooms]) {
       room.tick(now);
       if (room.reaped) {

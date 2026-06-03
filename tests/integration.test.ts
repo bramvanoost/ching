@@ -194,6 +194,61 @@ describe('integration', () => {
     }
   }, 20_000);
 
+  it('drops a silent client after heartbeat timeout', async () => {
+    // Two clients in a lobby; alice goes silent, bob keeps sending. After
+    // we advance the daemon's clock past heartbeatTimeoutMs and tick,
+    // alice's seat should appear disconnected to bob.
+    const sockPath = pathJoin(tmpdir(), 'ching-test-hb-' + process.pid + '-' + Date.now() + '.sock');
+    let mockNow = 1_000_000;
+    const rng = mulberry32(11);
+    const daemon = new Daemon({
+      rng,
+      now: () => mockNow,
+      log: () => {},
+      heartbeatTimeoutMs: 100,
+      // tickMs is irrelevant: we drive tickRooms() manually below.
+    });
+    await daemon.listen(sockPath);
+    try {
+      const a = await openClient(sockPath);
+      const b = await openClient(sockPath);
+
+      a.send({ v: 1, t: 'HELLO', name: 'alice' });
+      b.send({ v: 1, t: 'HELLO', name: 'bob' });
+      await nextMatching(a, (m) => m.t === 'WELCOME');
+      await nextMatching(b, (m) => m.t === 'WELCOME');
+
+      a.send({ v: 1, t: 'CREATE_ROOM' });
+      const aRoom = (await nextMatching(a, (m) => m.t === 'ROOM_STATE')) as Extract<S2C, { t: 'ROOM_STATE' }>;
+      b.send({ v: 1, t: 'JOIN_ROOM', code: aRoom.code });
+      await nextMatching(a, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2);
+      await nextMatching(b, (m) => m.t === 'ROOM_STATE' && m.seats.length === 2);
+
+      // Jump the clock well past the timeout. Both seats look stale right
+      // now; bob's PING below refreshes his lastActivityMs to the new now.
+      mockNow += 500;
+      b.send({ v: 1, t: 'PING' });
+      // Yield to the event loop so the daemon receives and processes bob's
+      // PING (updating his lastActivityMs) before we run the sweep.
+      await new Promise((r) => setTimeout(r, 20));
+
+      daemon.tickRooms();
+
+      const drop = (await nextMatching(b, (m) =>
+        m.t === 'ROOM_STATE' && m.seats.some((s) => s.name === 'alice' && !s.connected),
+      )) as Extract<S2C, { t: 'ROOM_STATE' }>;
+      const alice = drop.seats.find((s) => s.name === 'alice')!;
+      const bob = drop.seats.find((s) => s.name === 'bob')!;
+      expect(alice.connected).toBe(false);
+      expect(bob.connected).toBe(true);
+
+      a.close();
+      b.close();
+    } finally {
+      await daemon.close();
+    }
+  }, 10_000);
+
   it('exposes both transports concurrently from one daemon', async () => {
     // Same daemon, one client over unix, one over TCP. Both should land in
     // the same room and see the same game state.

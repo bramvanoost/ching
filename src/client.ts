@@ -454,10 +454,22 @@ export async function runClient(
     return new Promise((r) => waiters.push(r));
   }
 
+  // App-level heartbeat: send PING every 5s so the daemon's silent-drop
+  // detector knows we're alive even when nothing else is happening (lobby
+  // waiting, off-turn during a game). Cleared in exit() so tests don't
+  // leak timers; unref() so this interval alone never keeps the event
+  // loop alive.
+  const PING_INTERVAL_MS = 5_000;
+  let pingHandle: ReturnType<typeof setInterval> | null = null;
+
   function exit(code: number): void {
     if (exited) return;
     exited = true;
     exitCode = code;
+    if (pingHandle) {
+      clearInterval(pingHandle);
+      pingHandle = null;
+    }
     term.teardown();
     conn.close();
     resolveExit();
@@ -645,6 +657,15 @@ export async function runClient(
   // ─── input loop ────────────────────────────────────────────────────────────
   term.setup();
   conn.send({ v: 1, t: 'HELLO', name: opts.name, token: opts.token ?? undefined });
+
+  pingHandle = setInterval(() => {
+    if (!exited) conn.send({ v: 1, t: 'PING' });
+  }, PING_INTERVAL_MS);
+  // Don't keep the event loop alive just for this heartbeat. If the rest of
+  // the program is done, exit cleanly rather than waiting on the timer.
+  if (typeof (pingHandle as { unref?: () => void }).unref === 'function') {
+    (pingHandle as { unref: () => void }).unref();
+  }
 
   // With a launcher-supplied intent we never want the [C]/[J] menu to flash;
   // show a "waiting" frame instead. ROOM_STATE will paint over it.
