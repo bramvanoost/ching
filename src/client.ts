@@ -687,6 +687,10 @@ export async function runClient(
     const gd = gameData as GameData | null;
     const st = lastState as State | null;
     if (k === 'q' && mk !== 'game') {
+      // In lobby / over we still hold a seat in the room. Send LEAVE so
+      // the daemon treats this as a permanent departure (no grace timer).
+      // In menu we have no room yet, so there's nothing to send.
+      if (mk === 'lobby' || mk === 'over') conn.send({ v: 1, t: 'LEAVE' });
       exit(0);
       break;
     }
@@ -1025,12 +1029,25 @@ async function main(): Promise<void> {
   // Term comes up once for the whole session. setup/teardown are idempotent
   // so runClient calling them again is safe.
   setupTerm();
+  // Updated to the live Conn after we connect, so the signal handler can
+  // send a final LEAVE on cmd+Q / Ctrl-C / window-close (SIGHUP). Without
+  // this, those exits look identical to a silent drop and the daemon would
+  // start a 15s grace countdown for an intentional quit.
+  let activeConn: Conn | null = null;
   const sigHandler = (_sig: string) => {
+    if (activeConn) {
+      try { activeConn.send({ v: 1, t: 'LEAVE' }); } catch {}
+      try { activeConn.close(); } catch {}
+    }
     teardownTerm();
-    process.exit(0);
+    // setImmediate gives the socket one event-loop turn to flush LEAVE to
+    // the kernel before we tear the process down. Best-effort — if the
+    // bytes don't make it, the daemon's heartbeat sweep catches us later.
+    setImmediate(() => process.exit(0));
   };
   process.on('SIGINT', () => sigHandler('SIGINT'));
   process.on('SIGTERM', () => sigHandler('SIGTERM'));
+  process.on('SIGHUP', () => sigHandler('SIGHUP'));
 
   try {
     // CHING_HOST stays as an override: skips the menu, connects directly.
@@ -1077,6 +1094,7 @@ async function main(): Promise<void> {
       target = picked.target;
       name = picked.name;
     }
+    activeConn = conn;
 
     const token = profile.tokens?.[target]?.token ?? null;
     const code = await runClient(conn, realTerm, {

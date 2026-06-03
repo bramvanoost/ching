@@ -247,6 +247,99 @@ describe('Room READY broadcast', () => {
   });
 });
 
+describe('Room intentional leave', () => {
+  it('lobby LEAVE removes the seat from the room', () => {
+    const h = mkRoom();
+    h.room.joinHuman('alice', 'c1');
+    h.room.joinHuman('bob', 'c2');
+    expect(h.room.seats.length).toBe(2);
+
+    h.room.leave('c2');
+
+    expect(h.room.seats.length).toBe(1);
+    expect(h.room.seats[0].name).toBe('alice');
+  });
+
+  it('in-game LEAVE converts the seat to a permanent AI seat with no TURN_REMINDER', () => {
+    const rng = rngForFaces([6, 5, 5, 5, 5, 5, 5, 5]);
+    const h = mkRoom({ rng, nowStart: 0 });
+    h.room.joinHuman('alice', 'c1');
+    h.room.joinHuman('bob', 'c2');
+    h.room.setReady('c1', true);
+    h.room.setReady('c2', true);
+    h.room.start('c1');
+    expect(h.room.state!.current).toBe(0);
+
+    h.events.length = 0;
+    h.room.leave('c1');  // alice quits intentionally on her own turn
+
+    // Seat is now permanent AI, not a "disconnected human waiting for grace".
+    expect(h.room.seats[0].kindBase).toBe('ai');
+    expect(h.room.seats[0].connId).toBeNull();
+    expect(h.room.seats[0].aiTakingOver).toBe(false);
+    // No grace countdown started — leavers are gone for good.
+    expect(h.sends.filter((s) => s.msg.t === 'TURN_REMINDER')).toHaveLength(0);
+
+    // Even if we tick through the would-be 15s grace window, no reminders.
+    h.setNow(15_000);
+    h.room.tick(15_000);
+    expect(h.sends.filter((s) => s.msg.t === 'TURN_REMINDER')).toHaveLength(0);
+  });
+});
+
+describe('Room ai-takeover persists across rounds', () => {
+  it('does not restart the 15s grace when the takeover seat\'s turn comes back', () => {
+    // All-5s rng: every roll fills 8 dice with COIN (5). On any seat's turn,
+    // PICK 5 -> diceInHand=0 -> auto-bank a tile -> turn ends in one action.
+    const rng = rngForFaces([5, 5, 5, 5, 5, 5, 5, 5]);
+    const h = mkRoom({ rng, nowStart: 0 });
+    h.room.joinHuman('alice', 'c1');
+    h.room.joinHuman('bob', 'c2');
+    h.room.addAiSeat('c1', 0.6);  // host adds AI seat 2; we have 3 seats total
+    h.room.setReady('c1', true);
+    h.room.setReady('c2', true);
+    h.room.start('c1');
+    expect(h.room.state!.current).toBe(0);
+
+    // Silent-drop alice on her turn -> grace expires -> ai-takeover.
+    h.room.detach(0);
+    h.setNow(15_000);
+    h.room.tick(15_000);
+    expect(h.room.seats[0].aiTakingOver).toBe(true);
+
+    // Drive AI through alice's takeover turn.
+    let t = 15_000;
+    while (h.room.state!.current === 0 && t < 30_000) {
+      t += 380;
+      h.setNow(t);
+      h.room.tick(t);
+    }
+    expect(h.room.state!.current).toBe(1);  // moved to bob
+
+    // Clear send log so we can detect any NEW TURN_REMINDER for alice's seat.
+    h.events.length = 0;
+
+    // Bob plays his turn: ROLL -> PICK 5 -> auto-bank -> turn ends.
+    h.room.submitAction('c2', { type: 'ROLL' });
+    h.room.submitAction('c2', { type: 'PICK', face: 5 });
+    expect(h.room.state!.current).toBe(2);  // AI carol
+
+    // Drive carol (AI seat) through her turn.
+    while (h.room.state!.current === 2 && t < 60_000) {
+      t += 380;
+      h.setNow(t);
+      h.room.tick(t);
+    }
+    expect(h.room.state!.current).toBe(0);  // back to alice
+
+    // The bug: a fresh 15s countdown fires every time alice's turn comes
+    // back. The fix: alice stays in ai-takeover, so maybeRunAi schedules
+    // an AI step instead of starting another grace timer.
+    expect(h.sends.filter((s) => s.msg.t === 'TURN_REMINDER')).toHaveLength(0);
+    expect(h.room.seats[0].aiTakingOver).toBe(true);
+  });
+});
+
 describe('Room idle reaper', () => {
   it('reaps a paused room with 1 human + 1 AI 30 minutes after the human drops', () => {
     const h = mkRoom({ nowStart: 0 });

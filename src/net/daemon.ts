@@ -377,8 +377,11 @@ export class Daemon {
     if (conn.roomCode) {
       const room = this.rooms.get(conn.roomCode);
       if (room) {
-        const seat = room.seatByConnId(conn.id);
-        if (seat !== -1) room.detach(seat);
+        // Intentional departure: room.leave converts the seat to a permanent
+        // AI (mid-game) or splices it out (lobby). Distinct from detach,
+        // which is the path a silent socket-close takes and which keeps
+        // the seat reservable for grace + reclaim.
+        room.leave(conn.id);
         if (!room.hasAnyHumans()) {
           this.rooms.delete(conn.roomCode);
           this.log({ level: 'info', msg: 'room_closed', room: conn.roomCode, reason: 'last_left' });

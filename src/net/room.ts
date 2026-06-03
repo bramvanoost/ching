@@ -160,6 +160,44 @@ export class Room {
     else this.pushRoomState();
   }
 
+  // Intentional departure: the player chose to quit (Q / cmd+Q / LEAVE).
+  // Different from detach: there is no "they might come back," so no grace
+  // countdown. In lobby we splice the seat out; mid-game we convert it to
+  // a permanent AI seat so the engine's player indices stay stable.
+  leave(callerConnId: string): void {
+    const idx = this.seatByConnId(callerConnId);
+    if (idx === -1) return;
+    const s = this.seats[idx];
+
+    if (this.phase === 'lobby') {
+      this.seats.splice(idx, 1);
+      for (let i = 0; i < this.seats.length; i++) this.seats[i].seat = i;
+      if (this.host >= this.seats.length) this.host = Math.max(0, this.seats.length - 1);
+      this.transferHostIfNeeded();
+      this.log({ level: 'info', msg: 'leave', room: this.code, seat: idx, name: s.name, phase: 'lobby' });
+      this.pushRoomState();
+      return;
+    }
+
+    s.kindBase = 'ai';
+    s.connId = null;
+    s.aiTakingOver = false;
+    s.downSinceMs = null;
+    s.ready = true;
+    s.token = '';
+    s.discipline = DEFAULT_AI_DISCIPLINE;
+    this.cancelTimers((t) => t.kind === 'reminder' || t.kind === 'expire');
+    this.transferHostIfNeeded();
+    this.log({ level: 'info', msg: 'leave', room: this.code, seat: idx, name: s.name, phase: this.phase });
+    if (this.phase === 'playing') {
+      this.pushGameState();
+      this.pushRoomState();
+      this.maybeRunAi();
+    } else {
+      this.pushRoomState();
+    }
+  }
+
   addAiSeat(callerConnId: string, discipline = DEFAULT_AI_DISCIPLINE): void {
     this.requireHost(callerConnId);
     if (this.phase !== 'lobby') throw new RoomError('NOT_LOBBY', 'lobby only');
@@ -387,16 +425,18 @@ export class Room {
     }
 
     if (turnEnded) {
-      // If the seat that just acted was a human under ai-takeover, flip
-      // takeover off and route to either live (if reconnected) or down.
+      // If the seat that just acted was a human under ai-takeover, only
+      // release control if the human has reconnected. If they're still
+      // gone, keep aiTakingOver=true so the next time their turn comes
+      // around we schedule AI straight away — no fresh 15s countdown.
+      // Reclaim still works: on reattach the seat keeps playing as AI
+      // through this turn, then this branch flips back to live at end.
       const actor = this.seats[prev.current];
-      if (actor && actor.kindBase === 'human' && actor.aiTakingOver) {
+      if (
+        actor && actor.kindBase === 'human' &&
+        actor.aiTakingOver && actor.connId !== null
+      ) {
         actor.aiTakingOver = false;
-        // If still no connId, mark down so the next time their turn comes
-        // around we re-enter the grace flow.
-        if (actor.connId === null) {
-          actor.downSinceMs = this.deps.now();
-        }
         this.pushRoomState();
       }
       if (next.phase !== 'over') {
