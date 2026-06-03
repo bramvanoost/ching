@@ -48,7 +48,7 @@ tests/
 
 ### Module responsibilities
 
-**`render.ts`** — pure functions, state in, ANSI strings out. No `process.stdout`, no `setTimeout`. Exports:
+**`render.ts`** — pure functions, state in, ANSI strings out. No `process.stdout`, no `setTimeout`. ANSI escape sequences are emitted unconditionally — the renderer does NOT consult `process.env.TERM`, `FORCE_COLOR`, `NO_COLOR`, `tty.isTTY`, or any color-detection library. This keeps snapshot tests stable across CI (no-tty, `TERM=dumb`) and local runs (`TERM=xterm-256color`) and matches the existing renderer's behaviour. Exports:
 
 ```ts
 renderFrame(state: State, view: ViewOpts): string
@@ -91,7 +91,7 @@ The center-tiles and current-turn panels become viewer-agnostic. The VAULTS pane
 **`net/room.ts`** — `Room` class. Holds:
 
 - Lobby data: `code`, `host`, ordered `seats: SeatRecord[]`, `phase: 'lobby' | 'playing' | 'over'`.
-- Game data: engine `State`, server-side `rng = Math.random`.
+- Game data: engine `State`, server-side `rng: () => number` injected at construction (defaults to `Math.random`; tests pass a seeded PRNG).
 - Per-seat `SeatConn` (see §Disconnect handling).
 - Grace timers and the 30-minute idle reaper.
 
@@ -207,7 +207,7 @@ The lobby re-renders on every `ROOM_STATE` push.
 
 ### Color & label assignment
 
-Every client picks colors from a fixed palette `[Cy_BR, Mg_BR, A_GLINT, P_LIME2]` indexed by seat number, so all clients agree without any server coordination. Your own seat is always labeled `YOU` in your view; other seats use their display name. AI seats are labeled `AI (0.x)`. These mappings live entirely in the client.
+Every client picks colors from a fixed palette `SEAT_PALETTE = [Cy_BR, Mg_BR, A_GLINT, P_LIME2]` indexed by seat number, so all clients agree without any server coordination. The palette has exactly four entries, matching the hard cap of four seats per room enforced by `Room.join` and `Room.addAiSeat`. Color lookup is `SEAT_PALETTE[seat % SEAT_PALETTE.length]` so a future cap increase cannot index out of range. Your own seat is always labeled `YOU` in your view; other seats use their display name. AI seats are labeled `AI (0.x)`. These mappings live entirely in the client.
 
 ### Game screen
 
@@ -238,7 +238,9 @@ type SeatConn =
 
 ### Lobby drop
 
-Human seat's socket closes while in lobby → flip `SeatConn` to `down`. Seat stays in the room; `ROOM_STATE` re-pushes so other clients see `connected: false`. Reconnect flips it back to `live`. The host can `REMOVE_SEAT` a down seat manually. If the host disconnects, host transfers to the lowest-seat live human; if none, host stays nominal on seat 0 and resumes when someone reconnects.
+Human seat's socket closes while in lobby → flip `SeatConn` to `down`. Seat stays in the room; `ROOM_STATE` re-pushes so other clients see `connected: false`. Reconnect flips it back to `live`. The host can `REMOVE_SEAT` a down seat manually.
+
+**Host transfer is sticky.** If the host disconnects, host role transfers to the lowest-seat live human. If no humans are live, the host pointer stays on the dropped seat (the room is paused; nobody else can `START` either way). When the original host reconnects later, host role does NOT revert to them — whoever holds the host role keeps it until *they* leave or hand it off. This prevents host ping-ponging during flaky connections.
 
 ### In-game drop, not the active seat's turn
 
@@ -289,12 +291,13 @@ The client must restore the terminal to cooked mode (exit alt-screen, leave raw 
 
 ## Server-authoritative RNG
 
-The daemon constructs each room with `rng = Math.random`. The engine reducer is called only on the server. Clients never run `engine.step`. A future swap to a cryptographic source (`crypto.randomInt`) is one line in `room.ts`.
+`Room` takes an `rng: () => number` at construction. In production the daemon passes `Math.random`. In tests (including `tests/integration.test.ts`) the daemon factory accepts an `rng` override so a seeded PRNG can be passed in for deterministic dice. The engine reducer is called only on the server. Clients never run `engine.step`. A future swap to a cryptographic source (`crypto.randomInt`) is a one-line change to the default.
 
 ## Daemon lifecycle and deployment
 
 - Launch: `npm run daemon` → `tsx src/net/daemon.ts`. Foreground process; logs structured one-line JSON to stdout (`{ts, level, room?, seat?, msg}`).
 - Socket: `/tmp/ching.sock`, mode `0660`. Removed on clean exit.
+- **Stale-socket recovery on startup.** If `/tmp/ching.sock` already exists, the daemon attempts to connect to it as a client. If the connect succeeds, another daemon is already running — log an error and exit with code 1. If the connect is refused (`ECONNREFUSED`) or the path is a stale inode left behind by a previous unclean exit, `unlink()` it and `listen()` fresh. This makes `Ctrl-C` plus immediate restart a no-op for the operator.
 - On the Pi, run inside `tmux` / `screen`, or wrap in a user-space systemd unit (not shipped in v1; README describes the pattern).
 - No persistence. Daemon restart loses all rooms.
 
@@ -319,7 +322,7 @@ A new "## Multiplayer on a Raspberry Pi" section will document:
 - **`tests/render.test.ts`** — snapshot tests on `renderFrame(state, viewOpts)` for ~6 fixed inputs: initial state, mid-roll, pre-bank with coin, pre-bank without coin, 4-seat viewer-is-seat-2, game-over. Snapshots are golden strings under `tests/__snapshots__/`. Pins the visual contract.
 - **`tests/protocol.test.ts`** — round-trip every message type through `encode`/`decode`. Framing edge cases: one JSON split across two chunks, multiple JSONs in one chunk, malformed line → throws decode error.
 - **`tests/room.test.ts`** — drives `Room` directly with a mock clock and a fake event bus:
-  - Lobby: join up to 4, reject 5th. Add AI seat. Kick. Host transfer on host leave. Ready toggle. `START` rejected with <2 seats or unready humans.
+  - Lobby: join up to 4, reject 5th. Add AI seat. Kick. Host transfer on host leave is sticky (original host reconnects → host role stays on the new holder). Ready toggle. `START` rejected with <2 seats or unready humans.
   - Turn enforcement: `submitAction(seat, action)` is rejected with `NOT_YOUR_TURN` unless `seat === state.current`.
   - Disconnect grace cadence: drop the active seat. Assert `TURN_REMINDER` pushed at t=0 with `secondsLeft: 15`; at t=5s with `10`; at t=10s with `5`; at t=15s the seat flips to `ai-takeover`, a `GAME_STATE` is pushed instead of further reminders.
   - Reconnect mid-`ai-takeover`: seat stays `ai-takeover` until `endTurn`, then flips to `live`.
@@ -336,7 +339,7 @@ A new "## Multiplayer on a Raspberry Pi" section will document:
 **`tests/integration.test.ts`** — boots the daemon in-process on a temp socket (`/tmp/ching-test-<pid>.sock`), opens two mock `ClientConn` objects that speak the protocol directly (no `term.ts`), drives them through:
 
 1. Both `HELLO` + `CREATE`/`JOIN`, no AI seats added, both `READY`, host `START`.
-2. Alternate `ACTION`s based on `state.current` from the last `GAME_STATE`, using `decide()` as the action source with a seeded RNG injected into the daemon for determinism.
+2. Alternate `ACTION`s based on `state.current` from the last `GAME_STATE`, using `decide()` as the action source. The daemon factory is constructed with a seeded `rng` so dice are deterministic.
 3. Game runs to `phase: 'over'`. Assert both clients received the same final state and a `phase: 'over'` push.
 
 This is the "two local clients can play a full game" gate the milestone requires, runnable in CI.
