@@ -22,14 +22,33 @@ A push-your-luck dice game. Collect coins, bank them as tiles, steal rivals' til
 
 ## Commands
 
-- `npm run play` — play in terminal vs AI
-- `npm test` — engine + AI tests
+- `npm run play` — play in terminal vs AI (`-- --discipline=0.x` to tune)
+- `npm test` — engine + AI tests (vitest)
+- `npm run sim` — 200-game AI-vs-AI regression
 
 ## Definition of done (verify, don't assume)
 
 - `npm test` green.
 - Regression: 200-game AI-vs-AI sim terminates cleanly AND higher discipline beats lower discipline over the sample (proves AI tiers aren't cosmetic).
 - No `Math.random`/`Date` references inside `engine.ts` or `ai.ts`.
+
+## Non-obvious decisions (read before relitigating)
+
+### `discipline` is inverted from "risk"
+Higher discipline = harder AI = stops earlier and banks any reachable tile. Lower discipline = greedy, holds out for 4-coin tiles, busts trying. In CHING (with the burn-on-bust rule), banking reliably accumulates more total coins than chasing 33-36. Empirically: discipline 0.8 beats 0.2 over 200 games (~104 vs 81). The knob name reads slightly inverted on purpose; do not rename back to "risk" without reversing the semantics.
+
+### Bust burns the highest center tile (Heckmeck flip)
+"Return your top tile" alone caused 153/200 sim games to stalemate, tiles cycling in and out of the center forever. The burn rule is what makes the supply monotonically deplete. Do not remove it unless you add another depletion mechanism, and update CLAUDE.md if you do.
+
+### CLI must fit the terminal frame
+Renderer uses the alternate screen buffer (`\x1b[?1049h`/`l`) and writes a fixed 22-row frame: header(4) + center(6) + vaults(5) + turn(6) + footer(1). NEVER append after `render()` returns. Status/prompt/AI-thinking lines must go through `opts.footer` so they're part of the same cleared frame. The flash banner overwrites the footer row via `\r`, not new lines. Past 22 rows the screen scrolls and you see stale frames stacking.
+
+### Glyph vocabulary
+- `◆` filled diamond = gem, on-tile collectible visual, gradient-coloured for glint
+- `◇` hollow diamond = empty / dimmed / tie heading
+- `$` = coin face on a die (face value 5)
+- `◐◓◑◒` = spinning frames for a coin during roll reveal
+- Renderer labels say "vault" for a player's banked pile (panel is `VAULTS`, not `PLAYERS`).
 
 ## Roadmap (build order)
 
