@@ -22,6 +22,7 @@ struct GameView: View {
                 diceInHand: store.state.diceInHand
             )
             PickBar(store: store)
+            ActionBar(store: store)
 
             Spacer()
         }
@@ -146,6 +147,26 @@ struct PickBar: View {
                     .buttonStyle(.bordered)
                 }
             }
+        }
+    }
+}
+
+struct ActionBar: View {
+    let store: GameStore
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button("Roll") {
+                store.apply(.roll)
+            }
+            .disabled(!store.canRoll)
+            .buttonStyle(.borderedProminent)
+
+            Button("Bank") {
+                store.apply(.stop)
+            }
+            .disabled(!store.canBank)
+            .buttonStyle(.borderedProminent)
         }
     }
 }
