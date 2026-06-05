@@ -38,9 +38,51 @@ func rollDie<R: CHINGRandom>(rng: inout R) -> Face {
 func applyRoll<R: CHINGRandom>(_ state: State, rng: inout R) -> State {
     guard state.phase == .roll, state.diceInHand > 0 else { return state }
     let rolled = (0..<state.diceInHand).map { _ in rollDie(rng: &rng) }
-    // Bust-on-no-new-face branch is added in Task 6.
+    let hasNewFace = rolled.contains { !state.pickedFaces.contains($0) }
+    if !hasNewFace {
+        return bust(state)
+    }
     var next = state
     next.rolled = rolled
     next.phase = .pick
     return next
+}
+
+func endTurn(_ state: State) -> State {
+    if state.centerTiles.isEmpty {
+        var s = state
+        s.phase = .over
+        s.rolled = []
+        s.setAside = []
+        s.pickedFaces = []
+        s.diceInHand = 0
+        return s
+    }
+    var s = state
+    s.current = (state.current + 1) % state.players.count
+    s.diceInHand = TOTAL_DICE
+    s.rolled = []
+    s.setAside = []
+    s.pickedFaces = []
+    s.phase = .roll
+    return s
+}
+
+func bust(_ state: State) -> State {
+    var players = state.players
+    var centerTiles = state.centerTiles
+    let me = players[state.current]
+    if let top = me.tiles.last {
+        players[state.current].tiles.removeLast()
+        centerTiles.append(top)
+        centerTiles.sort()
+    }
+    // Burn the highest remaining center tile so the supply depletes (CLAUDE.md).
+    if !centerTiles.isEmpty {
+        centerTiles.removeLast()
+    }
+    var s = state
+    s.players = players
+    s.centerTiles = centerTiles
+    return endTurn(s)
 }

@@ -27,4 +27,24 @@ final class EngineRollTests: XCTestCase {
         let s2 = step(state: s, action: .roll, rng: &rng)
         XCTAssertEqual(s2, s)
     }
+
+    func testRollBustsWhenAllFacesAlreadyPicked() {
+        // Setup: player has picked faces 1 and 2. Only one die left, RNG forces it to 1.
+        // Player must bust because no new face is available.
+        struct ForcedOne: CHINGRandom {
+            mutating func next() -> Double { 0.0 }  // -> floor(0 * 6) + 1 = 1
+        }
+        var rng = ForcedOne()
+        var s = initialState(playerIds: ["P0", "P1"])
+        s.pickedFaces = [.one, .two]
+        s.diceInHand = 1
+        s.players[0].tiles = [28]
+        let after = step(state: s, action: .roll, rng: &rng)
+        // Bust: top tile returned to center (sorted), highest center burned, turn ends.
+        XCTAssertEqual(after.players[0].tiles, [])
+        XCTAssertEqual(after.centerTiles.last, 35)  // 36 burned, 28 returned
+        XCTAssertTrue(after.centerTiles.contains(28))
+        XCTAssertEqual(after.current, 1)
+        XCTAssertEqual(after.phase, .roll)
+    }
 }
