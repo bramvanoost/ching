@@ -18,7 +18,13 @@ enum Difficulty: String, Codable, CaseIterable {
 @Observable
 final class GameStore {
     static let humanSeat = 0
-    static let aiSeat = 1
+    static let jonesSeat = 1
+    static let bot03Seat = 2
+
+    private let baseDiscipline: [Int: Double] = [
+        jonesSeat: 0.30,
+        bot03Seat: 0.85,
+    ]
 
     private(set) var state: State
     private var rng: Mulberry32
@@ -33,7 +39,7 @@ final class GameStore {
 
     init(seed: UInt32) {
         self.rng = Mulberry32(seed: seed)
-        self.state = initialState(playerIds: ["YOU", "JONES"])
+        self.state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
         let raw = UserDefaults.standard.string(forKey: Self.difficultyKey) ?? ""
         self.difficulty = Difficulty(rawValue: raw) ?? .normal
     }
@@ -72,20 +78,26 @@ final class GameStore {
             state.rolled.contains(face)
     }
 
+    var currentAIDifficulty: CHINGEngine.Difficulty? {
+        guard !isHumanTurn else { return nil }
+        let base = baseDiscipline[state.current] ?? 0.5
+        let adjusted = max(0, min(1, base + difficulty.modifier))
+        return CHINGEngine.Difficulty(discipline: adjusted)
+    }
+
     func apply(_ action: Action) {
         state = step(state: state, action: action, rng: &rng)
     }
 
     func runAIIfNeeded() {
-        let engineAI = CHINGEngine.Difficulty(discipline: 0.30)
-        while !isOver && !isHumanTurn {
-            let action = decide(state: state, ai: engineAI)
+        while !isOver, let ai = currentAIDifficulty {
+            let action = decide(state: state, ai: ai)
             apply(action)
         }
     }
 
     func newGame() {
         rng = Mulberry32(seed: UInt32.random(in: 1...UInt32.max))
-        state = initialState(playerIds: ["YOU", "JONES"])
+        state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
     }
 }

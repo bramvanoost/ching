@@ -28,7 +28,9 @@ struct GameView: View {
 
             Text("Phase: \(store.state.phase.rawValue)")
             Text("Turn: \(store.state.players[store.state.current].id)")
-            Text("Scores: YOU \(store.scores[0])  JONES \(store.scores[1])")
+            Text("Scores: " + zip(store.state.players, store.scores)
+                .map { "\($0.id) \($1)" }
+                .joined(separator: "  "))
             CenterTileRow(tiles: store.state.centerTiles)
             VaultRow(players: store.state.players, current: store.state.current)
             DiceRow(

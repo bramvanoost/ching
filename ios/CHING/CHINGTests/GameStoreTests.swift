@@ -16,16 +16,17 @@ final class GameStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    func test_init_setsUpTwoPlayersHumanTurnRollPhase() {
+    func test_init_setsUpThreePlayersHumanTurnRollPhase() {
         let store = GameStore(seed: 1)
-        XCTAssertEqual(store.state.players.count, 2)
+        XCTAssertEqual(store.state.players.count, 3)
         XCTAssertEqual(store.state.players[0].id, "YOU")
         XCTAssertEqual(store.state.players[1].id, "JONES")
+        XCTAssertEqual(store.state.players[2].id, "BOT 03")
         XCTAssertEqual(store.state.phase, .roll)
         XCTAssertEqual(store.state.current, 0)
         XCTAssertTrue(store.isHumanTurn)
         XCTAssertFalse(store.isOver)
-        XCTAssertEqual(store.scores, [0, 0])
+        XCTAssertEqual(store.scores, [0, 0, 0])
     }
 
     func test_apply_rollAdvancesPhaseOrTurn() {
@@ -43,6 +44,7 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(store.state.phase, .roll)
         XCTAssertEqual(store.state.players[0].tiles, [])
         XCTAssertEqual(store.state.players[1].tiles, [])
+        XCTAssertEqual(store.state.players[2].tiles, [])
         XCTAssertEqual(store.state.current, 0)
     }
 
