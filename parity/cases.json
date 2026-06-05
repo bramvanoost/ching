@@ -1,0 +1,33 @@
+[
+  {
+    "name": "trivial-roll",
+    "seed": 1,
+    "playerIds": ["P0", "P1"],
+    "actions": [
+      {"type": "ROLL"}
+    ]
+  },
+  {
+    "name": "roll-pick-stop",
+    "seed": 7,
+    "playerIds": ["P0", "P1"],
+    "actions": [
+      {"type": "ROLL"},
+      {"type": "PICK", "face": 6},
+      {"type": "STOP"}
+    ]
+  },
+  {
+    "name": "alternating-turns",
+    "seed": 42,
+    "playerIds": ["P0", "P1"],
+    "actions": [
+      {"type": "ROLL"},
+      {"type": "STOP"},
+      {"type": "ROLL"},
+      {"type": "STOP"},
+      {"type": "ROLL"},
+      {"type": "STOP"}
+    ]
+  }
+]
