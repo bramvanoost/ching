@@ -1,0 +1,49 @@
+name: engine-ci
+
+on:
+  pull_request:
+    paths:
+      - 'src/engine.ts'
+      - 'src/ai.ts'
+      - 'sim/**'
+      - 'ios/CHINGEngine/**'
+      - 'parity/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/engine-ci.yml'
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Print swift version
+        run: swift --version
+
+      - name: Install npm deps (ts engine + tsx)
+        run: npm ci
+
+      - name: Run Swift engine tests
+        working-directory: ios/CHINGEngine
+        run: swift test
+
+      - name: Run TS engine tests
+        run: npm test
+
+      - name: Build parity CLI
+        working-directory: ios/CHINGEngine
+        run: swift build --product ching-parity
+
+      - name: Run parity diff
+        run: node parity/diff.mjs
+
+      - name: Run TS sim regression
+        run: npm run sim
