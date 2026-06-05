@@ -92,10 +92,13 @@ struct VaultRow: View {
                     } else {
                         HStack(spacing: 4) {
                             ForEach(players[i].tiles, id: \.self) { tile in
-                                Text("\(tile)")
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .overlay(Rectangle().stroke())
+                                VStack(spacing: 0) {
+                                    Text("\(tile)")
+                                    Text("\(tileCoins(tile))c").font(.caption2)
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .overlay(Rectangle().stroke())
                             }
                         }
                     }
