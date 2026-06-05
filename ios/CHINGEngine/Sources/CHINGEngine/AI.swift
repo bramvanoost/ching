@@ -34,6 +34,38 @@ func pickFace(_ state: State) -> Face {
 }
 
 func continueOrStop(_ state: State, ai: Difficulty) -> Action {
-    // Always-ROLL placeholder; replaced in Task 12.
+    let sum = state.setAside.reduce(0) { $0 + $1.value }
+    let hasCoin = state.setAside.contains(.coin)
+    guard hasCoin else { return .roll }
+
+    guard let target = bestBankableTile(state, sum: sum) else { return .roll }
+
+    let pickedCount = state.pickedFaces.count
+    let bustProb = pow(Double(pickedCount) / 6.0, Double(state.diceInHand))
+
+    // Bust tolerance shrinks sharply as discipline rises.
+    // Greedy (0.0) tolerates up to 0.75, cautious (1.0) bails at 0.15.
+    let bustCeiling = 0.75 - ai.discipline * 0.6
+    if bustProb >= bustCeiling { return .stop }
+
+    // Cap target tier by what's still reachable so we don't wait for tiles
+    // that no longer exist.
+    let ceiling: Int = state.centerTiles.isEmpty
+        ? 4
+        : tileCoins(state.centerTiles.last!)
+    // Discipline narrows ambition: 0 holds out for 4-coin tiles, 1 banks any.
+    let desiredTier = max(1, min(ceiling, Int((4.0 - ai.discipline * 3.5).rounded())))
+    if tileCoins(target) >= desiredTier { return .stop }
+
     return .roll
+}
+
+func bestBankableTile(_ state: State, sum: Int) -> Int? {
+    for i in state.players.indices where i != state.current {
+        if let top = state.players[i].tiles.last, top == sum {
+            return sum
+        }
+    }
+    let available = state.centerTiles.filter { $0 <= sum }
+    return available.max()
 }
