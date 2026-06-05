@@ -52,4 +52,11 @@ final class GameStoreTests: XCTestCase {
         XCTAssertTrue(store.isOver, "Game should terminate within 5000 actions")
         XCTAssertGreaterThan(safetyLimit, 0)
     }
+
+    func test_difficulty_modifierTable() {
+        XCTAssertEqual(Difficulty.easy.modifier, -0.15, accuracy: 0.0001)
+        XCTAssertEqual(Difficulty.normal.modifier, 0, accuracy: 0.0001)
+        XCTAssertEqual(Difficulty.hard.modifier, 0.15, accuracy: 0.0001)
+        XCTAssertEqual(Difficulty.allCases, [.easy, .normal, .hard])
+    }
 }

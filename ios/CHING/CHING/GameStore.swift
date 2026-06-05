@@ -2,6 +2,18 @@ import Foundation
 import Observation
 import CHINGEngine
 
+enum Difficulty: String, Codable, CaseIterable {
+    case easy, normal, hard
+
+    var modifier: Double {
+        switch self {
+        case .easy: return -0.15
+        case .normal: return 0
+        case .hard: return 0.15
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class GameStore {
@@ -11,7 +23,7 @@ final class GameStore {
     private(set) var state: State
     private var rng: Mulberry32
 
-    private let aiDifficulty = Difficulty(discipline: 0.30)
+    private let aiDifficulty = CHINGEngine.Difficulty(discipline: 0.30)
 
     init(seed: UInt32) {
         self.rng = Mulberry32(seed: seed)
