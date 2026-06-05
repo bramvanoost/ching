@@ -89,10 +89,15 @@ final class GameStore {
         state = step(state: state, action: action, rng: &rng)
     }
 
-    func runAIIfNeeded() {
+    private static let aiPaceNanoseconds: UInt64 = 300_000_000
+
+    func runAIIfNeeded(reduceMotion: Bool) async {
         while !isOver, let ai = currentAIDifficulty {
             let action = decide(state: state, ai: ai)
             apply(action)
+            if !reduceMotion {
+                try? await Task.sleep(nanoseconds: Self.aiPaceNanoseconds)
+            }
         }
     }
 

@@ -48,11 +48,19 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(store.state.current, 0)
     }
 
-    func test_runAIIfNeeded_isNoOpOnHumanTurn() {
+    func test_runAIIfNeeded_isNoOpOnHumanTurn() async {
         let store = GameStore(seed: 1)
         let before = store.state
-        store.runAIIfNeeded()
+        await store.runAIIfNeeded(reduceMotion: true)
         XCTAssertEqual(store.state, before)
+    }
+
+    func test_runAIIfNeeded_reduceMotionRunsInstantly() async {
+        let store = GameStore(seed: 1)
+        let start = Date()
+        await store.runAIIfNeeded(reduceMotion: true)
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 1.0)
     }
 
     func test_fullGameTerminates() {

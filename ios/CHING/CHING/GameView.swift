@@ -6,7 +6,7 @@ struct GameView: View {
 
     private func act(_ action: Action) {
         store.apply(action)
-        store.runAIIfNeeded()
+        Task { await store.runAIIfNeeded(reduceMotion: false) }
     }
 
     private var gameOverMessage: String {
