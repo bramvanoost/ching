@@ -25,7 +25,7 @@ public func step<R: CHINGRandom>(state: State, action: Action, rng: inout R) -> 
     case .pick(let face):
         return applyPick(state, face: face)
     case .stop:
-        return state  // implemented in Task 8
+        return applyStop(state)
     }
 }
 
@@ -118,4 +118,10 @@ func bust(_ state: State) -> State {
     s.players = players
     s.centerTiles = centerTiles
     return endTurn(s)
+}
+
+func applyStop(_ state: State) -> State {
+    guard state.phase == .roll else { return state }
+    guard !state.setAside.isEmpty else { return state }
+    return tryBank(state)
 }
