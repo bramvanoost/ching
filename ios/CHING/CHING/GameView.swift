@@ -3,10 +3,12 @@ import CHINGEngine
 
 struct GameView: View {
     @SwiftUI.State private var store = GameStore()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func act(_ action: Action) {
         store.apply(action)
-        Task { await store.runAIIfNeeded(reduceMotion: false) }
+        let reduce = reduceMotion
+        Task { await store.runAIIfNeeded(reduceMotion: reduce) }
     }
 
     private var currentSeatName: String {
