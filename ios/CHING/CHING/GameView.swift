@@ -21,6 +21,7 @@ struct GameView: View {
                 setAsideSum: store.setAsideSum,
                 diceInHand: store.state.diceInHand
             )
+            PickBar(store: store)
 
             Spacer()
         }
@@ -124,6 +125,27 @@ struct DiceRow: View {
                 }
             }
             Text("In hand: \(diceInHand)").font(.caption2)
+        }
+    }
+}
+
+struct PickBar: View {
+    let store: GameStore
+
+    private let faces: [Face] = [.one, .two, .three, .four, .five, .coin]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("PICK").font(.caption).bold()
+            HStack(spacing: 6) {
+                ForEach(faces, id: \.self) { face in
+                    Button(faceLabel(face)) {
+                        store.apply(.pick(face: face))
+                    }
+                    .disabled(!store.canPick(face))
+                    .buttonStyle(.bordered)
+                }
+            }
         }
     }
 }
