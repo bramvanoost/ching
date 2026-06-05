@@ -63,16 +63,17 @@ final class GameStoreTests: XCTestCase {
         XCTAssertLessThan(elapsed, 1.0)
     }
 
-    func test_fullGameTerminates() {
+    func test_fullThreePlayerGameTerminates() {
         let store = GameStore(seed: 1)
         var safetyLimit = 5000
         while !store.isOver && safetyLimit > 0 {
-            let action = decide(state: store.state, ai: Difficulty(discipline: 0.5))
+            let action = decide(state: store.state, ai: CHINGEngine.Difficulty(discipline: 0.5))
             store.apply(action)
             safetyLimit -= 1
         }
-        XCTAssertTrue(store.isOver, "Game should terminate within 5000 actions")
+        XCTAssertTrue(store.isOver, "3-player game should terminate within 5000 actions")
         XCTAssertGreaterThan(safetyLimit, 0)
+        XCTAssertEqual(store.state.players.count, 3)
     }
 
     func test_difficulty_modifierTable() {
@@ -92,5 +93,20 @@ final class GameStoreTests: XCTestCase {
         store1.difficulty = .hard
         let store2 = GameStore(seed: 2)
         XCTAssertEqual(store2.difficulty, .hard)
+    }
+
+    func test_bankActionLabel_pointsAtFirstRivalWithMatchingTop() {
+        let store = GameStore(seed: 1)
+        var s = store.state
+        s.players[1].tiles = [25]
+        s.players[2].tiles = [25]
+        s.setAside = [.five, .coin, .five, .four, .three, .three]
+        s.pickedFaces = [.five, .coin, .four, .three]
+        s.diceInHand = 2
+        s.phase = .roll
+        s.current = GameStore.humanSeat
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.setAsideSum, 25)
+        XCTAssertEqual(store.bankActionLabel, "STEAL FROM JONES")
     }
 }

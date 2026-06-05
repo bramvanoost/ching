@@ -105,4 +105,10 @@ final class GameStore {
         rng = Mulberry32(seed: UInt32.random(in: 1...UInt32.max))
         state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
     }
+
+    #if DEBUG
+    func setStateForTesting(_ s: State) {
+        self.state = s
+    }
+    #endif
 }
