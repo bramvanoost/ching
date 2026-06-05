@@ -15,7 +15,12 @@ struct GameView: View {
             Text("Scores: YOU \(store.scores[0])  JONES \(store.scores[1])")
             CenterTileRow(tiles: store.state.centerTiles)
             VaultRow(players: store.state.players, current: store.state.current)
-            Text("Dice in hand: \(store.state.diceInHand)")
+            DiceRow(
+                rolled: store.state.rolled,
+                setAside: store.state.setAside,
+                setAsideSum: store.setAsideSum,
+                diceInHand: store.state.diceInHand
+            )
 
             Spacer()
         }
@@ -72,6 +77,53 @@ struct VaultRow: View {
                     Spacer()
                 }
             }
+        }
+    }
+}
+
+func faceLabel(_ f: Face) -> String {
+    f == .coin ? "C" : "\(f.rawValue)"
+}
+
+struct DiceRow: View {
+    let rolled: [Face]
+    let setAside: [Face]
+    let setAsideSum: Int
+    let diceInHand: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("DICE").font(.caption).bold()
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Rolled").font(.caption2)
+                    HStack(spacing: 4) {
+                        ForEach(Array(rolled.enumerated()), id: \.offset) { _, f in
+                            Text(faceLabel(f))
+                                .frame(width: 22, height: 22)
+                                .overlay(Rectangle().stroke())
+                        }
+                        if rolled.isEmpty {
+                            Text("(none)").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Spacer()
+                VStack(alignment: .leading) {
+                    Text("Set aside (sum \(setAsideSum))").font(.caption2)
+                    HStack(spacing: 4) {
+                        ForEach(Array(setAside.enumerated()), id: \.offset) { _, f in
+                            Text(faceLabel(f))
+                                .frame(width: 22, height: 22)
+                                .overlay(Rectangle().stroke().opacity(0.5))
+                        }
+                        if setAside.isEmpty {
+                            Text("(none)").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            Text("In hand: \(diceInHand)").font(.caption2)
         }
     }
 }
