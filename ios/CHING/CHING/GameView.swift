@@ -14,6 +14,7 @@ struct GameView: View {
             Text("Turn: \(store.state.players[store.state.current].id)")
             Text("Scores: YOU \(store.scores[0])  JONES \(store.scores[1])")
             CenterTileRow(tiles: store.state.centerTiles)
+            VaultRow(players: store.state.players, current: store.state.current)
             Text("Dice in hand: \(store.state.diceInHand)")
 
             Spacer()
@@ -38,6 +39,37 @@ struct CenterTileRow: View {
                         .padding(6)
                         .overlay(Rectangle().stroke())
                     }
+                }
+            }
+        }
+    }
+}
+
+struct VaultRow: View {
+    let players: [Player]
+    let current: Int
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("VAULTS").font(.caption).bold()
+            ForEach(players.indices, id: \.self) { i in
+                HStack {
+                    Text(players[i].id)
+                        .bold(i == current)
+                        .frame(width: 70, alignment: .leading)
+                    if players[i].tiles.isEmpty {
+                        Text("(empty)").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        HStack(spacing: 4) {
+                            ForEach(players[i].tiles, id: \.self) { tile in
+                                Text("\(tile)")
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .overlay(Rectangle().stroke())
+                            }
+                        }
+                    }
+                    Spacer()
                 }
             }
         }
