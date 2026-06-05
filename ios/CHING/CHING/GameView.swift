@@ -9,6 +9,10 @@ struct GameView: View {
         Task { await store.runAIIfNeeded(reduceMotion: false) }
     }
 
+    private var currentSeatName: String {
+        store.state.players[store.state.current].id
+    }
+
     private var gameOverMessage: String {
         let scores = store.scores
         let you = scores[0]
@@ -46,6 +50,12 @@ struct GameView: View {
             )
             PickBar(store: store, act: act)
             ActionBar(store: store, act: act)
+
+            if !store.isHumanTurn && !store.isOver {
+                Text("\(currentSeatName) is thinking…")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
         }
