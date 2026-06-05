@@ -190,7 +190,7 @@ struct ActionBar: View {
             .disabled(!store.canRoll)
             .buttonStyle(.borderedProminent)
 
-            Button("Bank") {
+            Button(store.bankActionLabel) {
                 act(.stop)
             }
             .disabled(!store.canBank)

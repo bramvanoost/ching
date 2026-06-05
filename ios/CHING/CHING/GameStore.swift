@@ -35,6 +35,16 @@ final class GameStore {
         state.phase == .roll && !state.setAside.isEmpty && isHumanTurn
     }
 
+    var bankActionLabel: String {
+        guard canBank else { return "Bank" }
+        for i in state.players.indices where i != state.current {
+            if let top = state.players[i].tiles.last, top == setAsideSum {
+                return "STEAL FROM \(state.players[i].id)"
+            }
+        }
+        return "Bank"
+    }
+
     func canPick(_ face: Face) -> Bool {
         state.phase == .pick &&
             isHumanTurn &&
