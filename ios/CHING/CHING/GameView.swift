@@ -4,6 +4,11 @@ import CHINGEngine
 struct GameView: View {
     @SwiftUI.State private var store = GameStore()
 
+    private func act(_ action: Action) {
+        store.apply(action)
+        store.runAIIfNeeded()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("CHING")
@@ -21,8 +26,8 @@ struct GameView: View {
                 setAsideSum: store.setAsideSum,
                 diceInHand: store.state.diceInHand
             )
-            PickBar(store: store)
-            ActionBar(store: store)
+            PickBar(store: store, act: act)
+            ActionBar(store: store, act: act)
 
             Spacer()
         }
@@ -132,6 +137,7 @@ struct DiceRow: View {
 
 struct PickBar: View {
     let store: GameStore
+    let act: (Action) -> Void
 
     private let faces: [Face] = [.one, .two, .three, .four, .five, .coin]
 
@@ -141,7 +147,7 @@ struct PickBar: View {
             HStack(spacing: 6) {
                 ForEach(faces, id: \.self) { face in
                     Button(faceLabel(face)) {
-                        store.apply(.pick(face: face))
+                        act(.pick(face: face))
                     }
                     .disabled(!store.canPick(face))
                     .buttonStyle(.bordered)
@@ -153,17 +159,18 @@ struct PickBar: View {
 
 struct ActionBar: View {
     let store: GameStore
+    let act: (Action) -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             Button("Roll") {
-                store.apply(.roll)
+                act(.roll)
             }
             .disabled(!store.canRoll)
             .buttonStyle(.borderedProminent)
 
             Button("Bank") {
-                store.apply(.stop)
+                act(.stop)
             }
             .disabled(!store.canBank)
             .buttonStyle(.borderedProminent)
