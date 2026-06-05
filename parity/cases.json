@@ -1,0 +1,39 @@
+[
+  {
+    "name": "trivial-roll",
+    "seed": 1,
+    "playerIds": ["P0", "P1"],
+    "actions": [
+      {"type": "ROLL"}
+    ]
+  },
+  {
+    "name": "roll-pick-stop",
+    "seed": 7,
+    "playerIds": ["P0", "P1"],
+    "actions": [
+      {"type": "ROLL"},
+      {"type": "PICK", "face": 6},
+      {"type": "STOP"}
+    ]
+  },
+  {
+    "name": "alternating-turns",
+    "seed": 42,
+    "playerIds": ["P0", "P1"],
+    "actions": [
+      {"type": "ROLL"},
+      {"type": "STOP"},
+      {"type": "ROLL"},
+      {"type": "STOP"},
+      {"type": "ROLL"},
+      {"type": "STOP"}
+    ]
+  },
+  {
+    "name": "full-game-seed-1",
+    "seed": 1,
+    "playerIds": ["P0", "P1"],
+    "actions": [{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"PICK","face":1},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"PICK","face":1},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":1},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":1},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"PICK","face":1},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"STOP"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":2},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"ROLL"},{"type":"PICK","face":6},{"type":"ROLL"},{"type":"PICK","face":3},{"type":"ROLL"},{"type":"PICK","face":5},{"type":"ROLL"},{"type":"PICK","face":4},{"type":"STOP"}]
+  }
+]
