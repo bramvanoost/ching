@@ -51,8 +51,16 @@ func tryBank(_ state: State) -> State {
     let hasCoin = state.setAside.contains(.coin)
     guard hasCoin else { return bust(state) }
 
-    // Center: take the highest tile <= sum.
-    // (Steal-from-rival branch is added in Task 9.)
+    // Steal: exact match on a rival's top tile takes priority over the center.
+    for i in state.players.indices where i != state.current {
+        if let rivalTop = state.players[i].tiles.last, rivalTop == sum {
+            var next = state
+            next.players[i].tiles.removeLast()
+            next.players[state.current].tiles.append(sum)
+            return endTurn(next)
+        }
+    }
+
     let available = state.centerTiles.filter { $0 <= sum }
     guard !available.isEmpty else { return bust(state) }
     let taken = available.max()!
