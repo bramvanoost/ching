@@ -22,11 +22,44 @@ public func step<R: CHINGRandom>(state: State, action: Action, rng: inout R) -> 
     switch action {
     case .roll:
         return applyRoll(state, rng: &rng)
-    case .pick:
-        return state  // implemented in Task 7
+    case .pick(let face):
+        return applyPick(state, face: face)
     case .stop:
         return state  // implemented in Task 8
     }
+}
+
+func applyPick(_ state: State, face: Face) -> State {
+    guard state.phase == .pick else { return state }
+    guard !state.pickedFaces.contains(face) else { return state }
+    let taken = state.rolled.filter { $0 == face }
+    guard !taken.isEmpty else { return state }
+    var next = state
+    next.setAside.append(contentsOf: taken)
+    next.pickedFaces.append(face)
+    next.diceInHand -= taken.count
+    next.rolled = []
+    next.phase = .roll
+    if next.diceInHand == 0 {
+        return tryBank(next)
+    }
+    return next
+}
+
+func tryBank(_ state: State) -> State {
+    let sum = state.setAside.reduce(0) { $0 + $1.value }
+    let hasCoin = state.setAside.contains(.coin)
+    guard hasCoin else { return bust(state) }
+
+    // Center: take the highest tile <= sum.
+    // (Steal-from-rival branch is added in Task 9.)
+    let available = state.centerTiles.filter { $0 <= sum }
+    guard !available.isEmpty else { return bust(state) }
+    let taken = available.max()!
+    var next = state
+    next.centerTiles.removeAll { $0 == taken }
+    next.players[state.current].tiles.append(taken)
+    return endTurn(next)
 }
 
 func rollDie<R: CHINGRandom>(rng: inout R) -> Face {
