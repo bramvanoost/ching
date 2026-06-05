@@ -9,6 +9,17 @@ struct GameView: View {
         store.runAIIfNeeded()
     }
 
+    private var gameOverMessage: String {
+        let scores = store.scores
+        let you = scores[0]
+        let jones = scores[1]
+        let outcome: String
+        if you > jones { outcome = "You win" }
+        else if jones > you { outcome = "Jones wins" }
+        else { outcome = "Tie" }
+        return "\(outcome).\nYOU \(you)  JONES \(jones)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("CHING")
@@ -32,6 +43,13 @@ struct GameView: View {
             Spacer()
         }
         .padding()
+        .alert("Game over", isPresented: .constant(store.isOver)) {
+            Button("New Game") {
+                store.newGame()
+            }
+        } message: {
+            Text(gameOverMessage)
+        }
     }
 }
 
