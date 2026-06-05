@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/primary.swiftdeps"
+  },
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGEngine/CHINGEngine.swift": {
+    "dependencies": "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.d",
+    "object": "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o",
+    "swiftmodule": "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swiftdeps",
+    "diagnostics": "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.dia"
+  }
+}

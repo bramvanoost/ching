@@ -1,0 +1,168 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "CHINGEngine-arm64-apple-macosx-debug.module": ["<CHINGEngine-arm64-apple-macosx-debug.module>"]
+  "CHINGEnginePackageTests-arm64-apple-macosx-debug.module": ["<CHINGEnginePackageTests-arm64-apple-macosx-debug.module>"]
+  "CHINGEnginePackageTests-arm64-apple-macosx-debug.test": ["<CHINGEnginePackageTests-arm64-apple-macosx-debug.test>"]
+  "CHINGEngineTests-arm64-apple-macosx-debug.module": ["<CHINGEngineTests-arm64-apple-macosx-debug.module>"]
+  "CHINGParityCLI-arm64-apple-macosx-debug.module": ["<CHINGParityCLI-arm64-apple-macosx-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "ching-parity-arm64-apple-macosx-debug.exe": ["<ching-parity-arm64-apple-macosx-debug.exe>"]
+  "main": ["<CHINGEngine-arm64-apple-macosx-debug.module>","<CHINGParityCLI-arm64-apple-macosx-debug.module>","<ching-parity-arm64-apple-macosx-debug.exe>"]
+  "test": ["<CHINGEngine-arm64-apple-macosx-debug.module>","<CHINGEnginePackageTests-arm64-apple-macosx-debug.test>","<CHINGEngineTests-arm64-apple-macosx-debug.module>","<CHINGParityCLI-arm64-apple-macosx-debug.module>","<ching-parity-arm64-apple-macosx-debug.exe>"]
+default: "main"
+nodes:
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGEngine/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGParityCLI/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Tests/CHINGEngineTests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity":
+    is-mutated: true
+commands:
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGEngine/CHINGEngine.swift"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/sources"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/sources"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.derived/runner.swift"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/sources"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/sources"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.derived/runner.swift"]
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/runner.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/CHINGEngineTests.swift.o"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.product/Objects.LinkFileList"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Tests/CHINGEngineTests/CHINGEngineTests.swift"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/sources"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/sources"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGParityCLI/main.swift"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/sources"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/sources"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity-entitlement.plist"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity-entitlement.plist"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/main.swift.o"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity.product/Objects.LinkFileList"
+
+  "/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Library/Developer/CommandLineTools/usr/bin/swiftc"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+
+  "<CHINGEngine-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule"]
+    outputs: ["<CHINGEngine-arm64-apple-macosx-debug.module>"]
+
+  "<CHINGEnginePackageTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/runner.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEnginePackageTests.swiftmodule"]
+    outputs: ["<CHINGEnginePackageTests-arm64-apple-macosx-debug.module>"]
+
+  "<CHINGEnginePackageTests-arm64-apple-macosx-debug.test>":
+    tool: phony
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.xctest/Contents/MacOS/CHINGEnginePackageTests"]
+    outputs: ["<CHINGEnginePackageTests-arm64-apple-macosx-debug.test>"]
+
+  "<CHINGEngineTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/CHINGEngineTests.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngineTests.swiftmodule"]
+    outputs: ["<CHINGEngineTests-arm64-apple-macosx-debug.module>"]
+
+  "<CHINGParityCLI-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/main.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGParityCLI.swiftmodule"]
+    outputs: ["<CHINGParityCLI-arm64-apple-macosx-debug.module>"]
+
+  "<ching-parity-arm64-apple-macosx-debug.exe>":
+    tool: phony
+    inputs: ["<ching-parity-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    outputs: ["<ching-parity-arm64-apple-macosx-debug.exe>"]
+
+  "C.CHINGEngine-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGEngine/CHINGEngine.swift","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/sources"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule"]
+    description: "Compiling Swift Module 'CHINGEngine' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","CHINGEngine","-emit-dependencies","-emit-module","-emit-module-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule","-output-file-map","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/sources","-I","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j12","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/include/CHINGEngine-Swift.h","-swift-version","5","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","chingengine"]
+
+  "C.CHINGEnginePackageTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.derived/runner.swift","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngineTests.swiftmodule","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/sources"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/runner.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEnginePackageTests.swiftmodule"]
+    description: "Compiling Swift Module 'CHINGEnginePackageTests' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","CHINGEnginePackageTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEnginePackageTests.swiftmodule","-output-file-map","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/sources","-I","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j12","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/include/CHINGEnginePackageTests-Swift.h","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","chingengine"]
+
+  "C.CHINGEnginePackageTests-arm64-apple-macosx-debug.test":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.build/runner.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/CHINGEngineTests.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.product/Objects.LinkFileList"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.xctest/Contents/MacOS/CHINGEnginePackageTests"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.xctest/Contents/MacOS/CHINGEnginePackageTests"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-L","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug","-o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.xctest/Contents/MacOS/CHINGEnginePackageTests","-module-name","CHINGEnginePackageTests","-Xlinker","-no_warn_duplicate_libraries","-Xlinker","-bundle","-Xlinker","-rpath","-Xlinker","@loader_path/../../../","@/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEnginePackageTests.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Library/Developer/CommandLineTools/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEnginePackageTests.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngineTests.swiftmodule","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g"]
+
+  "C.CHINGEngineTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Tests/CHINGEngineTests/CHINGEngineTests.swift","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/sources"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/CHINGEngineTests.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngineTests.swiftmodule"]
+    description: "Compiling Swift Module 'CHINGEngineTests' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","CHINGEngineTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngineTests.swiftmodule","-output-file-map","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngineTests.build/sources","-I","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j12","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-swift-version","5","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","chingengine"]
+
+  "C.CHINGParityCLI-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGParityCLI/main.swift","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/sources"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/main.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGParityCLI.swiftmodule"]
+    description: "Compiling Swift Module 'CHINGParityCLI' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","CHINGParityCLI","-emit-dependencies","-emit-module","-emit-module-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGParityCLI.swiftmodule","-output-file-map","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/output-file-map.json","-incremental","-c","@/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/sources","-I","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j12","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","CHINGParityCLI_main","-swift-version","5","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","chingengine"]
+
+  "C.ching-parity-arm64-apple-macosx-debug.exe":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGEngine.build/CHINGEngine.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/CHINGParityCLI.build/main.swift.o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity.product/Objects.LinkFileList"]
+    outputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/ching-parity"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-L","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug","-o","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity","-module-name","ching_parity","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_CHINGParityCLI_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Library/Developer/CommandLineTools/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGEngine.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/Modules/CHINGParityCLI.swiftmodule","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g"]
+
+  "C.ching-parity-arm64-apple-macosx-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity-entitlement.plist"]
+    outputs: ["<ching-parity-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/ching-parity"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity-entitlement.plist","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGEngine/","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Sources/CHINGParityCLI/","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Tests/CHINGEngineTests/","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Package.swift","/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

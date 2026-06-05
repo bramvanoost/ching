@@ -1,0 +1,14 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/bramvanoost/Code/game-ching/ios/CHINGEngine/.build/arm64-apple-macosx/debug/ching-parity'
+relocations:
+  - { offset: 0x89, size: 0x8, addend: 0x0, symName: '_$s11CHINGEngineAAVABycfC', symObjAddr: 0x0, symBinAddr: 0x1000007B0, symSize: 0x4 }
+  - { offset: 0xC0, size: 0x8, addend: 0x0, symName: '_$s11CHINGEngineAAVMa', symObjAddr: 0x4, symBinAddr: 0x1000007B4, symSize: 0x14 }
+  - { offset: 0xDE, size: 0x8, addend: 0x0, symName: '_$s11CHINGEngineAAVABycfC', symObjAddr: 0x0, symBinAddr: 0x1000007B0, symSize: 0x4 }
+  - { offset: 0x166, size: 0x8, addend: 0x0, symName: _CHINGParityCLI_main, symObjAddr: 0x0, symBinAddr: 0x1000007C8, symSize: 0xC8 }
+  - { offset: 0x17C, size: 0x8, addend: 0x0, symName: _CHINGParityCLI_main, symObjAddr: 0x0, symBinAddr: 0x1000007C8, symSize: 0xC8 }
+  - { offset: 0x199, size: 0x8, addend: 0x0, symName: '_$sSa12_endMutationyyF', symObjAddr: 0x160, symBinAddr: 0x100000928, symSize: 0xC }
+  - { offset: 0x1BA, size: 0x8, addend: 0x0, symName: '_$ss27_finalizeUninitializedArrayySayxGABnlF', symObjAddr: 0xC8, symBinAddr: 0x100000890, symSize: 0x40 }
+  - { offset: 0x1E2, size: 0x8, addend: 0x0, symName: '_$ss5print_9separator10terminatoryypd_S2StFfA0_', symObjAddr: 0x108, symBinAddr: 0x1000008D0, symSize: 0x2C }
+  - { offset: 0x1FD, size: 0x8, addend: 0x0, symName: '_$ss5print_9separator10terminatoryypd_S2StFfA1_', symObjAddr: 0x134, symBinAddr: 0x1000008FC, symSize: 0x2C }
+...
