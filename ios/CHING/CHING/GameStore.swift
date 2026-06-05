@@ -23,11 +23,19 @@ final class GameStore {
     private(set) var state: State
     private var rng: Mulberry32
 
-    private let aiDifficulty = CHINGEngine.Difficulty(discipline: 0.30)
+    private static let difficultyKey = "ching.difficulty"
+
+    var difficulty: Difficulty {
+        didSet {
+            UserDefaults.standard.set(difficulty.rawValue, forKey: Self.difficultyKey)
+        }
+    }
 
     init(seed: UInt32) {
         self.rng = Mulberry32(seed: seed)
         self.state = initialState(playerIds: ["YOU", "JONES"])
+        let raw = UserDefaults.standard.string(forKey: Self.difficultyKey) ?? ""
+        self.difficulty = Difficulty(rawValue: raw) ?? .normal
     }
 
     convenience init() {
@@ -69,8 +77,9 @@ final class GameStore {
     }
 
     func runAIIfNeeded() {
+        let engineAI = CHINGEngine.Difficulty(discipline: 0.30)
         while !isOver && !isHumanTurn {
-            let action = decide(state: state, ai: aiDifficulty)
+            let action = decide(state: state, ai: engineAI)
             apply(action)
         }
     }

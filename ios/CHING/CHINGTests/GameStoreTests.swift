@@ -4,6 +4,18 @@ import CHINGEngine
 
 @MainActor
 final class GameStoreTests: XCTestCase {
+    private static let difficultyKey = "ching.difficulty"
+
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
+        super.tearDown()
+    }
+
     func test_init_setsUpTwoPlayersHumanTurnRollPhase() {
         let store = GameStore(seed: 1)
         XCTAssertEqual(store.state.players.count, 2)
@@ -58,5 +70,17 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(Difficulty.normal.modifier, 0, accuracy: 0.0001)
         XCTAssertEqual(Difficulty.hard.modifier, 0.15, accuracy: 0.0001)
         XCTAssertEqual(Difficulty.allCases, [.easy, .normal, .hard])
+    }
+
+    func test_difficulty_defaultIsNormalOnFirstLaunch() {
+        let store = GameStore(seed: 1)
+        XCTAssertEqual(store.difficulty, .normal)
+    }
+
+    func test_difficulty_persistsAcrossInstances() {
+        let store1 = GameStore(seed: 1)
+        store1.difficulty = .hard
+        let store2 = GameStore(seed: 2)
+        XCTAssertEqual(store2.difficulty, .hard)
     }
 }
