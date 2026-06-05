@@ -22,6 +22,11 @@ struct GameView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            DifficultyPicker(difficulty: Binding(
+                get: { store.difficulty },
+                set: { store.difficulty = $0 }
+            ))
+
             Text("CHING")
                 .font(.largeTitle)
                 .bold()
@@ -198,6 +203,19 @@ struct ActionBar: View {
             .disabled(!store.canBank)
             .buttonStyle(.borderedProminent)
         }
+    }
+}
+
+struct DifficultyPicker: View {
+    @Binding var difficulty: Difficulty
+
+    var body: some View {
+        Picker("Difficulty", selection: $difficulty) {
+            ForEach(Difficulty.allCases, id: \.self) { d in
+                Text(d.rawValue.capitalized).tag(d)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 }
 
