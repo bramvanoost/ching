@@ -1,5 +1,3 @@
-import Foundation
-
 public func initialState(playerIds: [String]) -> State {
     State(
         players: playerIds.map { Player(id: $0, tiles: []) },

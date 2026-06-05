@@ -1,5 +1,3 @@
-import Foundation
-
 /// A deterministic pseudo-random source returning Doubles in [0, 1).
 /// Matches the contract of TS `Rng` from src/engine.ts.
 public protocol CHINGRandom {

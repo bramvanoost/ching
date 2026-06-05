@@ -9,8 +9,6 @@ From repo root:
 
     node parity/diff.mjs
 
-(The diff script is added in Task 17.)
-
 ## Add a case
 
 Edit `cases.json`. Each case is `{ name, seed, playerIds, actions[] }`.

@@ -1,5 +1,3 @@
-import Foundation
-
 public enum Face: Int, Codable, Sendable, CaseIterable, Equatable {
     case one = 1, two = 2, three = 3, four = 4, five = 5, coin = 6
 
