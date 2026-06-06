@@ -27,6 +27,8 @@ extension Color {
 
     /// Coral accent — active seat, action stamp.
     static let coral = Color(red: 210/255, green: 116/255, blue: 116/255)
+    /// Brighter coral for highlight on the stamp button (top of the gradient).
+    static let coralLight = Color(red: 238/255, green: 158/255, blue: 158/255)
 
     /// Coral darker — stamp drop shadow.
     static let coralDark = Color(red: 168/255, green: 88/255, blue: 88/255)
@@ -163,19 +165,56 @@ struct StampButtonStyle: ButtonStyle {
             .padding(.vertical, 16)
             .padding(.horizontal, 16)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(primary ? Color.coral : Color.stampText.opacity(0.95))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .strokeBorder(Color.coral, lineWidth: primary ? 0 : 1.5)
-                    )
-                    .shadow(color: Color.coralDark.opacity(0.35), radius: 10, x: 0, y: 6)
-                    .shadow(
-                        color: invite ? Color.coral.opacity(pulse ? 0.55 : 0.15) : .clear,
-                        radius: pulse ? 18 : 8,
-                        x: 0,
-                        y: 0
-                    )
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            primary
+                                ? LinearGradient(
+                                    colors: [Color.coralLight, Color.coral, Color.coralDark],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                                : LinearGradient(
+                                    colors: [Color.stampText, Color.stampText.opacity(0.88)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(
+                                    primary ? Color.coralDark.opacity(0.7) : Color.coral,
+                                    lineWidth: primary ? 1 : 1.5
+                                )
+                        )
+                        .overlay(
+                            // Top-edge inner highlight to read as a lit surface
+                            RoundedRectangle(cornerRadius: 13)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(primary ? 0.55 : 0.0),
+                                            Color.white.opacity(0.0)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    ),
+                                    lineWidth: 1.2
+                                )
+                                .padding(1)
+                        )
+                }
+                // Hard-offset rim (echoes the tile depth recipe)
+                .shadow(color: Color.coralDark.opacity(0.45), radius: 0, x: 0, y: 3)
+                // Soft drop
+                .shadow(color: Color.coralDark.opacity(0.3), radius: 10, x: 0, y: 7)
+                // Invitation pulse glow
+                .shadow(
+                    color: invite ? Color.coral.opacity(pulse ? 0.6 : 0.15) : .clear,
+                    radius: pulse ? 20 : 8,
+                    x: 0,
+                    y: 0
+                )
             )
             .scaleEffect(configuration.isPressed ? 0.97 : (invite && pulse ? 1.015 : 1.0))
             .opacity(configuration.isPressed ? 0.94 : 1.0)
