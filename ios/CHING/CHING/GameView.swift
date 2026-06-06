@@ -5,11 +5,34 @@ struct GameView: View {
     let store: GameStore
     let settings: SettingsStore
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
+    @SwiftUI.State private var bankFlash: Bool = false
 
     private func act(_ action: Action) {
+        let humanSeat = GameStore.humanSeat
+        let wasHumanTurn = store.isHumanTurn
+        let beforeVault = store.state.players[humanSeat].tiles.count
+
         store.apply(action)
+
+        // Celebrate a successful bank (or steal) by the human player.
+        if wasHumanTurn, case .stop = action {
+            let afterVault = store.state.players[humanSeat].tiles.count
+            if afterVault > beforeVault {
+                triggerBankFlash()
+            }
+        }
+
         let reduce = settings.reducedMotion || iosReduceMotion
         Task { await store.runAIIfNeeded(reduceMotion: reduce) }
+    }
+
+    private func triggerBankFlash() {
+        guard !settings.reducedMotion, !iosReduceMotion else { return }
+        bankFlash = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            bankFlash = false
+        }
     }
 
     private var gameOverMessage: String {
@@ -75,6 +98,13 @@ struct GameView: View {
                     onRoll: { act(.roll) },
                     onBank: { act(.stop) }
                 )
+            }
+        }
+        .overlay {
+            if bankFlash {
+                Color.gold
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
             }
         }
         .navigationBarHidden(true)
