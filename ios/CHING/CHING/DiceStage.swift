@@ -49,43 +49,58 @@ struct DiceStage: View {
                     guard canBank else { return }
                     onBank()
                 } label: {
-                    VStack(spacing: 2) {
+                    if canBank {
+                        // Two-tone receipt: cream half holds the value, coral
+                        // half is the action footer with cream BANK label —
+                        // unambiguously a button without losing the editorial
+                        // weight of the running sum on top.
+                        VStack(spacing: 0) {
+                            Text("\(setAsideSum)")
+                                .font(.avenir(60, weight: .demiBold, italic: true))
+                                .foregroundStyle(Color.ink)
+                                .monospacedDigit()
+                                .shadow(color: Color.ink.opacity(0.22), radius: 0, x: 2, y: 3)
+                                .padding(.horizontal, 28)
+                                .padding(.top, 10)
+                                .padding(.bottom, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.safePeachLight)
+
+                            HStack(spacing: 6) {
+                                Text(bankPreview.uppercased())
+                                    .font(.avenir(12, weight: .demiBold))
+                                    .tracking(3)
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundStyle(Color.stampText)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 18)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.coralLight, Color.coral, Color.coralDark],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(Color.coralDark.opacity(0.5), lineWidth: 1)
+                        )
+                        .shadow(color: Color.coralDark.opacity(0.25), radius: 12, x: 0, y: 6)
+                        .contentShape(Rectangle())
+                    } else {
+                        // Bare hero number — same treatment we've always had.
                         Text("\(setAsideSum)")
                             .font(.avenir(70, weight: .demiBold, italic: true))
                             .foregroundStyle(Color.ink)
                             .monospacedDigit()
                             .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
                             .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
-
-                        if canBank {
-                            Text(bankPreview.uppercased())
-                                .font(.avenir(11, weight: .demiBold))
-                                .tracking(3)
-                                .foregroundStyle(Color.coral)
-                                .padding(.top, 4)
-                        }
                     }
-                    .padding(.horizontal, canBank ? 26 : 0)
-                    .padding(.vertical, canBank ? 4 : 0)
-                    .background(
-                        Group {
-                            if canBank {
-                                // Solid paper tile so the number reads sharp
-                                // against the gradient instead of dissolving
-                                // into it. Soft halo only — no hard-offset
-                                // shadow that would read as a duplicate edge
-                                // line under the card.
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(Color.safePeachLight)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .strokeBorder(Color.coral, lineWidth: 1.5)
-                                    )
-                                    .shadow(color: Color.coralDark.opacity(0.28), radius: 14, x: 0, y: 6)
-                            }
-                        }
-                    )
-                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(!canBank)
@@ -98,7 +113,7 @@ struct DiceStage: View {
             }
             // Always reserve room for the stamped card so the layout doesn't
             // reflow when canBank flips on/off mid-turn.
-            .frame(height: 110)
+            .frame(height: 124)
 
             // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
             // or a centered status line. Swapping inside doesn't reflow.

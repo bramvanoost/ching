@@ -218,22 +218,25 @@ struct StampButtonStyle: ButtonStyle {
                         // drifts across the face, like the sun passing.
                         .overlay {
                             if invite {
+                                // Soft warm-light pass that drifts across the
+                                // button. Wide + faint so it reads as a glint
+                                // sweeping by, never as a visible stripe.
                                 GeometryReader { geo in
-                                    let bandWidth: CGFloat = 150
+                                    let bandWidth: CGFloat = 220
                                     Rectangle()
                                         .fill(
                                             LinearGradient(
                                                 colors: [
                                                     .clear,
-                                                    Color.coinGoldLight.opacity(0.32),
+                                                    Color.coinGoldLight.opacity(0.16),
                                                     .clear
                                                 ],
                                                 startPoint: .leading,
                                                 endPoint: .trailing
                                             )
                                         )
-                                        .frame(width: bandWidth, height: geo.size.height * 2.5)
-                                        .rotationEffect(.degrees(16))
+                                        .frame(width: bandWidth, height: geo.size.height * 1.4)
+                                        .rotationEffect(.degrees(8))
                                         .offset(x: shineSwept
                                                 ? geo.size.width / 2 + bandWidth
                                                 : -geo.size.width / 2 - bandWidth)
