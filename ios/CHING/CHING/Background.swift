@@ -210,17 +210,17 @@ private struct Dune: View {
     }
 }
 
-/// Procedural palm silhouette: gently curved trunk + a crown of feathered
-/// fronds (each frond = a central spine with leaflets running along both
-/// sides, like a real palm). `leanDegrees` tilts the whole tree.
+/// Procedural palm silhouette: gently curved trunk + seven drooping fronds
+/// radiating from the crown. `leanDegrees` tilts the whole tree at the base
+/// so the two palms in the scene have different attitudes.
 private struct Palm: View {
     var height: CGFloat
     var leanDegrees: Double = 0
 
     var body: some View {
-        Canvas { ctx, size in
-            let w = size.width
-            let h = size.height
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
             let trunkBaseX = w * 0.5
             let trunkBaseY = h
             let crownY = h * 0.36
@@ -228,164 +228,92 @@ private struct Palm: View {
 
             let trunkWidthBase = max(3.5, height / 26)
             let trunkWidthTop = max(2.0, height / 44)
-            let silhouette = GraphicsContext.Shading.color(Color.citySilhouette)
 
-            // Trunk
-            var trunk = Path()
-            trunk.move(to: CGPoint(x: trunkBaseX - trunkWidthBase, y: trunkBaseY))
-            trunk.addQuadCurve(
-                to: CGPoint(x: crownX - trunkWidthTop, y: crownY),
-                control: CGPoint(
-                    x: (trunkBaseX + crownX) / 2 - trunkWidthBase * 1.6,
-                    y: (trunkBaseY + crownY) / 2
-                )
-            )
-            trunk.addLine(to: CGPoint(x: crownX + trunkWidthTop, y: crownY))
-            trunk.addQuadCurve(
-                to: CGPoint(x: trunkBaseX + trunkWidthBase, y: trunkBaseY),
-                control: CGPoint(
-                    x: (trunkBaseX + crownX) / 2 + trunkWidthBase * 0.4,
-                    y: (trunkBaseY + crownY) / 2
-                )
-            )
-            trunk.closeSubpath()
-            ctx.fill(trunk, with: silhouette)
+            ZStack {
+                // Trunk — slightly curved, narrows toward the crown.
+                Path { p in
+                    p.move(to: CGPoint(x: trunkBaseX - trunkWidthBase, y: trunkBaseY))
+                    p.addQuadCurve(
+                        to: CGPoint(x: crownX - trunkWidthTop, y: crownY),
+                        control: CGPoint(
+                            x: (trunkBaseX + crownX) / 2 - trunkWidthBase * 1.6,
+                            y: (trunkBaseY + crownY) / 2
+                        )
+                    )
+                    p.addLine(to: CGPoint(x: crownX + trunkWidthTop, y: crownY))
+                    p.addQuadCurve(
+                        to: CGPoint(x: trunkBaseX + trunkWidthBase, y: trunkBaseY),
+                        control: CGPoint(
+                            x: (trunkBaseX + crownX) / 2 + trunkWidthBase * 0.4,
+                            y: (trunkBaseY + crownY) / 2
+                        )
+                    )
+                    p.closeSubpath()
+                }
+                .fill(Color.citySilhouette)
 
-            // Crown lump — tightens the trunk-to-fronds junction.
-            let lumpR = trunkWidthTop * 2
-            ctx.fill(
-                Path(ellipseIn: CGRect(
-                    x: crownX - lumpR,
-                    y: crownY - lumpR,
-                    width: lumpR * 2,
-                    height: lumpR * 2
-                )),
-                with: silhouette
-            )
+                // Fronds — seven leaves sweeping out from the crown, each
+                // drooping at the tip.
+                ForEach(0..<frondAngles.count, id: \.self) { i in
+                    frond(
+                        crownX: crownX,
+                        crownY: crownY,
+                        angle: frondAngles[i],
+                        length: frondLengths[i] * (height / 110)
+                    )
+                }
 
-            // Fronds — feathered compound leaves fanning across the upper
-            // hemisphere only.
-            let scale = height / 110
-            for i in Self.frondAngles.indices {
-                drawFrond(
-                    ctx: &ctx,
-                    crownX: crownX,
-                    crownY: crownY,
-                    angle: Self.frondAngles[i],
-                    length: Self.frondLengths[i] * scale,
-                    shading: silhouette,
-                    scale: scale
-                )
+                // Crown dot — tightens the trunk-to-fronds junction.
+                Circle()
+                    .fill(Color.citySilhouette)
+                    .frame(width: trunkWidthTop * 3, height: trunkWidthTop * 3)
+                    .position(x: crownX, y: crownY)
             }
         }
     }
 
-    // Six fronds fanning across the upper hemisphere only — no fronds below
-    // the crown so the silhouette never grows "roots".
-    private static let frondAngles: [Double] = [-160, -125, -90, -55, -20, 15]
-    private static let frondLengths: [CGFloat] = [42, 50, 54, 52, 46, 40]
+    // Six fat fronds fanning across the upper hemisphere only — chunky
+    // enough to read as a palm crown even at distance.
+    private let frondAngles: [Double] = [-160, -125, -90, -55, -20, 15]
+    private let frondLengths: [CGFloat] = [40, 48, 52, 50, 44, 38]
 
-    private func drawFrond(
-        ctx: inout GraphicsContext,
-        crownX: CGFloat,
-        crownY: CGFloat,
-        angle: Double,
-        length: CGFloat,
-        shading: GraphicsContext.Shading,
-        scale: CGFloat
-    ) {
+    private func frond(crownX: CGFloat, crownY: CGFloat, angle: Double, length: CGFloat) -> some View {
         let rad = angle * .pi / 180
+        let straightTipX = crownX + cos(rad) * length
+        let straightTipY = crownY + sin(rad) * length
+
+        // Side-pointing fronds droop more; near-vertical fronds barely droop.
         let horizontality = abs(cos(rad))
-        let droop = length * 0.34 * horizontality + 4
+        let droop = length * 0.32 * horizontality + 4
+        let tipX = straightTipX
+        let tipY = straightTipY + droop
 
-        // Straight tip, plus a vertical droop applied at the end.
-        let tipX = crownX + cos(rad) * length
-        let tipY = crownY + sin(rad) * length + droop
+        return Path { p in
+            // Wide tapered leaf: 10pt at the base, point at the tip. The
+            // belly bulges downward so the silhouette reads as a hanging
+            // frond rather than a rigid spike.
+            let baseWidth: CGFloat = 10
+            let perpX = -sin(rad) * baseWidth / 2
+            let perpY = cos(rad) * baseWidth / 2
 
-        // Quadratic Bezier: control point pulls the belly downward so the
-        // spine curves like a hanging frond rather than a rigid spike.
-        let ctrlX = (crownX + tipX) / 2
-        let ctrlY = (crownY + tipY) / 2 + droop * 0.5
-
-        // Central spine — thin filled taper from crown to tip.
-        let spineHalf = max(1.0, 1.4 * scale)
-        let perpAtBaseX = -sin(rad) * spineHalf
-        let perpAtBaseY = cos(rad) * spineHalf
-        var spine = Path()
-        spine.move(to: CGPoint(x: crownX - perpAtBaseX, y: crownY - perpAtBaseY))
-        spine.addQuadCurve(
-            to: CGPoint(x: tipX, y: tipY),
-            control: CGPoint(x: ctrlX - perpAtBaseX * 0.4, y: ctrlY - perpAtBaseY * 0.4)
-        )
-        spine.addQuadCurve(
-            to: CGPoint(x: crownX + perpAtBaseX, y: crownY + perpAtBaseY),
-            control: CGPoint(x: ctrlX + perpAtBaseX * 0.4, y: ctrlY + perpAtBaseY * 0.4)
-        )
-        spine.closeSubpath()
-        ctx.fill(spine, with: shading)
-
-        // Leaflets — short strokes perpendicular to the spine tangent,
-        // one bundle on each side at every t. Length tapers toward the tip.
-        let leafletCount = 11
-        let baseLeafletLength: CGFloat = 9 * scale
-        for i in 1...leafletCount {
-            let t = Double(i) / Double(leafletCount + 1)
-
-            // Point on the spine at parameter t.
-            let oneMinusT = 1 - t
-            let bx = oneMinusT * oneMinusT * crownX
-                  + 2 * oneMinusT * t * ctrlX
-                  + t * t * tipX
-            let by = oneMinusT * oneMinusT * crownY
-                  + 2 * oneMinusT * t * ctrlY
-                  + t * t * tipY
-
-            // Tangent at t (derivative of the quad Bezier).
-            let tx = 2 * oneMinusT * (ctrlX - crownX) + 2 * t * (tipX - ctrlX)
-            let ty = 2 * oneMinusT * (ctrlY - crownY) + 2 * t * (tipY - ctrlY)
-            let tangentLen = max(0.001, sqrt(tx * tx + ty * ty))
-            let perpX = -ty / tangentLen
-            let perpY = tx / tangentLen
-
-            // Leaflets shorten as we approach the tip, never below 35%.
-            let leafletLen = baseLeafletLength * (1 - t * 0.55)
-
-            // Top leaflet
-            let topEndX = bx + perpX * leafletLen
-            let topEndY = by + perpY * leafletLen + 1.0
-            var topLeaf = Path()
-            topLeaf.move(to: CGPoint(x: bx, y: by))
-            topLeaf.addQuadCurve(
-                to: CGPoint(x: topEndX, y: topEndY),
+            p.move(to: CGPoint(x: crownX - perpX, y: crownY - perpY))
+            p.addQuadCurve(
+                to: CGPoint(x: tipX, y: tipY),
                 control: CGPoint(
-                    x: (bx + topEndX) / 2 + perpX * 0.5,
-                    y: (by + topEndY) / 2 + 1.0
+                    x: (crownX + tipX) / 2 - perpX * 0.3,
+                    y: (crownY + tipY) / 2 - perpY * 0.3 + droop * 0.6
                 )
             )
-            ctx.stroke(
-                topLeaf,
-                with: shading,
-                style: StrokeStyle(lineWidth: 1.5 * scale, lineCap: .round)
-            )
-
-            // Bottom leaflet (other side of spine, droops slightly more).
-            let botEndX = bx - perpX * leafletLen
-            let botEndY = by - perpY * leafletLen + 2.0
-            var botLeaf = Path()
-            botLeaf.move(to: CGPoint(x: bx, y: by))
-            botLeaf.addQuadCurve(
-                to: CGPoint(x: botEndX, y: botEndY),
+            p.addQuadCurve(
+                to: CGPoint(x: crownX + perpX, y: crownY + perpY),
                 control: CGPoint(
-                    x: (bx + botEndX) / 2 - perpX * 0.5,
-                    y: (by + botEndY) / 2 + 2.0
+                    x: (crownX + tipX) / 2 + perpX * 0.3,
+                    y: (crownY + tipY) / 2 + perpY * 0.3 + droop
                 )
             )
-            ctx.stroke(
-                botLeaf,
-                with: shading,
-                style: StrokeStyle(lineWidth: 1.5 * scale, lineCap: .round)
-            )
+            p.closeSubpath()
         }
+        .fill(Color.citySilhouette)
     }
 }
 
