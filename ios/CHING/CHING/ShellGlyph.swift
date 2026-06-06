@@ -23,20 +23,22 @@ struct ShellGlyph: View {
         Canvas { ctx, canvasSize in
             let w = canvasSize.width
             let h = canvasSize.height
-            // Hinge sits about 80% down — the shell domes up from a narrow
-            // base instead of hanging from the bottom edge, so it reads
-            // higher in its frame.
-            let hinge = CGPoint(x: w / 2, y: h * 0.80)
-            // Arc sweep is narrower than before (210°→330°, ~120° total).
-            // That makes the silhouette closer to a dome than a wide fan:
-            // width:height ≈ 1.7:1 instead of 1.9:1.
-            let startDeg: Double = 210
-            let endDeg: Double = 330
-            // cos(210°) = -0.866 — width-half per unit radius. Radius is the
-            // smaller of "fit the width" or "reach the top" so we never clip.
-            let r = min(h * 0.78, (w / 2) / 0.866)
+            // Rim wraps from 145° (lower-left) up over the top and back
+            // down to 35° (lower-right). Sweep is ~250° — the silhouette
+            // reads as a circle with a small notch at the bottom where
+            // the hinge sits. Width:height ≈ 1.04:1.
+            let startDeg: Double = 145
+            let endDeg: Double = 395  // = 35°, taken CCW through 270°.
 
-            let bumps = 7
+            // cos(145°) = -0.819 → width = 2 * 0.819r = 1.638r.
+            // sin(145°) = 0.574  → rim points sit 0.574r below the hinge,
+            // so total shell height = r + 0.574r = 1.574r.
+            let r = min(w * 0.611, h * 0.635)
+            // Place the hinge so the shell's geometric center lands on the
+            // canvas mid-line.
+            let hinge = CGPoint(x: w / 2, y: h * 0.5 + r * 0.213)
+
+            let bumps = 9
             let steps = bumps * 8
 
             // Outline: hinge → walk the fluted rim → hinge.
@@ -111,7 +113,7 @@ struct ShellGlyph: View {
 /// and stroked in treasure ink so it reads like a mint stamp.
 struct ShellMedallion: View {
     var size: CGFloat
-    var shellScale: CGFloat = 0.66
+    var shellScale: CGFloat = 0.80
 
     var body: some View {
         ZStack {
@@ -146,10 +148,6 @@ struct ShellMedallion: View {
                 showRidges: true
             )
             .shadow(color: Color.treasureInk.opacity(0.45), radius: max(1.5, size / 36), x: 0, y: max(1.5, size / 50))
-            // Lift so the shell's optical center sits above the coin's
-            // geometric center — the hinge naturally falls lower than the
-            // shell's visual mass.
-            .offset(y: -size * 0.07)
         }
         .frame(width: size, height: size)
     }
