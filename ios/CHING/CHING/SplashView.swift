@@ -36,8 +36,6 @@ struct SplashView: View {
                     .padding(.top, 6)
                     .opacity(logoVisible ? 1 : 0)
 
-                Spacer()
-
                 VStack(spacing: 18) {
                     NavigationLink {
                         GameView(store: store, settings: settings)
@@ -68,7 +66,9 @@ struct SplashView: View {
                 }
                 .opacity(actionsVisible ? 1 : 0)
                 .offset(y: actionsVisible ? 0 : 12)
-                .padding(.bottom, 60)
+                .padding(.top, 36)
+
+                Spacer()
             }
             .padding(.horizontal, 24)
         }
