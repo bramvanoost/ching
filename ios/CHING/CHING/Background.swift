@@ -17,26 +17,26 @@ struct Background: View {
                 endPoint: .bottom
             )
 
-            // Moon, top-right
+            // Moon, mid-right (well below the chrome bar so it doesn't crowd the gear)
             GeometryReader { geo in
                 ZStack {
                     Circle()
                         .fill(Color.moonGlow)
-                        .frame(width: 60, height: 60)
-                        .blur(radius: 18)
-                        .opacity(0.55)
+                        .frame(width: 80, height: 80)
+                        .blur(radius: 22)
+                        .opacity(0.45)
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [Color.moonCenter, Color.moonGlow, Color.moonGlow.opacity(0.6)],
                                 center: UnitPoint(x: 0.35, y: 0.35),
                                 startRadius: 2,
-                                endRadius: 22
+                                endRadius: 26
                             )
                         )
-                        .frame(width: 38, height: 38)
+                        .frame(width: 44, height: 44)
                 }
-                .position(x: geo.size.width - 50, y: 90)
+                .position(x: geo.size.width - 56, y: 220)
             }
 
             // Cityscape silhouette

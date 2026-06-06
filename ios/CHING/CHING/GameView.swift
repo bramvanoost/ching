@@ -31,19 +31,27 @@ struct GameView: View {
 
     private func triggerBankFlash() {
         guard !settings.reducedMotion, !iosReduceMotion else { return }
-        bankFlash = true
+        withAnimation(.easeOut(duration: 0.12)) {
+            bankFlash = true
+        }
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 220_000_000)
-            bankFlash = false
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            withAnimation(.easeIn(duration: 0.3)) {
+                bankFlash = false
+            }
         }
     }
 
     private func triggerBustFlash() {
         guard !settings.reducedMotion, !iosReduceMotion else { return }
-        bustFlash = true
+        withAnimation(.easeOut(duration: 0.25)) {
+            bustFlash = true
+        }
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 700_000_000)
-            bustFlash = false
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            withAnimation(.easeIn(duration: 0.4)) {
+                bustFlash = false
+            }
         }
     }
 
@@ -134,17 +142,24 @@ struct GameView: View {
                 ZStack {
                     LinearGradient(
                         colors: [
-                            Color(red: 40/255, green: 28/255, blue: 50/255).opacity(0.85),
-                            Color(red: 60/255, green: 40/255, blue: 78/255).opacity(0.78)
+                            Color(red: 24/255, green: 16/255, blue: 34/255).opacity(0.95),
+                            Color(red: 44/255, green: 28/255, blue: 60/255).opacity(0.92)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                     .ignoresSafeArea()
-                    Text("bust.")
-                        .font(.avenir(56, weight: .ultraLight, italic: true))
-                        .tracking(4)
-                        .foregroundStyle(Color.paper)
+                    VStack(spacing: 18) {
+                        Text("bust.")
+                            .font(.avenir(84, weight: .ultraLight, italic: true))
+                            .tracking(6)
+                            .foregroundStyle(Color.paper)
+                            .shadow(color: Color.coral.opacity(0.4), radius: 18, x: 0, y: 0)
+                        Text("a tile was burned")
+                            .font(.avenir(13, weight: .medium, italic: true))
+                            .tracking(2)
+                            .foregroundStyle(Color.paper.opacity(0.7))
+                    }
                 }
                 .allowsHitTesting(false)
                 .transition(.opacity)

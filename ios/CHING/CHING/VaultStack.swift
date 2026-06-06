@@ -28,9 +28,18 @@ struct VaultStack: View {
                     safeView(value: safe, isTop: idx == 0)
                         .offset(y: CGFloat(idx) * layerOffset)
                         .zIndex(Double(stackedNewestFirst.count - idx))
+                        .transition(
+                            idx == 0
+                            ? .asymmetric(
+                                insertion: .scale(scale: 0.4).combined(with: .opacity),
+                                removal: .opacity
+                              )
+                            : .opacity
+                        )
                 }
             }
             .frame(width: safeWidth, height: stackHeight, alignment: .top)
+            .animation(.spring(response: 0.45, dampingFraction: 0.7), value: safes.count)
         }
     }
 
