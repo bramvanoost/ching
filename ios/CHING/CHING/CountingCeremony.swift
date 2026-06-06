@@ -111,7 +111,9 @@ struct CountingCeremony: View {
             }
             .frame(height: 44)
 
-            // Big coin total + same-sized coin, side by side.
+            // Big coin total + same-sized coin, side by side. The coin sits
+            // a bit higher than the geometric center so it lines up with the
+            // visible cap height of the italic digits.
             HStack(alignment: .center, spacing: 10) {
                 Text("\(displayedTotal)")
                     .font(.avenir(48, weight: .demiBold))
@@ -119,6 +121,7 @@ struct CountingCeremony: View {
                     .monospacedDigit()
                 coinGlyph(size: 48)
                     .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 2)
+                    .offset(y: -6)
             }
             .opacity(isRevealed ? 1.0 : 0.25)
         }
