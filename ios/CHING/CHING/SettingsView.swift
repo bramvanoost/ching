@@ -63,3 +63,33 @@ struct StampSegmented<T: Hashable>: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 }
+
+struct StampToggle: View {
+    @Binding var isOn: Bool
+    var disabled: Bool = false
+
+    var body: some View {
+        Button {
+            if !disabled { isOn.toggle() }
+        } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Rectangle()
+                    .fill(Color.paper)
+                    .frame(width: 34, height: 20)
+                    .overlay(
+                        Rectangle()
+                            .strokeBorder(disabled ? Color.dimInk : Color.ink, lineWidth: 1.5)
+                    )
+                Rectangle()
+                    .fill(disabled ? Color.dimInk : Color.ink)
+                    .frame(width: 14, height: 14)
+                    .padding(.horizontal, 2)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Toggle")
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(disabled ? [.isStaticText] : [])
+    }
+}
