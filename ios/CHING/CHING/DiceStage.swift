@@ -23,16 +23,13 @@ struct DiceStage: View {
     // pop in before the cycle starts.
     @SwiftUI.State private var displayedRolled: [Face] = []
     @SwiftUI.State private var rollAnimationTask: Task<Void, Never>?
+    @SwiftUI.State private var isAnimating: Bool = false
     @SwiftUI.State private var pickSparkleTrigger: Int = 0
     @SwiftUI.State private var lastSum: Int = -1
     @SwiftUI.State private var pickingFace: Face?
 
     private var displayRolled: [Face] {
         displayedRolled
-    }
-
-    private var isAnimating: Bool {
-        rollAnimationTask != nil && rollAnimationTask?.isCancelled == false
     }
 
     var body: some View {
@@ -164,7 +161,12 @@ struct DiceStage: View {
             let isFreshRoll = oldValue.isEmpty && !newValue.isEmpty
             rollAnimationTask?.cancel()
             if isFreshRoll && !reduceMotion {
+                isAnimating = true
                 rollAnimationTask = Task { @MainActor in
+                    defer {
+                        isAnimating = false
+                        rollAnimationTask = nil
+                    }
                     let pool: [Face] = [.one, .two, .three, .four, .five, .coin]
                     let frames = 5
                     let frameNs: UInt64 = 80_000_000
@@ -182,6 +184,7 @@ struct DiceStage: View {
                 if isFreshRoll, reduceMotion, isHumanTurn {
                     GameSFX.shared.playRoll()
                 }
+                isAnimating = false
                 displayedRolled = newValue
             }
         }
