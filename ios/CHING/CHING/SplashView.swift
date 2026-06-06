@@ -4,8 +4,15 @@ struct SplashView: View {
     let store: GameStore
     let settings: SettingsStore
 
+    @SwiftUI.State private var audio = HomeAudio()
     @SwiftUI.State private var logoVisible: Bool = false
     @SwiftUI.State private var actionsVisible: Bool = false
+    @SwiftUI.State private var creditVisible: Bool = false
+
+    private var creditAttributed: AttributedString {
+        let raw = "Sound effect by [Alfarran Basalim](https://pixabay.com/users/farran_ez-45967570/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148) from [Pixabay](https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148)."
+        return (try? AttributedString(markdown: raw)) ?? AttributedString(raw)
+    }
 
     var body: some View {
         ZStack {
@@ -29,9 +36,10 @@ struct SplashView: View {
                 .opacity(logoVisible ? 1 : 0)
                 .scaleEffect(logoVisible ? 1 : 0.92)
 
-                Text("a push-your-luck dice game")
+                Text("push your luck. grab it all.")
                     .font(.avenir(14, weight: .medium, italic: true))
                     .tracking(2)
+                    .textCase(.lowercase)
                     .foregroundStyle(Color.ink.opacity(0.6))
                     .padding(.top, 6)
                     .opacity(logoVisible ? 1 : 0)
@@ -41,6 +49,7 @@ struct SplashView: View {
                         GameView(store: store, settings: settings)
                             .onAppear {
                                 store.newGame()
+                                audio.stop()
                             }
                     } label: {
                         Text("New Game")
@@ -69,17 +78,33 @@ struct SplashView: View {
                 .padding(.top, 36)
 
                 Spacer()
+
+                // Pixabay attribution per their license terms.
+                Text(creditAttributed)
+                    .font(.avenir(10, weight: .medium, italic: true))
+                    .tracking(0.5)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.ink.opacity(0.42))
+                    .tint(Color.coral.opacity(0.85))
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 18)
+                    .opacity(creditVisible ? 1 : 0)
             }
             .padding(.horizontal, 24)
         }
         .navigationBarHidden(true)
         .task {
+            audio.start()
             withAnimation(.easeOut(duration: 0.7)) {
                 logoVisible = true
             }
             try? await Task.sleep(nanoseconds: 350_000_000)
             withAnimation(.easeOut(duration: 0.5)) {
                 actionsVisible = true
+            }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            withAnimation(.easeOut(duration: 0.6)) {
+                creditVisible = true
             }
         }
     }
