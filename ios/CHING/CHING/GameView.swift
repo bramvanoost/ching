@@ -201,14 +201,9 @@ struct ChromeBar: View {
                 SettingsView(settings: settings, onNewGame: onNewGame)
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 18))
+                    .font(.system(size: 22, weight: .light))
                     .foregroundStyle(Color.ink.opacity(0.55))
                     .padding(8)
-                    .background(
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .overlay(Circle().strokeBorder(Color.ink.opacity(0.25), lineWidth: 1))
-                    )
             }
         }
         .padding(.horizontal, 16)
@@ -248,7 +243,7 @@ struct ActionBar: View {
             } else if hasSetAside {
                 HStack(spacing: 10) {
                     Button("Roll Again") { onRoll() }
-                        .stampButton(primary: true)
+                        .stampButton(primary: true, invite: canRoll)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)
 
@@ -264,7 +259,7 @@ struct ActionBar: View {
                 HStack {
                     Spacer()
                     Button("Roll") { onRoll() }
-                        .stampButton(primary: true)
+                        .stampButton(primary: true, invite: canRoll)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)
                         .frame(maxWidth: 280)

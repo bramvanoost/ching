@@ -8,12 +8,13 @@ struct SafesGrid: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text("\(remainingCount)")
-                    .font(.avenir(18, weight: .demiBold))
-                    .foregroundStyle(Color.coral)
+                    .font(.avenir(28, weight: .demiBold))
+                    .foregroundStyle(Color.ink)
+                    .shadow(color: Color.gold.opacity(0.3), radius: 8, x: 0, y: 0)
                 Text("tiles left")
-                    .font(.avenir(15, weight: .medium, italic: true))
+                    .font(.avenir(16, weight: .medium, italic: true))
                     .foregroundStyle(Color.ink.opacity(0.75))
             }
             .frame(maxWidth: .infinity)

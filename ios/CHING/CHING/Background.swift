@@ -43,14 +43,18 @@ private struct Skyline: View {
         var accent: Bool
     }
 
+    // Smaller, further apart pillars — recede into the background like a distant skyline
     private let pillars: [Pillar] = [
-        Pillar(x: 30, width: 40, height: 80, accent: false),
-        Pillar(x: 78, width: 32, height: 112, accent: false),
-        Pillar(x: 120, width: 52, height: 64, accent: true),
-        Pillar(x: 184, width: 36, height: 96, accent: false),
-        Pillar(x: 236, width: 44, height: 72, accent: false),
-        Pillar(x: 290, width: 32, height: 88, accent: true),
-        Pillar(x: 336, width: 40, height: 60, accent: false)
+        Pillar(x: 24, width: 22, height: 44, accent: false),
+        Pillar(x: 58, width: 18, height: 62, accent: false),
+        Pillar(x: 92, width: 28, height: 36, accent: true),
+        Pillar(x: 136, width: 20, height: 56, accent: false),
+        Pillar(x: 172, width: 24, height: 40, accent: true),
+        Pillar(x: 212, width: 18, height: 50, accent: false),
+        Pillar(x: 246, width: 26, height: 32, accent: false),
+        Pillar(x: 286, width: 20, height: 48, accent: true),
+        Pillar(x: 320, width: 22, height: 38, accent: false),
+        Pillar(x: 356, width: 18, height: 54, accent: false)
     ]
 
     var body: some View {
@@ -60,6 +64,7 @@ private struct Skyline: View {
                     let p = pillars[idx]
                     IsoPillar(width: p.width, height: p.height, accent: p.accent)
                         .offset(x: p.x, y: baseY - p.height)
+                        .opacity(0.65)
                 }
 
                 // Soft ground gradient — extends to the bottom of the screen

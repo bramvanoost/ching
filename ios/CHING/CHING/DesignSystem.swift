@@ -39,6 +39,10 @@ extension Color {
     /// are physical objects, not chrome.
     static let treasureInk = Color(red: 74/255, green: 55/255, blue: 84/255)
 
+    /// Constant cream for stamp button text on the coral fill.
+    /// Doesn't invert — coral is constant, text on it is constant too.
+    static let stampText = Color(red: 251/255, green: 231/255, blue: 208/255)
+
     /// Safe tile gradient stops (peach).
     static let safePeachLight = Color(red: 253/255, green: 233/255, blue: 208/255)
     static let safePeachDark = Color(red: 243/255, green: 214/255, blue: 184/255)
@@ -145,33 +149,48 @@ struct CoinPips: View {
 
 struct StampButtonStyle: ButtonStyle {
     var primary: Bool = true
+    var invite: Bool = false
+
+    @SwiftUI.State private var pulse: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.avenir(15, weight: .demiBold))
+            .font(.avenir(16, weight: .demiBold))
             .textCase(.uppercase)
             .tracking(3)
-            .foregroundStyle(primary ? Color.paper : Color.coral)
+            .foregroundStyle(primary ? Color.stampText : Color.coral)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .padding(.horizontal, 16)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(primary ? Color.coral : Color.paper)
+                    .fill(primary ? Color.coral : Color.stampText.opacity(0.95))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .strokeBorder(Color.coral, lineWidth: primary ? 0 : 1.5)
                     )
                     .shadow(color: Color.coralDark.opacity(0.35), radius: 10, x: 0, y: 6)
+                    .shadow(
+                        color: invite ? Color.coral.opacity(pulse ? 0.55 : 0.15) : .clear,
+                        radius: pulse ? 18 : 8,
+                        x: 0,
+                        y: 0
+                    )
             )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.97 : (invite && pulse ? 1.015 : 1.0))
             .opacity(configuration.isPressed ? 0.94 : 1.0)
+            .onAppear {
+                guard invite else { return }
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
     }
 }
 
 extension View {
-    func stampButton(primary: Bool = true) -> some View {
-        self.buttonStyle(StampButtonStyle(primary: primary))
+    func stampButton(primary: Bool = true, invite: Bool = false) -> some View {
+        self.buttonStyle(StampButtonStyle(primary: primary, invite: invite))
     }
 }
 
