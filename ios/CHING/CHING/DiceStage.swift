@@ -89,9 +89,11 @@ struct DiceStage: View {
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 6)
         .onChange(of: rolled) { oldValue, newValue in
-            guard !reduceMotion else { return }
             if oldValue.isEmpty && !newValue.isEmpty {
-                animateRoll(count: newValue.count)
+                GameSFX.shared.playRoll()
+                if !reduceMotion {
+                    animateRoll(count: newValue.count)
+                }
             }
         }
         .onChange(of: setAsideSum) { oldValue, newValue in
@@ -186,6 +188,7 @@ struct DiceStage: View {
 
     private func handlePick(_ face: Face) {
         guard !isAnimating, pickingFace == nil, canPick(face) else { return }
+        GameSFX.shared.playConfirm()
         if reduceMotion {
             onPick(face)
             return
