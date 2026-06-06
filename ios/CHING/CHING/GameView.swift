@@ -332,16 +332,16 @@ struct ChromeBar: View {
     var body: some View {
         HStack {
             HStack(spacing: 0) {
-                Text("c")
+                Text("shell ")
                     .foregroundStyle(Color.ink)
-                Text("h")
+                Text("y")
                     .foregroundStyle(Color.coral)
-                    .font(.avenir(26, weight: .demiBold))
-                Text("ing")
+                    .font(.avenir(22, weight: .demiBold))
+                Text("es")
                     .foregroundStyle(Color.ink)
             }
-            .font(.avenir(26, weight: .ultraLight))
-            .tracking(3)
+            .font(.avenir(22, weight: .ultraLight))
+            .tracking(2)
             .textCase(.lowercase)
 
             Spacer()
