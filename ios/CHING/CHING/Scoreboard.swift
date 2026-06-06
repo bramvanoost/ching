@@ -5,57 +5,101 @@ struct Scoreboard: View {
     let players: [Player]
     let scores: [Int]
     let current: Int
+    var revealed: Bool = true
+    var stolenFrom: Int? = nil
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             ForEach(players.indices, id: \.self) { i in
                 column(playerIndex: i)
                     .frame(maxWidth: .infinity)
-                if i < players.count - 1 {
-                    Rectangle()
-                        .fill(Color.ink)
-                        .frame(width: 1)
-                }
+                    .opacity(revealed ? 1 : 0)
+                    .offset(y: revealed ? 0 : 24)
+                    .animation(
+                        .spring(response: 0.55, dampingFraction: 0.78).delay(Double(i) * 0.12),
+                        value: revealed
+                    )
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
         .fixedSize(horizontal: false, vertical: true)
-        .overlay(
-            VStack(spacing: 0) {
-                Rectangle().fill(Color.ink).frame(height: 1.5)
-                Spacer()
-                Rectangle().fill(Color.ink).frame(height: 1.5)
-            }
-        )
     }
 
     @ViewBuilder
     private func column(playerIndex i: Int) -> some View {
         let isActive = i == current
-        VStack(spacing: 4) {
+        let isStolen = stolenFrom == i
+        let safeCount = players[i].tiles.count
+        VStack(spacing: 8) {
             Text(players[i].id.capitalized)
-                .font(.bodoniItalic(18))
-                .foregroundStyle(isActive ? Color.paper : Color.ink)
-                .padding(.top, 8)
+                .font(.avenir(14, weight: isActive ? .demiBold : .medium))
+                .foregroundStyle(Color.ink)
 
-            Text("\(scores[i])")
-                .font(.cochin(32))
-                .foregroundStyle(isActive ? Color.paper : Color.ink)
-
-            if players[i].tiles.isEmpty {
-                Text("empty")
-                    .font(.cochinItalic(9))
-                    .textCase(.uppercase)
-                    .tracking(1)
-                    .foregroundStyle(isActive ? Color.paper.opacity(0.6) : Color.dimInk)
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-            } else {
-                VaultStack(safes: players[i].tiles, activeSeat: isActive)
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
+            // Always reserve the vault area height so columns don't jump
+            ZStack {
+                if players[i].tiles.isEmpty {
+                    safePlaceholder()
+                } else {
+                    VaultStack(safes: players[i].tiles, activeSeat: isActive)
+                }
             }
+            .frame(height: 54, alignment: .top)
+
+            Text("\(safeCount) \(safeCount == 1 ? "tile" : "tiles")")
+                .font(.avenir(10, weight: .medium, italic: true))
+                .tracking(1)
+                .foregroundStyle(Color.ink.opacity(0.55))
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .background(isActive ? Color.ink : Color.paper)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(
+                    isStolen ? Color.coral.opacity(0.45) :
+                    isActive ? Color.white.opacity(0.45) :
+                    Color.white.opacity(0.18)
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(
+                    isStolen ? Color.coral :
+                    isActive ? Color.coral.opacity(0.4) :
+                    Color.ink.opacity(0.15),
+                    lineWidth: isStolen ? 2.5 : (isActive ? 1.5 : 1)
+                )
+        )
+        .shadow(
+            color: isStolen ? Color.coral.opacity(0.75) :
+                   isActive ? Color.coral.opacity(0.25) : .clear,
+            radius: isStolen ? 18 : 12,
+            x: 0, y: 0
+        )
+        .scaleEffect(isStolen ? 1.04 : 1.0)
+        .overlay(alignment: .top) {
+            if isStolen {
+                Text("stolen!")
+                    .font(.avenir(13, weight: .demiBold, italic: true))
+                    .tracking(2)
+                    .textCase(.lowercase)
+                    .foregroundStyle(Color.coral)
+                    .shadow(color: Color.paper.opacity(0.8), radius: 3, x: 0, y: 0)
+                    .offset(y: -16)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isStolen)
+    }
+
+    @ViewBuilder
+    private func safePlaceholder() -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .strokeBorder(
+                Color.treasureInk.opacity(0.4),
+                style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])
+            )
+            .frame(width: 38, height: 42)
     }
 }

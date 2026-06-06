@@ -14,7 +14,7 @@ struct CHINGApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                GameView(store: store, settings: settings)
+                SplashView(store: store, settings: settings)
             }
             .preferredColorScheme(settings.colorMode.preferredScheme)
         }

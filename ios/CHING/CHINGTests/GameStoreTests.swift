@@ -95,13 +95,13 @@ final class GameStoreTests: XCTestCase {
 
     func test_phaseHint_byPhaseAndSeat() {
         let store = makeStore(seed: 1)
-        XCTAssertEqual(store.phaseHint, "Your roll.")
+        XCTAssertEqual(store.phaseHint, "You're up. Roll the dice.")
 
         var s = store.state
         s.phase = .pick
         s.rolled = [.three, .three, .five, .coin]
         store.setStateForTesting(s)
-        XCTAssertEqual(store.phaseHint, "Tap a face to lock.")
+        XCTAssertEqual(store.phaseHint, "Choose wisely.")
 
         s.current = GameStore.jonesSeat
         s.phase = .roll
@@ -133,6 +133,6 @@ final class GameStoreTests: XCTestCase {
         s.current = GameStore.humanSeat
         store.setStateForTesting(s)
         XCTAssertEqual(store.setAsideSum, 25)
-        XCTAssertEqual(store.bankActionLabel, "Steal Jones's safe")
+        XCTAssertEqual(store.bankActionLabel, "Steal Jones's tile")
     }
 }

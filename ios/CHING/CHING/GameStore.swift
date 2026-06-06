@@ -58,7 +58,7 @@ final class GameStore {
         for i in state.players.indices where i != state.current {
             if let top = state.players[i].tiles.last, top == setAsideSum {
                 let name = state.players[i].id.capitalized
-                return "Steal \(name)'s safe"
+                return "Steal \(name)'s tile"
             }
         }
         return "Bank"
@@ -71,9 +71,9 @@ final class GameStore {
         if isOver { return "Game over." }
         switch state.phase {
         case .roll:
-            return state.setAside.isEmpty ? "Your roll." : "Roll again, or bank."
+            return state.setAside.isEmpty ? "You're up. Roll the dice." : "Roll again, or bank."
         case .pick:
-            return "Tap a face to lock."
+            return "Choose wisely."
         case .over:
             return "Game over."
         }
