@@ -62,16 +62,16 @@ struct SafesGrid: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
                         .strokeBorder(
-                            available ? Color.ink : Color.dimInk.opacity(0.5),
+                            available ? Color.treasureInk : Color.treasureInk.opacity(0.35),
                             lineWidth: 1.5
                         )
                 )
-                .shadow(color: Color.ink.opacity(available ? 0.15 : 0), radius: 0, x: 0, y: 2)
+                .shadow(color: Color.treasureInk.opacity(available ? 0.18 : 0), radius: 0, x: 0, y: 2)
 
             VStack(spacing: 4) {
                 Text("\(value)")
                     .font(.avenir(18, weight: .demiBold))
-                    .foregroundStyle(available ? Color.ink : Color.dimInk)
+                    .foregroundStyle(available ? Color.treasureInk : Color.treasureInk.opacity(0.45))
                 CoinPips(count: coins, diameter: 6, spacing: 3)
                     .opacity(available ? 1.0 : 0.3)
             }

@@ -121,14 +121,14 @@ struct DiceStage: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.ink, lineWidth: 1.5)
+                            .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                     )
-                    .shadow(color: Color.ink.opacity(0.2), radius: 0, x: 0, y: 3)
-                    .shadow(color: Color.ink.opacity(0.12), radius: 6, x: 0, y: 5)
+                    .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 3)
+                    .shadow(color: Color.treasureInk.opacity(0.12), radius: 6, x: 0, y: 5)
 
                 Text(faceText(face))
                     .font(.avenir(22, weight: .demiBold))
-                    .foregroundStyle(Color.ink)
+                    .foregroundStyle(Color.treasureInk)
             }
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
@@ -157,11 +157,11 @@ struct DiceStage: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(Color.ink, lineWidth: 1.5)
+                        .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                 )
             Text(faceText(face))
                 .font(.avenir(14, weight: .demiBold))
-                .foregroundStyle(Color.ink)
+                .foregroundStyle(Color.treasureInk)
         }
         .frame(width: 26, height: 26)
         .opacity(0.75)

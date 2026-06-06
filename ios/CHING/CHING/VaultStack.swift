@@ -47,15 +47,15 @@ struct VaultStack: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(Color.ink, lineWidth: 1.5)
+                        .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                 )
-                .shadow(color: Color.ink.opacity(0.15), radius: 0, x: 0, y: 2)
+                .shadow(color: Color.treasureInk.opacity(0.15), radius: 0, x: 0, y: 2)
 
             if isTop {
                 VStack(spacing: 2) {
                     Text("\(value)")
                         .font(.avenir(13, weight: .demiBold))
-                        .foregroundStyle(Color.ink)
+                        .foregroundStyle(Color.treasureInk)
                     CoinPips(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
                 }
             }

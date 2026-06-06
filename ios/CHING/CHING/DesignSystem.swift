@@ -34,6 +34,11 @@ extension Color {
     /// Gold pip — coin value markers on safes.
     static let gold = Color(red: 201/255, green: 140/255, blue: 74/255)
 
+    /// Constant deep plum for text + borders on the peach treasure assets
+    /// (safes, dice, vault chips). Doesn't invert in dark mode — these
+    /// are physical objects, not chrome.
+    static let treasureInk = Color(red: 74/255, green: 55/255, blue: 84/255)
+
     /// Safe tile gradient stops (peach).
     static let safePeachLight = Color(red: 253/255, green: 233/255, blue: 208/255)
     static let safePeachDark = Color(red: 243/255, green: 214/255, blue: 184/255)
