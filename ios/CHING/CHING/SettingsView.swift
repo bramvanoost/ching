@@ -10,109 +10,120 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            Color.paper.ignoresSafeArea()
+            Background()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Settings")
-                        .font(.bodoni(28))
+                    Text("settings")
+                        .font(.avenir(34, weight: .ultraLight))
+                        .tracking(2)
                         .foregroundStyle(Color.ink)
                         .padding(.top, 8)
+                        .padding(.bottom, 12)
 
-                    SettingsSection(title: "Play") {
-                        SettingsRow(title: "Difficulty") {
-                            StampSegmented(
-                                selection: Binding(
-                                    get: { settings.difficulty },
-                                    set: { settings.difficulty = $0 }
-                                ),
-                                options: Difficulty.allCases,
-                                labelFor: { $0.rawValue.capitalized }
-                            )
-                            .frame(maxWidth: 220)
+                    glassCard {
+                        SettingsSection(title: "play") {
+                            SettingsRow(title: "Difficulty") {
+                                StampSegmented(
+                                    selection: Binding(
+                                        get: { settings.difficulty },
+                                        set: { settings.difficulty = $0 }
+                                    ),
+                                    options: Difficulty.allCases,
+                                    labelFor: { $0.rawValue.capitalized }
+                                )
+                                .frame(maxWidth: 220)
+                            }
+                            Button {
+                                showRestartConfirm = true
+                            } label: {
+                                SettingsRow(title: "New game") {
+                                    Text("tap")
+                                        .font(.avenir(13, weight: .medium, italic: true))
+                                        .underline()
+                                        .foregroundStyle(Color.coral)
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
-                        Button {
-                            showRestartConfirm = true
-                        } label: {
-                            SettingsRow(title: "New game") {
-                                Text("tap")
-                                    .font(.cochinItalic(13))
-                                    .underline()
-                                    .foregroundStyle(Color.ink)
+                    }
+
+                    glassCard {
+                        SettingsSection(title: "appearance") {
+                            SettingsRow(title: "Color mode") {
+                                StampSegmented(
+                                    selection: Binding(
+                                        get: { settings.colorMode },
+                                        set: { settings.colorMode = $0 }
+                                    ),
+                                    options: ColorMode.allCases,
+                                    labelFor: { $0.rawValue.capitalized }
+                                )
+                                .frame(maxWidth: 220)
+                            }
+                            SettingsRow(title: "Reduced motion") {
+                                StampToggle(isOn: Binding(
+                                    get: { settings.reducedMotion },
+                                    set: { settings.reducedMotion = $0 }
+                                ))
                             }
                         }
-                        .buttonStyle(.plain)
                     }
 
-                    SettingsSection(title: "Appearance") {
-                        SettingsRow(title: "Color mode") {
-                            StampSegmented(
-                                selection: Binding(
-                                    get: { settings.colorMode },
-                                    set: { settings.colorMode = $0 }
-                                ),
-                                options: ColorMode.allCases,
-                                labelFor: { $0.rawValue.capitalized }
-                            )
-                            .frame(maxWidth: 220)
-                        }
-                        SettingsRow(title: "Reduced motion") {
-                            StampToggle(isOn: Binding(
-                                get: { settings.reducedMotion },
-                                set: { settings.reducedMotion = $0 }
-                            ))
-                        }
-                    }
-
-                    SettingsSection(title: "Feedback") {
-                        SettingsRow(title: "Sound", disabled: true) {
-                            StampToggle(isOn: $placeholderOff, disabled: true)
-                        }
-                        SettingsRow(title: "Haptics", disabled: true) {
-                            StampToggle(isOn: $placeholderOff, disabled: true)
-                        }
-                    }
-
-                    SettingsSection(title: "Other") {
-                        SettingsRow(title: "Replay tutorial", disabled: true) {
-                            Text("tap")
-                                .font(.cochinItalic(13))
-                                .underline()
-                                .foregroundStyle(Color.dimInk)
-                        }
-                        SettingsRow(title: "Tip jar", disabled: true) {
-                            Text("tap")
-                                .font(.cochinItalic(13))
-                                .underline()
-                                .foregroundStyle(Color.dimInk)
-                        }
-                        Button {
-                            showAbout = true
-                        } label: {
-                            SettingsRow(title: "About") {
-                                Text("tap")
-                                    .font(.cochinItalic(13))
-                                    .underline()
-                                    .foregroundStyle(Color.ink)
+                    glassCard {
+                        SettingsSection(title: "feedback") {
+                            SettingsRow(title: "Sound", disabled: true) {
+                                StampToggle(isOn: $placeholderOff, disabled: true)
+                            }
+                            SettingsRow(title: "Haptics", disabled: true) {
+                                StampToggle(isOn: $placeholderOff, disabled: true)
                             }
                         }
-                        .buttonStyle(.plain)
+                    }
+
+                    glassCard {
+                        SettingsSection(title: "other") {
+                            SettingsRow(title: "Replay tutorial", disabled: true) {
+                                Text("tap")
+                                    .font(.avenir(13, weight: .medium, italic: true))
+                                    .underline()
+                                    .foregroundStyle(Color.dimInk)
+                            }
+                            SettingsRow(title: "Tip jar", disabled: true) {
+                                Text("tap")
+                                    .font(.avenir(13, weight: .medium, italic: true))
+                                    .underline()
+                                    .foregroundStyle(Color.dimInk)
+                            }
+                            Button {
+                                showAbout = true
+                            } label: {
+                                SettingsRow(title: "About") {
+                                    Text("tap")
+                                        .font(.avenir(13, weight: .medium, italic: true))
+                                        .underline()
+                                        .foregroundStyle(Color.coral)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
 
                     Spacer(minLength: 40)
 
-                    Text("v0.4 · ching by fastronaut")
-                        .font(.cochinItalic(10))
-                        .foregroundStyle(Color.dimInk)
+                    Text("v0.5 · ching by fastronaut")
+                        .font(.avenir(10, weight: .medium, italic: true))
+                        .tracking(1.5)
+                        .foregroundStyle(Color.dimInk.opacity(0.7))
                         .frame(maxWidth: .infinity)
+                        .padding(.bottom, 30)
                 }
-                .padding(20)
+                .padding(.horizontal, 18)
             }
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.paper, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(isPresented: $showAbout) {
             AboutSheet()
         }
@@ -126,6 +137,24 @@ struct SettingsView: View {
             Text("Your current game will be discarded.")
         }
     }
+
+    @ViewBuilder
+    private func glassCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.35))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.ink.opacity(0.15), lineWidth: 1)
+        )
+        .padding(.bottom, 12)
+    }
 }
 
 private struct SettingsSection<Content: View>: View {
@@ -133,19 +162,15 @@ private struct SettingsSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.cochinItalic(10))
-                .textCase(.uppercase)
-                .tracking(1.5)
-                .foregroundStyle(Color.dimInk)
-                .padding(.bottom, 4)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.ink).frame(height: 1)
-                }
+                .font(.avenir(11, weight: .medium, italic: true))
+                .textCase(.lowercase)
+                .tracking(2)
+                .foregroundStyle(Color.coral)
+                .padding(.bottom, 8)
             content()
         }
-        .padding(.top, 18)
     }
 }
 
@@ -157,19 +182,19 @@ private struct SettingsRow<Trailing: View>: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.cochin(14))
+                .font(.avenir(15, weight: .medium))
                 .foregroundStyle(disabled ? Color.dimInk : Color.ink)
             if disabled {
                 Text("soon")
-                    .font(.cochinItalic(9))
-                    .textCase(.uppercase)
+                    .font(.avenir(9, weight: .medium, italic: true))
+                    .textCase(.lowercase)
                     .tracking(1)
-                    .foregroundStyle(Color.dimInk)
+                    .foregroundStyle(Color.dimInk.opacity(0.7))
             }
             Spacer()
             trailing()
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
     }
 }
 
@@ -178,19 +203,28 @@ private struct AboutSheet: View {
 
     var body: some View {
         ZStack {
-            Color.paper.ignoresSafeArea()
-            VStack(spacing: 18) {
-                Text("ching!")
-                    .font(.bodoniItalic(48))
-                    .foregroundStyle(Color.ink)
-                Text("A push-your-luck dice game.\nv0.4 — ching by Fastronaut.")
-                    .font(.cochin(14))
+            Background()
+            VStack(spacing: 20) {
+                Spacer()
+                HStack(spacing: 0) {
+                    Text("c")
+                    Text("h").foregroundStyle(Color.coral).font(.avenir(56, weight: .demiBold))
+                    Text("ing")
+                }
+                .font(.avenir(56, weight: .ultraLight))
+                .tracking(4)
+                .foregroundStyle(Color.ink)
+
+                Text("A push-your-luck dice game.\nv0.5 — ching by Fastronaut.")
+                    .font(.avenir(15, weight: .medium, italic: true))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.dimInk)
+
                 Spacer()
+
                 Button("Close") { dismiss() }
                     .stampButton()
-                    .frame(maxWidth: 200)
+                    .frame(maxWidth: 240)
             }
             .padding(40)
         }
@@ -206,30 +240,31 @@ struct StampSegmented<T: Hashable>: View {
         HStack(spacing: 0) {
             ForEach(options.indices, id: \.self) { idx in
                 let value = options[idx]
+                let isSelected = value == selection
                 Button {
                     selection = value
                 } label: {
                     Text(labelFor(value))
-                        .font(.cochin(13))
-                        .foregroundStyle(value == selection ? Color.paper : Color.ink)
+                        .font(.avenir(13, weight: isSelected ? .demiBold : .medium))
+                        .foregroundStyle(isSelected ? Color.paper : Color.ink)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(value == selection ? Color.ink : Color.paper)
+                        .padding(.vertical, 7)
+                        .background(isSelected ? Color.coral : Color.clear)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(labelFor(value)))
-                .accessibilityAddTraits(value == selection ? .isSelected : [])
-
-                if idx < options.count - 1 {
-                    Rectangle()
-                        .fill(Color.ink)
-                        .frame(width: 1.5)
-                }
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
-        .overlay(
-            Rectangle().strokeBorder(Color.ink, lineWidth: 1.5)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white.opacity(0.4))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.ink.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -243,17 +278,21 @@ struct StampToggle: View {
             if !disabled { isOn.toggle() }
         } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
-                Rectangle()
-                    .fill(Color.paper)
-                    .frame(width: 34, height: 20)
-                    .overlay(
-                        Rectangle()
-                            .strokeBorder(disabled ? Color.dimInk : Color.ink, lineWidth: 1.5)
+                Capsule()
+                    .fill(
+                        isOn
+                            ? (disabled ? Color.dimInk.opacity(0.4) : Color.coral)
+                            : Color.white.opacity(0.4)
                     )
-                Rectangle()
-                    .fill(disabled ? Color.dimInk : Color.ink)
-                    .frame(width: 14, height: 14)
-                    .padding(.horizontal, 2)
+                    .frame(width: 38, height: 22)
+                    .overlay(
+                        Capsule().strokeBorder(disabled ? Color.dimInk.opacity(0.5) : Color.ink.opacity(0.4), lineWidth: 1)
+                    )
+
+                Circle()
+                    .fill(isOn ? Color.paper : Color.ink.opacity(disabled ? 0.4 : 0.8))
+                    .frame(width: 16, height: 16)
+                    .padding(.horizontal, 3)
             }
         }
         .buttonStyle(.plain)
