@@ -126,9 +126,13 @@ struct DiceStage: View {
                     .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 3)
                     .shadow(color: Color.treasureInk.opacity(0.12), radius: 6, x: 0, y: 5)
 
-                Text(faceText(face))
-                    .font(.avenir(22, weight: .demiBold))
-                    .foregroundStyle(Color.treasureInk)
+                if face == .coin {
+                    coinGlyph(size: 30)
+                } else {
+                    Text(faceText(face))
+                        .font(.avenir(22, weight: .demiBold))
+                        .foregroundStyle(Color.treasureInk)
+                }
             }
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
@@ -159,12 +163,31 @@ struct DiceStage: View {
                     RoundedRectangle(cornerRadius: 5)
                         .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                 )
-            Text(faceText(face))
-                .font(.avenir(14, weight: .demiBold))
-                .foregroundStyle(Color.treasureInk)
+            if face == .coin {
+                coinGlyph(size: 18)
+            } else {
+                Text(faceText(face))
+                    .font(.avenir(14, weight: .demiBold))
+                    .foregroundStyle(Color.treasureInk)
+            }
         }
         .frame(width: 26, height: 26)
         .opacity(0.75)
+    }
+
+    @ViewBuilder
+    private func coinGlyph(size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.gold)
+                .overlay(
+                    Circle().strokeBorder(Color.treasureInk, lineWidth: 1.5)
+                )
+            Circle()
+                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: 1)
+                .padding(3)
+        }
+        .frame(width: size, height: size)
     }
 
     private func faceText(_ f: Face) -> String {
