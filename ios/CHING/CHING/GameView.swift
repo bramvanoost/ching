@@ -147,22 +147,38 @@ struct ChromeBar: View {
 
     var body: some View {
         HStack {
-            Text("ching!")
-                .font(.bodoniItalic(22))
-                .foregroundStyle(Color.ink)
+            HStack(spacing: 0) {
+                Text("c")
+                    .foregroundStyle(Color.ink)
+                Text("h")
+                    .foregroundStyle(Color.coral)
+                    .font(.avenir(26, weight: .demiBold))
+                Text("ing")
+                    .foregroundStyle(Color.ink)
+            }
+            .font(.avenir(26, weight: .ultraLight))
+            .tracking(3)
+            .textCase(.lowercase)
+
             Spacer()
+
             NavigationLink {
                 SettingsView(settings: settings, onNewGame: onNewGame)
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Color.ink)
-                    .opacity(0.6)
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color.ink.opacity(0.55))
+                    .padding(8)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(0.3))
+                            .overlay(Circle().strokeBorder(Color.ink.opacity(0.25), lineWidth: 1))
+                    )
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
     }
 }
 
@@ -178,26 +194,24 @@ struct ActionBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(Color.ink).frame(height: 1.5)
-
             if isOver {
-                Text("— game over —")
-                    .font(.bodoni(15))
-                    .textCase(.uppercase)
+                Text("game over")
+                    .font(.avenir(14, weight: .medium, italic: true))
                     .tracking(2)
+                    .textCase(.lowercase)
                     .foregroundStyle(Color.dimInk)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
+                    .padding(.vertical, 20)
             } else if !isHumanTurn {
-                Text("— waiting —")
-                    .font(.bodoni(15))
-                    .textCase(.uppercase)
+                Text("waiting…")
+                    .font(.avenir(14, weight: .medium, italic: true))
                     .tracking(2)
+                    .textCase(.lowercase)
                     .foregroundStyle(Color.dimInk)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
+                    .padding(.vertical, 20)
             } else if hasSetAside {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Button("Roll Again") { onRoll() }
                         .stampButton(primary: true)
                         .disabled(!canRoll)
@@ -208,9 +222,9 @@ struct ActionBar: View {
                         .disabled(!canBank)
                         .opacity(canBank ? 1.0 : 0.4)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 22)
             } else {
                 HStack {
                     Spacer()
@@ -218,15 +232,14 @@ struct ActionBar: View {
                         .stampButton(primary: true)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)
-                        .frame(maxWidth: 260)
+                        .frame(maxWidth: 280)
                     Spacer()
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 22)
             }
         }
-        .background(Color.paper)
     }
 }
 
