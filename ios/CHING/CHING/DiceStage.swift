@@ -162,7 +162,7 @@ struct DiceStage: View {
                     .shadow(color: isPicked ? Color.gold.opacity(0.7) : .clear, radius: 14, x: 0, y: 0)
 
                 if face == .coin {
-                    coinGlyph(size: 30)
+                    ShellGlyph(size: 32)
                 } else {
                     Text(faceText(face))
                         .font(.avenir(22, weight: .demiBold))
@@ -226,7 +226,7 @@ struct DiceStage: View {
                         .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                 )
             if face == .coin {
-                coinGlyph(size: 18)
+                ShellGlyph(size: 20)
             } else {
                 Text(faceText(face))
                     .font(.avenir(14, weight: .demiBold))

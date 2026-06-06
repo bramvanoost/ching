@@ -20,22 +20,22 @@ struct SplashView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Big lowercase logo
+                // Big lowercase logo — the "y" in yes is the punchline letter.
                 HStack(spacing: 0) {
-                    Text("c")
+                    Text("shell ")
                         .foregroundStyle(Color.ink)
-                    Text("h")
+                    Text("y")
                         .foregroundStyle(Color.coral)
-                        .font(.avenir(108, weight: .demiBold))
-                    Text("ing")
+                        .font(.avenir(78, weight: .demiBold))
+                    Text("es")
                         .foregroundStyle(Color.ink)
                 }
-                .font(.avenir(108, weight: .ultraLight))
-                .tracking(6)
+                .font(.avenir(78, weight: .ultraLight))
+                .tracking(5)
                 .opacity(logoVisible ? 1 : 0)
                 .scaleEffect(logoVisible ? 1 : 0.92)
 
-                Text("push your luck. grab it all.")
+                Text("push your luck. score the shore.")
                     .font(.avenir(14, weight: .medium, italic: true))
                     .tracking(2)
                     .textCase(.lowercase)
