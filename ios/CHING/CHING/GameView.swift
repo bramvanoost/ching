@@ -2,12 +2,13 @@ import SwiftUI
 import CHINGEngine
 
 struct GameView: View {
-    @SwiftUI.State private var store = GameStore()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let store: GameStore
+    let settings: SettingsStore
+    @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
 
     private func act(_ action: Action) {
         store.apply(action)
-        let reduce = reduceMotion
+        let reduce = settings.reducedMotion || iosReduceMotion
         Task { await store.runAIIfNeeded(reduceMotion: reduce) }
     }
 
@@ -39,11 +40,6 @@ struct GameView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DifficultyPicker(difficulty: Binding(
-                get: { store.difficulty },
-                set: { store.difficulty = $0 }
-            ))
-
             Text("CHING")
                 .font(.largeTitle)
                 .bold()
@@ -229,19 +225,6 @@ struct ActionBar: View {
     }
 }
 
-struct DifficultyPicker: View {
-    @Binding var difficulty: Difficulty
-
-    var body: some View {
-        Picker("Difficulty", selection: $difficulty) {
-            ForEach(Difficulty.allCases, id: \.self) { d in
-                Text(d.rawValue.capitalized).tag(d)
-            }
-        }
-        .pickerStyle(.segmented)
-    }
-}
-
 #Preview {
-    GameView()
+    GameView(store: GameStore(settings: SettingsStore()), settings: SettingsStore())
 }
