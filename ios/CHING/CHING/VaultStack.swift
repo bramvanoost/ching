@@ -42,14 +42,12 @@ struct VaultStack: View {
     private func safeView(value: Int, isTop: Bool) -> some View {
         let strokeColor = activeSeat ? Color.paper : Color.ink
         let fillColor = activeSeat ? Color.ink : Color.paper
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             if isTop {
                 Text("\(value)")
-                    .font(.cochin(16))
+                    .font(.cochin(18))
                     .foregroundStyle(activeSeat ? Color.paper : Color.ink)
-                Text("\(GameStore.safeCoins(value))c")
-                    .font(.cochinItalic(8))
-                    .foregroundStyle(activeSeat ? Color.paper.opacity(0.7) : Color.dimInk)
+                CoinPips(count: GameStore.safeCoins(value), diameter: 5, spacing: 2)
             } else {
                 EmptyView()
             }

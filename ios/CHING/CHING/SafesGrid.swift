@@ -38,16 +38,16 @@ struct SafesGrid: View {
     private func safeCell(value: Int, available: Bool) -> some View {
         let stroke = available ? Color.ink : Color.dimInk
         let fg = available ? Color.ink : Color.dimInk
-        VStack(spacing: 2) {
+        let coins = tileCoinsForView(value)
+        VStack(spacing: 4) {
             Text("\(value)")
-                .font(.cochin(14))
+                .font(.cochin(18))
                 .foregroundStyle(fg)
-            Text("\(tileCoinsForView(value))c")
-                .font(.cochinItalic(8))
-                .foregroundStyle(fg.opacity(0.6))
+            CoinPips(count: coins, diameter: 6, spacing: 3)
+                .opacity(available ? 1.0 : 0.35)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 38)
+        .frame(height: 50)
         .background(available ? Color.paper : Color.dimInk.opacity(0.08))
         .overlay(Rectangle().strokeBorder(stroke, lineWidth: 1.5))
     }

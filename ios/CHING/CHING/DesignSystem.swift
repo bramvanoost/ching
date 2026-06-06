@@ -19,6 +19,28 @@ extension Color {
             ? UIColor(red: 154/255, green: 154/255, blue: 154/255, alpha: 1)
             : UIColor(red: 107/255, green: 107/255, blue: 107/255, alpha: 1)
     })
+
+    /// Antique-gold accent for coin pips. Same hex in light and dark; gold
+    /// reads on both warm cream and near-black backgrounds.
+    static let gold = Color(red: 201/255, green: 169/255, blue: 97/255)
+}
+
+/// Small row of gold filled circles for coin value (1-4). Used on safes
+/// to make their coin value glance-readable.
+struct CoinPips: View {
+    let count: Int
+    var diameter: CGFloat = 5
+    var spacing: CGFloat = 2
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            ForEach(0..<max(0, count), id: \.self) { _ in
+                Circle()
+                    .fill(Color.gold)
+                    .frame(width: diameter, height: diameter)
+            }
+        }
+    }
 }
 
 extension Font {
