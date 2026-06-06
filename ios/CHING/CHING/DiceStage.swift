@@ -85,7 +85,7 @@ struct DiceStage: View {
                 .padding(.top, 4)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 310, alignment: .top)
         .padding(.vertical, 12)
         .onChange(of: rolled) { oldValue, newValue in
             guard !reduceMotion else { return }

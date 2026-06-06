@@ -255,7 +255,8 @@ struct ActionBar: View {
                     .foregroundStyle(Color.dimInk)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
-            } else if hasSetAside {
+            }
+            else if hasSetAside {
                 HStack(spacing: 10) {
                     Button("Roll Again") { onRoll() }
                         .stampButton(primary: true, invite: canRoll)
@@ -285,6 +286,7 @@ struct ActionBar: View {
                 .padding(.bottom, 22)
             }
         }
+        .frame(maxWidth: .infinity, minHeight: 100, alignment: .bottom)
     }
 }
 
