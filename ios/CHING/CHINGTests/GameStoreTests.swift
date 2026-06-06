@@ -95,7 +95,7 @@ final class GameStoreTests: XCTestCase {
 
     func test_phaseHint_byPhaseAndSeat() {
         let store = makeStore(seed: 1)
-        XCTAssertEqual(store.phaseHint, "Your roll.")
+        XCTAssertEqual(store.phaseHint, "You're up. Roll the dice.")
 
         var s = store.state
         s.phase = .pick

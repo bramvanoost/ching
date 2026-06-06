@@ -71,7 +71,7 @@ final class GameStore {
         if isOver { return "Game over." }
         switch state.phase {
         case .roll:
-            return state.setAside.isEmpty ? "Your roll." : "Roll again, or bank."
+            return state.setAside.isEmpty ? "You're up. Roll the dice." : "Roll again, or bank."
         case .pick:
             return "Choose wisely."
         case .over:
