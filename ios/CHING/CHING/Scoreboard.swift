@@ -22,35 +22,28 @@ struct Scoreboard: View {
     private func column(playerIndex i: Int) -> some View {
         let isActive = i == current
         let safeCount = players[i].tiles.count
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             Text(players[i].id.capitalized)
-                .font(.avenir(13, weight: isActive ? .demiBold : .medium, italic: true))
-                .textCase(.uppercase)
-                .tracking(1.5)
-                .foregroundStyle(isActive ? Color.coral : Color.dimInk)
+                .font(.avenir(14, weight: isActive ? .demiBold : .medium))
+                .foregroundStyle(isActive ? Color.coral : Color.ink.opacity(0.85))
 
-            if players[i].tiles.isEmpty {
-                Text("empty")
-                    .font(.avenir(9, weight: .medium, italic: true))
-                    .textCase(.lowercase)
-                    .tracking(1)
-                    .foregroundStyle(Color.dimInk.opacity(0.7))
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-            } else {
-                VaultStack(safes: players[i].tiles, activeSeat: isActive)
-                    .padding(.top, 6)
-                    .padding(.bottom, 4)
-
-                Text("\(safeCount) \(safeCount == 1 ? "safe" : "safes")")
-                    .font(.avenir(9, weight: .medium, italic: true))
-                    .tracking(1)
-                    .foregroundStyle(Color.dimInk.opacity(0.8))
-                    .padding(.bottom, 6)
+            // Always reserve the vault area height so columns don't jump
+            ZStack {
+                if players[i].tiles.isEmpty {
+                    safePlaceholder()
+                } else {
+                    VaultStack(safes: players[i].tiles, activeSeat: isActive)
+                }
             }
+            .frame(height: 54, alignment: .top)
+
+            Text("\(safeCount) \(safeCount == 1 ? "safe" : "safes")")
+                .font(.avenir(10, weight: .medium, italic: true))
+                .tracking(1)
+                .foregroundStyle(Color.ink.opacity(0.55))
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .padding(.horizontal, 6)
         .background(
             RoundedRectangle(cornerRadius: 14)
@@ -64,5 +57,15 @@ struct Scoreboard: View {
                 )
         )
         .shadow(color: isActive ? Color.coral.opacity(0.25) : .clear, radius: 12, x: 0, y: 0)
+    }
+
+    @ViewBuilder
+    private func safePlaceholder() -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .strokeBorder(
+                Color.treasureInk.opacity(0.4),
+                style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])
+            )
+            .frame(width: 38, height: 42)
     }
 }

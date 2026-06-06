@@ -82,6 +82,8 @@ struct GameView: View {
                     current: store.state.current
                 )
 
+                Spacer().frame(height: 18)
+
                 SafesGrid(
                     availableSafes: store.state.centerTiles,
                     remainingCount: store.state.centerTiles.count

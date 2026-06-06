@@ -76,27 +76,30 @@ private struct Skyline: View {
     ]
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(pillars.indices, id: \.self) { idx in
-                let p = pillars[idx]
-                IsoPillar(width: p.width, height: p.height, accent: p.accent)
-                    .offset(x: p.x, y: baseY - p.height)
-            }
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                ForEach(pillars.indices, id: \.self) { idx in
+                    let p = pillars[idx]
+                    IsoPillar(width: p.width, height: p.height, accent: p.accent)
+                        .offset(x: p.x, y: baseY - p.height)
+                }
 
-            // Soft ground gradient
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.citySilhouette.opacity(0.0),
-                            Color.citySilhouette.opacity(0.5)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+                // Soft ground gradient — extends to the bottom of the screen
+                // (and below, via ignoresSafeArea) so it never shows a hard cutoff line.
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.citySilhouette.opacity(0.0),
+                                Color.citySilhouette.opacity(0.45)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                )
-                .frame(height: 120)
-                .offset(y: baseY)
+                    .frame(height: max(200, geo.size.height - baseY + 200))
+                    .offset(y: baseY)
+            }
         }
     }
 }

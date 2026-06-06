@@ -24,14 +24,14 @@ struct DiceStage: View {
     var body: some View {
         VStack(spacing: 8) {
             Text(phaseHint.lowercased())
-                .font(.avenir(13, weight: .medium, italic: true))
-                .foregroundStyle(Color.dimInk)
+                .font(.avenir(14, weight: .medium, italic: true))
+                .foregroundStyle(Color.ink.opacity(0.78))
 
             Text("set aside · sum")
-                .font(.avenir(9, weight: .medium, italic: true))
+                .font(.avenir(10, weight: .medium, italic: true))
                 .textCase(.lowercase)
                 .tracking(2)
-                .foregroundStyle(Color.dimInk.opacity(0.7))
+                .foregroundStyle(Color.ink.opacity(0.55))
 
             Text("\(setAsideSum)")
                 .font(.avenir(60, weight: .ultraLight))
@@ -39,9 +39,9 @@ struct DiceStage: View {
 
             if !displayRolled.isEmpty {
                 Text("dice")
-                    .font(.avenir(9, weight: .medium, italic: true))
+                    .font(.avenir(10, weight: .medium, italic: true))
                     .tracking(2)
-                    .foregroundStyle(Color.dimInk.opacity(0.7))
+                    .foregroundStyle(Color.ink.opacity(0.55))
 
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
@@ -54,20 +54,20 @@ struct DiceStage: View {
                 .padding(.horizontal, 30)
             } else if !locked.isEmpty {
                 Text("roll again or bank")
-                    .font(.avenir(12, weight: .medium, italic: true))
-                    .foregroundStyle(Color.dimInk.opacity(0.7))
+                    .font(.avenir(13, weight: .medium, italic: true))
+                    .foregroundStyle(Color.ink.opacity(0.65))
             } else {
                 Text("\(diceInHand) dice ready")
-                    .font(.avenir(12, weight: .medium, italic: true))
-                    .foregroundStyle(Color.dimInk.opacity(0.7))
+                    .font(.avenir(13, weight: .medium, italic: true))
+                    .foregroundStyle(Color.ink.opacity(0.65))
             }
 
             if !locked.isEmpty {
                 HStack(spacing: 6) {
                     Text("locked")
-                        .font(.avenir(9, weight: .medium, italic: true))
+                        .font(.avenir(10, weight: .medium, italic: true))
                         .tracking(2)
-                        .foregroundStyle(Color.dimInk.opacity(0.7))
+                        .foregroundStyle(Color.ink.opacity(0.55))
                     ForEach(Array(locked.enumerated()), id: \.offset) { _, face in
                         lockedDie(face: face)
                     }

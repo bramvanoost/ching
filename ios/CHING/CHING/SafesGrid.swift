@@ -14,7 +14,7 @@ struct SafesGrid: View {
                     .foregroundStyle(Color.coral)
                 Text("safes left")
                     .font(.avenir(15, weight: .medium, italic: true))
-                    .foregroundStyle(Color.dimInk)
+                    .foregroundStyle(Color.ink.opacity(0.75))
             }
             .frame(maxWidth: .infinity)
 
