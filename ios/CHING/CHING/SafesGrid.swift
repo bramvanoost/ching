@@ -8,48 +8,77 @@ struct SafesGrid: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Text("\(remainingCount)")
-                    .font(.cochin(18))
-                    .fontWeight(.bold)
-                Text("Safes left")
-                    .font(.cochinItalic(18))
+                    .font(.avenir(18, weight: .demiBold))
+                    .foregroundStyle(Color.coral)
+                Text("safes left")
+                    .font(.avenir(15, weight: .medium, italic: true))
+                    .foregroundStyle(Color.dimInk)
             }
-            .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity)
 
             LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8),
-                spacing: 4
+                columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 8),
+                spacing: 5
             ) {
                 ForEach(allSafes, id: \.self) { safe in
                     safeCell(value: safe, available: availableSafes.contains(safe))
                 }
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 14)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.ink).frame(height: 1)
-        }
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.35))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.ink.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.horizontal, 14)
     }
 
     @ViewBuilder
     private func safeCell(value: Int, available: Bool) -> some View {
-        let stroke = available ? Color.ink : Color.dimInk
-        let fg = available ? Color.ink : Color.dimInk
         let coins = tileCoinsForView(value)
-        VStack(spacing: 6) {
-            Text("\(value)")
-                .font(.cochin(22))
-                .foregroundStyle(fg)
-            CoinPips(count: coins, diameter: 7, spacing: 3)
-                .opacity(available ? 1.0 : 0.35)
+
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    available
+                        ? LinearGradient(
+                            colors: [Color.safePeachLight, Color.safePeachDark],
+                            startPoint: .top,
+                            endPoint: .bottom
+                          )
+                        : LinearGradient(
+                            colors: [Color.ink.opacity(0.08), Color.ink.opacity(0.12)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                          )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(
+                            available ? Color.ink : Color.dimInk.opacity(0.5),
+                            lineWidth: 1.5
+                        )
+                )
+                .shadow(color: Color.ink.opacity(available ? 0.15 : 0), radius: 0, x: 0, y: 2)
+
+            VStack(spacing: 4) {
+                Text("\(value)")
+                    .font(.avenir(18, weight: .demiBold))
+                    .foregroundStyle(available ? Color.ink : Color.dimInk)
+                CoinPips(count: coins, diameter: 6, spacing: 3)
+                    .opacity(available ? 1.0 : 0.3)
+            }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 64)
-        .background(available ? Color.paper : Color.dimInk.opacity(0.08))
-        .overlay(Rectangle().strokeBorder(stroke, lineWidth: 1.5))
+        .frame(height: 56)
+        .opacity(available ? 1.0 : 0.6)
     }
 
     private func tileCoinsForView(_ safe: Int) -> Int {

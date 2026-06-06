@@ -22,22 +22,27 @@ struct DiceStage: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            Text(phaseHint)
-                .font(.cochinItalic(14))
+        VStack(spacing: 8) {
+            Text(phaseHint.lowercased())
+                .font(.avenir(13, weight: .medium, italic: true))
                 .foregroundStyle(Color.dimInk)
 
-            Text("Set aside · sum")
-                .font(.cochinItalic(9))
-                .textCase(.uppercase)
+            Text("set aside · sum")
+                .font(.avenir(9, weight: .medium, italic: true))
+                .textCase(.lowercase)
                 .tracking(2)
-                .foregroundStyle(Color.dimInk)
+                .foregroundStyle(Color.dimInk.opacity(0.7))
 
             Text("\(setAsideSum)")
-                .font(.cochin(64))
+                .font(.avenir(60, weight: .ultraLight))
                 .foregroundStyle(Color.ink)
 
             if !displayRolled.isEmpty {
+                Text("dice")
+                    .font(.avenir(9, weight: .medium, italic: true))
+                    .tracking(2)
+                    .foregroundStyle(Color.dimInk.opacity(0.7))
+
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
                     spacing: 8
@@ -47,35 +52,31 @@ struct DiceStage: View {
                     }
                 }
                 .padding(.horizontal, 30)
-                .padding(.top, 6)
             } else if !locked.isEmpty {
-                Text("Roll again or bank")
-                    .font(.cochinItalic(12))
-                    .foregroundStyle(Color.dimInk)
-                    .padding(.top, 6)
+                Text("roll again or bank")
+                    .font(.avenir(12, weight: .medium, italic: true))
+                    .foregroundStyle(Color.dimInk.opacity(0.7))
             } else {
                 Text("\(diceInHand) dice ready")
-                    .font(.cochinItalic(12))
-                    .foregroundStyle(Color.dimInk)
-                    .padding(.top, 6)
+                    .font(.avenir(12, weight: .medium, italic: true))
+                    .foregroundStyle(Color.dimInk.opacity(0.7))
             }
 
             if !locked.isEmpty {
                 HStack(spacing: 6) {
-                    Text("Locked")
-                        .font(.cochinItalic(9))
-                        .textCase(.uppercase)
-                        .tracking(1.5)
-                        .foregroundStyle(Color.dimInk)
+                    Text("locked")
+                        .font(.avenir(9, weight: .medium, italic: true))
+                        .tracking(2)
+                        .foregroundStyle(Color.dimInk.opacity(0.7))
                     ForEach(Array(locked.enumerated()), id: \.offset) { _, face in
                         lockedDie(face: face)
                     }
                 }
-                .padding(.top, 10)
+                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
         .onChange(of: rolled) { oldValue, newValue in
             guard !reduceMotion else { return }
             if oldValue.isEmpty && !newValue.isEmpty {
@@ -104,14 +105,30 @@ struct DiceStage: View {
             if pickable { onPick(face) }
         } label: {
             ZStack {
-                Rectangle()
-                    .fill(face == .coin ? Color.ink : Color.paper)
-                    .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: 1.5))
-                    .shadow(color: Color.ink, radius: 0, x: 2, y: 2)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(
+                        face == .coin
+                            ? LinearGradient(
+                                colors: [Color.coinGoldLight, Color.coinGoldDark],
+                                startPoint: .top,
+                                endPoint: .bottom
+                              )
+                            : LinearGradient(
+                                colors: [Color.safePeachLight, Color.safePeachDark],
+                                startPoint: .top,
+                                endPoint: .bottom
+                              )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.ink, lineWidth: 1.5)
+                    )
+                    .shadow(color: Color.ink.opacity(0.2), radius: 0, x: 0, y: 3)
+                    .shadow(color: Color.ink.opacity(0.12), radius: 6, x: 0, y: 5)
 
                 Text(faceText(face))
-                    .font(.cochin(30))
-                    .foregroundStyle(face == .coin ? Color.paper : Color.ink)
+                    .font(.avenir(22, weight: .demiBold))
+                    .foregroundStyle(Color.ink)
             }
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
@@ -123,12 +140,31 @@ struct DiceStage: View {
 
     @ViewBuilder
     private func lockedDie(face: Face) -> some View {
-        Text(faceText(face))
-            .font(.cochin(14))
-            .foregroundStyle(face == .coin ? Color.paper : Color.ink)
-            .frame(width: 26, height: 26)
-            .background(face == .coin ? Color.ink : Color.paper)
-            .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: 1.5))
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(
+                    face == .coin
+                        ? LinearGradient(
+                            colors: [Color.coinGoldLight, Color.coinGoldDark],
+                            startPoint: .top,
+                            endPoint: .bottom
+                          )
+                        : LinearGradient(
+                            colors: [Color.safePeachLight, Color.safePeachDark],
+                            startPoint: .top,
+                            endPoint: .bottom
+                          )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.ink, lineWidth: 1.5)
+                )
+            Text(faceText(face))
+                .font(.avenir(14, weight: .demiBold))
+                .foregroundStyle(Color.ink)
+        }
+        .frame(width: 26, height: 26)
+        .opacity(0.75)
     }
 
     private func faceText(_ f: Face) -> String {
