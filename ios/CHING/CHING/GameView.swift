@@ -33,7 +33,7 @@ struct GameView: View {
         guard !settings.reducedMotion, !iosReduceMotion else { return }
         bankFlash = true
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 90_000_000)
+            try? await Task.sleep(nanoseconds: 220_000_000)
             bankFlash = false
         }
     }
@@ -114,30 +114,48 @@ struct GameView: View {
         }
         .overlay {
             if bankFlash {
-                Color.gold
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
+                LinearGradient(
+                    colors: [
+                        Color.coinGoldLight.opacity(0.85),
+                        Color.coinGoldDark.opacity(0.7)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .transition(.opacity)
             }
         }
         .overlay {
             if bustFlash {
                 ZStack {
-                    Color.ink.ignoresSafeArea()
-                    Text("BUST")
-                        .font(.bodoni(80))
-                        .textCase(.uppercase)
-                        .tracking(8)
+                    LinearGradient(
+                        colors: [
+                            Color(red: 40/255, green: 28/255, blue: 50/255).opacity(0.85),
+                            Color(red: 60/255, green: 40/255, blue: 78/255).opacity(0.78)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+                    Text("bust.")
+                        .font(.avenir(56, weight: .ultraLight, italic: true))
+                        .tracking(4)
                         .foregroundStyle(Color.paper)
                 }
                 .allowsHitTesting(false)
+                .transition(.opacity)
             }
         }
-        .navigationBarHidden(true)
-        .alert("Game over", isPresented: .constant(store.isOver)) {
-            Button("New Game") { store.newGame() }
-        } message: {
-            Text(gameOverMessage)
+        .fullScreenCover(isPresented: .constant(store.isOver)) {
+            GameOverSheet(
+                players: store.state.players,
+                scores: store.scores,
+                onNewGame: { store.newGame() }
+            )
         }
+        .navigationBarHidden(true)
     }
 }
 
