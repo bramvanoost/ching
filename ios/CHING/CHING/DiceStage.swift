@@ -25,43 +25,45 @@ struct DiceStage: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Header zone — phase + sum label + big sum number (fixed height).
+        VStack(spacing: 6) {
+            // Phase hint — fixed height, always present.
             Text(phaseHint.lowercased())
                 .font(.avenir(14, weight: .medium, italic: true))
                 .foregroundStyle(Color.ink.opacity(0.78))
                 .frame(height: 18)
 
-            Text("set aside · sum")
-                .font(.avenir(10, weight: .medium, italic: true))
-                .textCase(.lowercase)
-                .tracking(2)
-                .foregroundStyle(Color.ink.opacity(0.55))
-                .frame(height: 12)
-
-            ZStack {
-                Text("\(setAsideSum)")
-                    .font(.avenir(60, weight: .ultraLight))
-                    .foregroundStyle(Color.ink)
-                if pickSparkleTrigger > 0 {
-                    SparkleField(count: 50, startRadius: 50, spread: 90, duration: 1.0)
-                        .frame(width: 220, height: 160)
-                        .id(pickSparkleTrigger)
+            // Hero number — the running sum, treated as a stamped headline
+            // with a hard ink offset and a soft halo. Tiny gold tally rule
+            // underneath gives it presence without needing a label.
+            VStack(spacing: 4) {
+                ZStack {
+                    Text("\(setAsideSum)")
+                        .font(.avenir(76, weight: .demiBold, italic: true))
+                        .foregroundStyle(Color.ink)
+                        .monospacedDigit()
+                        .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
+                        .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
+                    if pickSparkleTrigger > 0 {
+                        SparkleField(count: 50, startRadius: 50, spread: 90, duration: 1.0)
+                            .frame(width: 220, height: 160)
+                            .id(pickSparkleTrigger)
+                    }
                 }
+                Capsule()
+                    .fill(Color.gold.opacity(0.65))
+                    .frame(width: 32, height: 2)
             }
-            .frame(height: 72)
+            .frame(height: 90)
 
-            // "dice" label sits in a fixed slot — invisible when nothing rolled
-            // so the row below doesn't jump.
+            // "dice" label — invisible when nothing rolled so siblings don't jump.
             Text("dice")
                 .font(.avenir(10, weight: .medium, italic: true))
                 .tracking(2)
                 .foregroundStyle(Color.ink.opacity(displayRolled.isEmpty ? 0 : 0.55))
                 .frame(height: 12)
 
-            // Dice slot — fixed height holds either the 4-col grid (max 2 rows
-            // of 8 dice) or a centered status line. Swapping inside the slot
-            // doesn't reflow the rest of the stage.
+            // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
+            // or a centered status line. Swapping inside doesn't reflow.
             ZStack {
                 if !displayRolled.isEmpty {
                     LazyVGrid(
@@ -72,7 +74,7 @@ struct DiceStage: View {
                             dieButton(face: face)
                         }
                     }
-                    .padding(.horizontal, 30)
+                    .padding(.horizontal, 40)
                 } else if !locked.isEmpty {
                     Text("roll again or bank")
                         .font(.avenir(13, weight: .medium, italic: true))
@@ -83,9 +85,9 @@ struct DiceStage: View {
                         .foregroundStyle(Color.ink.opacity(0.65))
                 }
             }
-            .frame(height: 168)
+            .frame(height: 158)
 
-            // Locked slot — always reserved, just goes transparent when empty.
+            // Locked slot — always reserved, transparent when empty.
             HStack(spacing: 6) {
                 Text("locked")
                     .font(.avenir(10, weight: .medium, italic: true))
@@ -95,11 +97,11 @@ struct DiceStage: View {
                     lockedDie(face: face)
                 }
             }
-            .frame(height: 30)
+            .frame(height: 28)
             .opacity(locked.isEmpty ? 0 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.vertical, 12)
+        .padding(.vertical, 6)
         .onChange(of: rolled) { oldValue, newValue in
             guard !reduceMotion else { return }
             if oldValue.isEmpty && !newValue.isEmpty {

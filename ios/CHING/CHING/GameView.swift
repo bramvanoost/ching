@@ -155,7 +155,7 @@ struct GameView: View {
                     stolenFrom: stolenFromIdx
                 )
 
-                Spacer().frame(height: 18)
+                Spacer().frame(height: 8)
 
                 SafesGrid(
                     availableSafes: store.state.centerTiles,
