@@ -149,7 +149,7 @@ struct GameView: View {
             }
         }
         .fullScreenCover(isPresented: .constant(store.isOver)) {
-            GameOverSheet(
+            CountingCeremony(
                 players: store.state.players,
                 scores: store.scores,
                 onNewGame: { store.newGame() }
