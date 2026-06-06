@@ -38,12 +38,19 @@ struct CountingCeremony: View {
                     .animation(.easeOut(duration: 0.4), value: winnerRevealed)
 
                 if winnerRevealed {
-                    Text(winnerHeadline)
-                        .font(.avenir(28, weight: .demiBold, italic: true))
-                        .tracking(2)
-                        .foregroundStyle(Color.coral)
-                        .padding(.top, -38)
-                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    ZStack {
+                        SparkleField(count: 22, spread: 170, duration: 1.6)
+                            .frame(width: 320, height: 80)
+                            .offset(y: 0)
+                        Text(winnerHeadline)
+                            .font(.avenir(30, weight: .demiBold, italic: true))
+                            .tracking(2)
+                            .foregroundStyle(Color.gold)
+                            .shadow(color: Color.gold.opacity(0.6), radius: 14, x: 0, y: 0)
+                            .shadow(color: Color.ink.opacity(0.4), radius: 0, x: 0, y: 1)
+                    }
+                    .padding(.top, -38)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
                 }
 
                 Spacer().frame(height: 28)
@@ -79,59 +86,66 @@ struct CountingCeremony: View {
         let isWinner = winnerRevealed && winnerIndices.contains(i)
         let displayedTotal = tickedTotals.indices.contains(i) ? tickedTotals[i] : 0
 
-        HStack(spacing: 14) {
-            Text(players[i].id.capitalized)
-                .font(.avenir(16, weight: .medium, italic: true))
-                .foregroundStyle(isWinner ? Color.coral : Color.ink)
-                .frame(width: 72, alignment: .leading)
-
-            Spacer()
-
-            // Mini vault row
-            HStack(spacing: -8) {
-                ForEach(players[i].tiles.suffix(5), id: \.self) { safe in
-                    miniSafe(value: safe)
-                }
-                if players[i].tiles.count > 5 {
-                    Text("+\(players[i].tiles.count - 5)")
-                        .font(.avenir(10, weight: .medium, italic: true))
-                        .foregroundStyle(Color.dimInk)
-                        .padding(.leading, 14)
-                }
-            }
-
-            Spacer()
-
-            // Coin total — large during ceremony
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(displayedTotal)")
-                    .font(.avenir(30, weight: isWinner ? .demiBold : .ultraLight))
+        ZStack {
+            HStack(spacing: 14) {
+                Text(players[i].id.capitalized)
+                    .font(.avenir(16, weight: isWinner ? .demiBold : .medium, italic: true))
                     .foregroundStyle(Color.ink)
-                Text("c")
-                    .font(.avenir(13, weight: .medium, italic: true))
-                    .foregroundStyle(Color.gold)
-                    .padding(.bottom, 5)
+                    .frame(width: 72, alignment: .leading)
+
+                Spacer()
+
+                // Mini vault row
+                HStack(spacing: -8) {
+                    ForEach(players[i].tiles.suffix(5), id: \.self) { safe in
+                        miniSafe(value: safe)
+                    }
+                    if players[i].tiles.count > 5 {
+                        Text("+\(players[i].tiles.count - 5)")
+                            .font(.avenir(10, weight: .medium, italic: true))
+                            .foregroundStyle(Color.dimInk)
+                            .padding(.leading, 14)
+                    }
+                }
+
+                Spacer()
+
+                // Coin total — large during ceremony
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(displayedTotal)")
+                        .font(.avenir(30, weight: isWinner ? .demiBold : .ultraLight))
+                        .foregroundStyle(Color.ink)
+                    Text("c")
+                        .font(.avenir(13, weight: .medium, italic: true))
+                        .foregroundStyle(Color.gold)
+                        .padding(.bottom, 5)
+                }
+                .opacity(isRevealed ? 1.0 : 0.25)
+                .frame(width: 72, alignment: .trailing)
             }
-            .opacity(isRevealed ? 1.0 : 0.25)
-            .frame(width: 72, alignment: .trailing)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isWinner ? Color.gold.opacity(0.25) : Color.white.opacity(0.3))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        isWinner ? Color.gold.opacity(0.65) : Color.ink.opacity(0.15),
+                        lineWidth: isWinner ? 1.5 : 1
+                    )
+            )
+            .shadow(color: isCurrentlyCounting ? Color.gold.opacity(0.4) : .clear, radius: 12, x: 0, y: 0)
+            .shadow(color: isWinner ? Color.gold.opacity(0.55) : .clear, radius: 18, x: 0, y: 0)
+            .scaleEffect(isWinner ? 1.04 : 1.0)
+            .animation(.easeOut(duration: 0.35), value: isWinner)
+
+            if isWinner {
+                SparkleField(count: 14, spread: 120, duration: 1.4)
+                    .allowsHitTesting(false)
+            }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(isWinner ? Color.coral.opacity(0.18) : Color.white.opacity(0.3))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(
-                    isWinner ? Color.coral.opacity(0.5) : Color.ink.opacity(0.15),
-                    lineWidth: isWinner ? 1.5 : 1
-                )
-        )
-        .shadow(color: isCurrentlyCounting ? Color.gold.opacity(0.4) : .clear, radius: 12, x: 0, y: 0)
-        .shadow(color: isWinner ? Color.coral.opacity(0.3) : .clear, radius: 14, x: 0, y: 0)
-        .scaleEffect(isWinner ? 1.04 : 1.0)
-        .animation(.easeOut(duration: 0.35), value: isWinner)
     }
 
     @ViewBuilder
