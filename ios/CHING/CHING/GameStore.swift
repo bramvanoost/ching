@@ -64,6 +64,30 @@ final class GameStore {
         return "Bank"
     }
 
+    var phaseHint: String {
+        if !isHumanTurn && !isOver {
+            return "\(state.players[state.current].id.capitalized) is thinking…"
+        }
+        if isOver { return "Game over." }
+        switch state.phase {
+        case .roll:
+            return state.setAside.isEmpty ? "Your roll." : "Roll again, or bank."
+        case .pick:
+            return "Tap a face to lock."
+        case .over:
+            return "Game over."
+        }
+    }
+
+    var burnedCount: Int {
+        let totalInUse = state.centerTiles.count + state.players.reduce(0) { $0 + $1.tiles.count }
+        return max(0, 16 - totalInUse)
+    }
+
+    static func safeCoins(_ safe: Int) -> Int {
+        tileCoins(safe)
+    }
+
     func canPick(_ face: Face) -> Bool {
         state.phase == .pick &&
             isHumanTurn &&

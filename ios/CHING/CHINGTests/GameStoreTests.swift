@@ -93,6 +93,34 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(Difficulty.allCases, [.easy, .normal, .hard])
     }
 
+    func test_phaseHint_byPhaseAndSeat() {
+        let store = makeStore(seed: 1)
+        XCTAssertEqual(store.phaseHint, "Your roll.")
+
+        var s = store.state
+        s.phase = .pick
+        s.rolled = [.three, .three, .five, .coin]
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.phaseHint, "Tap a face to lock.")
+
+        s.current = GameStore.jonesSeat
+        s.phase = .roll
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.phaseHint, "Jones is thinking…")
+    }
+
+    func test_burnedCount_derivesFromMissingSafes() {
+        let store = makeStore(seed: 1)
+        XCTAssertEqual(store.burnedCount, 0)
+
+        var s = store.state
+        s.centerTiles = [23, 24, 25]
+        s.players[0].tiles = [21, 22]
+        s.players[1].tiles = [26, 27, 28]
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.burnedCount, 8)
+    }
+
     func test_bankActionLabel_pointsAtFirstRivalWithMatchingTop() {
         let store = makeStore(seed: 1)
         var s = store.state
