@@ -66,7 +66,7 @@ struct CountingCeremony: View {
 
                 if showNewGame {
                     Button("New Game") { onNewGame() }
-                        .stampButton()
+                        .stampButton(primary: true, invite: true)
                         .frame(maxWidth: 280)
                         .padding(.horizontal, 24)
                         .padding(.bottom, 40)

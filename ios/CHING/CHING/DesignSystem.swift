@@ -153,7 +153,7 @@ struct StampButtonStyle: ButtonStyle {
     var primary: Bool = true
     var invite: Bool = false
 
-    @SwiftUI.State private var pulse: Bool = false
+    @SwiftUI.State private var shineSwept: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -203,25 +203,55 @@ struct StampButtonStyle: ButtonStyle {
                                 )
                                 .padding(1)
                         )
+                        // Animated shine — a diagonal light band that sweeps
+                        // across the face every couple of seconds when the
+                        // button is in invite mode.
+                        .overlay {
+                            if invite {
+                                GeometryReader { geo in
+                                    let bandWidth: CGFloat = 70
+                                    Rectangle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    .clear,
+                                                    Color.white.opacity(0.85),
+                                                    .clear
+                                                ],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .frame(width: bandWidth, height: geo.size.height * 2.5)
+                                        .rotationEffect(.degrees(22))
+                                        .offset(x: shineSwept
+                                                ? geo.size.width / 2 + bandWidth
+                                                : -geo.size.width / 2 - bandWidth)
+                                        .blendMode(.plusLighter)
+                                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                                }
+                                .mask(RoundedRectangle(cornerRadius: 14))
+                                .allowsHitTesting(false)
+                            }
+                        }
                 }
                 // Hard-offset rim (echoes the tile depth recipe)
                 .shadow(color: Color.coralDark.opacity(0.45), radius: 0, x: 0, y: 3)
                 // Soft drop
                 .shadow(color: Color.coralDark.opacity(0.3), radius: 10, x: 0, y: 7)
-                // Invitation pulse glow
-                .shadow(
-                    color: invite ? Color.coral.opacity(pulse ? 0.6 : 0.15) : .clear,
-                    radius: pulse ? 20 : 8,
-                    x: 0,
-                    y: 0
-                )
             )
-            .scaleEffect(configuration.isPressed ? 0.97 : (invite && pulse ? 1.015 : 1.0))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.94 : 1.0)
-            .onAppear {
+            .task(id: invite) {
                 guard invite else { return }
-                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
-                    pulse = true
+                // Loop: sweep across (1.4s), invisibly snap back, wait 1.6s.
+                while !Task.isCancelled {
+                    withAnimation(.easeInOut(duration: 1.4)) {
+                        shineSwept = true
+                    }
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    shineSwept = false
+                    try? await Task.sleep(nanoseconds: 1_600_000_000)
                 }
             }
     }
