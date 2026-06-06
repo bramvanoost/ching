@@ -4,16 +4,29 @@ import CHINGEngine
 
 @MainActor
 final class GameStoreTests: XCTestCase {
-    func test_init_setsUpTwoPlayersHumanTurnRollPhase() {
+    private static let difficultyKey = "ching.difficulty"
+
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
+        super.tearDown()
+    }
+
+    func test_init_setsUpThreePlayersHumanTurnRollPhase() {
         let store = GameStore(seed: 1)
-        XCTAssertEqual(store.state.players.count, 2)
+        XCTAssertEqual(store.state.players.count, 3)
         XCTAssertEqual(store.state.players[0].id, "YOU")
         XCTAssertEqual(store.state.players[1].id, "JONES")
+        XCTAssertEqual(store.state.players[2].id, "BOT 03")
         XCTAssertEqual(store.state.phase, .roll)
         XCTAssertEqual(store.state.current, 0)
         XCTAssertTrue(store.isHumanTurn)
         XCTAssertFalse(store.isOver)
-        XCTAssertEqual(store.scores, [0, 0])
+        XCTAssertEqual(store.scores, [0, 0, 0])
     }
 
     func test_apply_rollAdvancesPhaseOrTurn() {
@@ -31,25 +44,69 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(store.state.phase, .roll)
         XCTAssertEqual(store.state.players[0].tiles, [])
         XCTAssertEqual(store.state.players[1].tiles, [])
+        XCTAssertEqual(store.state.players[2].tiles, [])
         XCTAssertEqual(store.state.current, 0)
     }
 
-    func test_runAIIfNeeded_isNoOpOnHumanTurn() {
+    func test_runAIIfNeeded_isNoOpOnHumanTurn() async {
         let store = GameStore(seed: 1)
         let before = store.state
-        store.runAIIfNeeded()
+        await store.runAIIfNeeded(reduceMotion: true)
         XCTAssertEqual(store.state, before)
     }
 
-    func test_fullGameTerminates() {
+    func test_runAIIfNeeded_reduceMotionRunsInstantly() async {
+        let store = GameStore(seed: 1)
+        let start = Date()
+        await store.runAIIfNeeded(reduceMotion: true)
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 1.0)
+    }
+
+    func test_fullThreePlayerGameTerminates() {
         let store = GameStore(seed: 1)
         var safetyLimit = 5000
         while !store.isOver && safetyLimit > 0 {
-            let action = decide(state: store.state, ai: Difficulty(discipline: 0.5))
+            let action = decide(state: store.state, ai: CHINGEngine.Difficulty(discipline: 0.5))
             store.apply(action)
             safetyLimit -= 1
         }
-        XCTAssertTrue(store.isOver, "Game should terminate within 5000 actions")
+        XCTAssertTrue(store.isOver, "3-player game should terminate within 5000 actions")
         XCTAssertGreaterThan(safetyLimit, 0)
+        XCTAssertEqual(store.state.players.count, 3)
+    }
+
+    func test_difficulty_modifierTable() {
+        XCTAssertEqual(Difficulty.easy.modifier, -0.15, accuracy: 0.0001)
+        XCTAssertEqual(Difficulty.normal.modifier, 0, accuracy: 0.0001)
+        XCTAssertEqual(Difficulty.hard.modifier, 0.15, accuracy: 0.0001)
+        XCTAssertEqual(Difficulty.allCases, [.easy, .normal, .hard])
+    }
+
+    func test_difficulty_defaultIsNormalOnFirstLaunch() {
+        let store = GameStore(seed: 1)
+        XCTAssertEqual(store.difficulty, .normal)
+    }
+
+    func test_difficulty_persistsAcrossInstances() {
+        let store1 = GameStore(seed: 1)
+        store1.difficulty = .hard
+        let store2 = GameStore(seed: 2)
+        XCTAssertEqual(store2.difficulty, .hard)
+    }
+
+    func test_bankActionLabel_pointsAtFirstRivalWithMatchingTop() {
+        let store = GameStore(seed: 1)
+        var s = store.state
+        s.players[1].tiles = [25]
+        s.players[2].tiles = [25]
+        s.setAside = [.five, .coin, .five, .four, .three, .three]
+        s.pickedFaces = [.five, .coin, .four, .three]
+        s.diceInHand = 2
+        s.phase = .roll
+        s.current = GameStore.humanSeat
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.setAsideSum, 25)
+        XCTAssertEqual(store.bankActionLabel, "STEAL FROM JONES")
     }
 }

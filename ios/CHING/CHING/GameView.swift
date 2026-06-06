@@ -3,32 +3,56 @@ import CHINGEngine
 
 struct GameView: View {
     @SwiftUI.State private var store = GameStore()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func act(_ action: Action) {
         store.apply(action)
-        store.runAIIfNeeded()
+        let reduce = reduceMotion
+        Task { await store.runAIIfNeeded(reduceMotion: reduce) }
+    }
+
+    private var currentSeatName: String {
+        store.state.players[store.state.current].id
     }
 
     private var gameOverMessage: String {
-        let scores = store.scores
-        let you = scores[0]
-        let jones = scores[1]
-        let outcome: String
-        if you > jones { outcome = "You win" }
-        else if jones > you { outcome = "Jones wins" }
-        else { outcome = "Tie" }
-        return "\(outcome).\nYOU \(you)  JONES \(jones)"
+        let ranked = zip(store.state.players, store.scores)
+            .map { (id: $0.id, score: $1) }
+            .sorted { $0.score > $1.score }
+
+        let top = ranked.first!.score
+        let leaders = ranked.filter { $0.score == top }
+
+        let headline: String
+        if leaders.count == 1 {
+            headline = "\(leaders[0].id) wins."
+        } else {
+            headline = "Tie at the top."
+        }
+
+        let body = ranked
+            .map { "\($0.id) \($0.score)" }
+            .joined(separator: " · ")
+
+        return "\(headline)\n\(body)"
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            DifficultyPicker(difficulty: Binding(
+                get: { store.difficulty },
+                set: { store.difficulty = $0 }
+            ))
+
             Text("CHING")
                 .font(.largeTitle)
                 .bold()
 
             Text("Phase: \(store.state.phase.rawValue)")
             Text("Turn: \(store.state.players[store.state.current].id)")
-            Text("Scores: YOU \(store.scores[0])  JONES \(store.scores[1])")
+            Text("Scores: " + zip(store.state.players, store.scores)
+                .map { "\($0.id) \($1)" }
+                .joined(separator: "  "))
             CenterTileRow(tiles: store.state.centerTiles)
             VaultRow(players: store.state.players, current: store.state.current)
             DiceRow(
@@ -39,6 +63,12 @@ struct GameView: View {
             )
             PickBar(store: store, act: act)
             ActionBar(store: store, act: act)
+
+            if !store.isHumanTurn && !store.isOver {
+                Text("\(currentSeatName) is thinking…")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
         }
@@ -196,6 +226,19 @@ struct ActionBar: View {
             .disabled(!store.canBank)
             .buttonStyle(.borderedProminent)
         }
+    }
+}
+
+struct DifficultyPicker: View {
+    @Binding var difficulty: Difficulty
+
+    var body: some View {
+        Picker("Difficulty", selection: $difficulty) {
+            ForEach(Difficulty.allCases, id: \.self) { d in
+                Text(d.rawValue.capitalized).tag(d)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 }
 
