@@ -60,7 +60,13 @@ extension Color {
 
     // MARK: - Sky gradient stops
 
-    static let skyTop = paper
+    /// Top of the golden-hour sky. Decoupled from `paper` so the upper
+    /// edge can be a deeper apricot instead of washing out to cream.
+    static let skyTop = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 50/255, green: 38/255, blue: 62/255, alpha: 1)
+            : UIColor(red: 235/255, green: 198/255, blue: 165/255, alpha: 1)
+    })
 
     static let skyMid = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark

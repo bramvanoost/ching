@@ -23,13 +23,19 @@ struct ShellGlyph: View {
         Canvas { ctx, canvasSize in
             let w = canvasSize.width
             let h = canvasSize.height
-            let hinge = CGPoint(x: w / 2, y: h * 0.94)
-            // Pick a radius that fills the box vertically: top of arc lands
-            // near y = 0.06 * h. The arc top is at hinge.y - r, so r ≈ 0.88h.
-            let r = min(h * 0.88, (w / 2) / 0.966)
+            // Hinge sits about 80% down — the shell domes up from a narrow
+            // base instead of hanging from the bottom edge, so it reads
+            // higher in its frame.
+            let hinge = CGPoint(x: w / 2, y: h * 0.80)
+            // Arc sweep is narrower than before (210°→330°, ~120° total).
+            // That makes the silhouette closer to a dome than a wide fan:
+            // width:height ≈ 1.7:1 instead of 1.9:1.
+            let startDeg: Double = 210
+            let endDeg: Double = 330
+            // cos(210°) = -0.866 — width-half per unit radius. Radius is the
+            // smaller of "fit the width" or "reach the top" so we never clip.
+            let r = min(h * 0.78, (w / 2) / 0.866)
 
-            let startDeg: Double = 195
-            let endDeg: Double = 345
             let bumps = 7
             let steps = bumps * 8
 
@@ -140,9 +146,10 @@ struct ShellMedallion: View {
                 showRidges: true
             )
             .shadow(color: Color.treasureInk.opacity(0.45), radius: max(1.5, size / 36), x: 0, y: max(1.5, size / 50))
-            // Lift slightly so the shell's visual mass sits near the coin's
-            // optical center, not its geometric one.
-            .offset(y: -size * 0.04)
+            // Lift so the shell's optical center sits above the coin's
+            // geometric center — the hinge naturally falls lower than the
+            // shell's visual mass.
+            .offset(y: -size * 0.07)
         }
         .frame(width: size, height: size)
     }
