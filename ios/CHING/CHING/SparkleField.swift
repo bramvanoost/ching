@@ -54,7 +54,7 @@ private struct Sparkle: View {
 
     /// Glyph size — small enough to twinkle, not glow like an orb.
     private var glyphSize: CGFloat {
-        6 + CGFloat(seed * 11 % 7)
+        4 + CGFloat(seed * 11 % 6)
     }
 
     /// Each sparkle starts at a different point in the twinkle so the burst
@@ -76,8 +76,8 @@ private struct Sparkle: View {
         Image(systemName: "sparkle")
             .font(.system(size: glyphSize, weight: .bold))
             .foregroundStyle(Color.coinGoldLight)
-            .shadow(color: Color.moonCenter.opacity(0.9), radius: 2, x: 0, y: 0)
-            .shadow(color: Color.gold.opacity(0.7), radius: 4, x: 0, y: 0)
+            .shadow(color: Color.moonCenter.opacity(0.9), radius: 1.5, x: 0, y: 0)
+            .shadow(color: Color.gold.opacity(0.6), radius: 3, x: 0, y: 0)
             .rotationEffect(.degrees(rotation))
             // Drift outward — monotonic
             .offset(x: go ? endX : startX, y: go ? endY : startY)

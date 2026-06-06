@@ -41,8 +41,8 @@ struct DiceStage: View {
                     .font(.avenir(60, weight: .ultraLight))
                     .foregroundStyle(Color.ink)
                 if pickSparkleTrigger > 0 {
-                    SparkleField(count: 16, startRadius: 50, spread: 80, duration: 1.0)
-                        .frame(width: 200, height: 140)
+                    SparkleField(count: 32, startRadius: 50, spread: 90, duration: 1.0)
+                        .frame(width: 220, height: 160)
                         .id(pickSparkleTrigger)
                 }
             }
@@ -164,7 +164,7 @@ struct DiceStage: View {
                 }
 
                 if isPicked {
-                    SparkleField(count: 14, startRadius: 30, spread: 70, duration: 1.3)
+                    SparkleField(count: 28, startRadius: 30, spread: 75, duration: 1.3)
                 }
             }
             .aspectRatio(1, contentMode: .fit)
@@ -173,11 +173,12 @@ struct DiceStage: View {
             .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isPicked)
         }
         .buttonStyle(.plain)
-        .disabled(!canTap)
+        .allowsHitTesting(canTap)
         .opacity(
             isPicked ? 1.0 :
-            (canTap || isOther) ? 1.0 :
-            (isAnimating ? 0.85 : 0.5)
+            isOther ? 0.22 :
+            canPick(face) ? (isAnimating ? 0.85 : 1.0) :
+            0.5
         )
         .animation(.easeOut(duration: 0.25), value: pickingFace)
     }
