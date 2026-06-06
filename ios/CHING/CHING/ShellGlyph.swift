@@ -128,14 +128,18 @@ struct ShellMedallion: View {
                 .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: max(0.8, size / 40))
                 .padding(size * 0.1)
 
-            // Engraved shell — no fill, ink stroke so the gold reads through.
+            // Shell in relief — body fill brighter than the coin, plus a
+            // soft cast shadow so it reads as raised off the surface
+            // rather than carved into it. Ridges stay treasure-ink so
+            // they read as grooves between raised facets.
             ShellGlyph(
                 size: size * shellScale,
-                fillTop: .clear,
-                fillBottom: .clear,
-                stroke: Color.treasureInk,
+                fillTop: Color.shellHighlight,
+                fillBottom: Color.coinGoldLight,
+                stroke: Color.treasureInk.opacity(0.55),
                 showRidges: true
             )
+            .shadow(color: Color.treasureInk.opacity(0.45), radius: max(1.5, size / 36), x: 0, y: max(1.5, size / 50))
             // Lift slightly so the shell's visual mass sits near the coin's
             // optical center, not its geometric one.
             .offset(y: -size * 0.04)

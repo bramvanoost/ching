@@ -53,6 +53,11 @@ extension Color {
     static let coinGoldLight = Color(red: 250/255, green: 219/255, blue: 150/255)
     static let coinGoldDark = Color(red: 240/255, green: 201/255, blue: 122/255)
 
+    /// Pale cream-gold for the lit edge of a shell sitting in relief on the
+    /// coin. Brighter than coinGoldLight so the shell catches the highlight
+    /// instead of blending into the coin face.
+    static let shellHighlight = Color(red: 254/255, green: 240/255, blue: 196/255)
+
     // MARK: - Sky gradient stops
 
     static let skyTop = paper
