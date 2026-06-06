@@ -26,15 +26,18 @@ struct DiceStage: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            // Header zone — phase + sum label + big sum number (fixed height).
             Text(phaseHint.lowercased())
                 .font(.avenir(14, weight: .medium, italic: true))
                 .foregroundStyle(Color.ink.opacity(0.78))
+                .frame(height: 18)
 
             Text("set aside · sum")
                 .font(.avenir(10, weight: .medium, italic: true))
                 .textCase(.lowercase)
                 .tracking(2)
                 .foregroundStyle(Color.ink.opacity(0.55))
+                .frame(height: 12)
 
             ZStack {
                 Text("\(setAsideSum)")
@@ -46,46 +49,56 @@ struct DiceStage: View {
                         .id(pickSparkleTrigger)
                 }
             }
+            .frame(height: 72)
 
-            if !displayRolled.isEmpty {
-                Text("dice")
+            // "dice" label sits in a fixed slot — invisible when nothing rolled
+            // so the row below doesn't jump.
+            Text("dice")
+                .font(.avenir(10, weight: .medium, italic: true))
+                .tracking(2)
+                .foregroundStyle(Color.ink.opacity(displayRolled.isEmpty ? 0 : 0.55))
+                .frame(height: 12)
+
+            // Dice slot — fixed height holds either the 4-col grid (max 2 rows
+            // of 8 dice) or a centered status line. Swapping inside the slot
+            // doesn't reflow the rest of the stage.
+            ZStack {
+                if !displayRolled.isEmpty {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+                        spacing: 8
+                    ) {
+                        ForEach(Array(displayRolled.enumerated()), id: \.offset) { _, face in
+                            dieButton(face: face)
+                        }
+                    }
+                    .padding(.horizontal, 30)
+                } else if !locked.isEmpty {
+                    Text("roll again or bank")
+                        .font(.avenir(13, weight: .medium, italic: true))
+                        .foregroundStyle(Color.ink.opacity(0.65))
+                } else {
+                    Text("\(diceInHand) dice ready")
+                        .font(.avenir(13, weight: .medium, italic: true))
+                        .foregroundStyle(Color.ink.opacity(0.65))
+                }
+            }
+            .frame(height: 168)
+
+            // Locked slot — always reserved, just goes transparent when empty.
+            HStack(spacing: 6) {
+                Text("locked")
                     .font(.avenir(10, weight: .medium, italic: true))
                     .tracking(2)
                     .foregroundStyle(Color.ink.opacity(0.55))
-
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
-                    spacing: 8
-                ) {
-                    ForEach(Array(displayRolled.enumerated()), id: \.offset) { _, face in
-                        dieButton(face: face)
-                    }
+                ForEach(Array(locked.enumerated()), id: \.offset) { _, face in
+                    lockedDie(face: face)
                 }
-                .padding(.horizontal, 30)
-            } else if !locked.isEmpty {
-                Text("roll again or bank")
-                    .font(.avenir(13, weight: .medium, italic: true))
-                    .foregroundStyle(Color.ink.opacity(0.65))
-            } else {
-                Text("\(diceInHand) dice ready")
-                    .font(.avenir(13, weight: .medium, italic: true))
-                    .foregroundStyle(Color.ink.opacity(0.65))
             }
-
-            if !locked.isEmpty {
-                HStack(spacing: 6) {
-                    Text("locked")
-                        .font(.avenir(10, weight: .medium, italic: true))
-                        .tracking(2)
-                        .foregroundStyle(Color.ink.opacity(0.55))
-                    ForEach(Array(locked.enumerated()), id: \.offset) { _, face in
-                        lockedDie(face: face)
-                    }
-                }
-                .padding(.top, 4)
-            }
+            .frame(height: 30)
+            .opacity(locked.isEmpty ? 0 : 1)
         }
-        .frame(maxWidth: .infinity, minHeight: 310, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 12)
         .onChange(of: rolled) { oldValue, newValue in
             guard !reduceMotion else { return }

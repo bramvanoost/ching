@@ -33,7 +33,7 @@ struct CountingCeremony: View {
             Background()
 
             VStack(spacing: 0) {
-                Spacer().frame(height: 30)
+                Spacer().frame(height: 26)
 
                 Text("counting…")
                     .font(.avenir(28, weight: .ultraLight, italic: true))
@@ -43,29 +43,24 @@ struct CountingCeremony: View {
                     .animation(.easeOut(duration: 0.4), value: winnerRevealed)
 
                 if winnerRevealed {
-                    ZStack {
-                        SparkleField(count: 70, startRadius: 80, spread: 150, duration: 1.6)
-                            .frame(width: 360, height: 100)
-                            .offset(y: 0)
-                        Text(winnerHeadline)
-                            .font(.avenir(30, weight: .demiBold, italic: true))
-                            .tracking(2)
-                            .foregroundStyle(Color.gold)
-                            .shadow(color: Color.gold.opacity(0.6), radius: 14, x: 0, y: 0)
-                            .shadow(color: Color.ink.opacity(0.4), radius: 0, x: 0, y: 1)
-                    }
-                    .padding(.top, -38)
-                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    Text(winnerHeadline)
+                        .font(.avenir(30, weight: .demiBold, italic: true))
+                        .tracking(2)
+                        .foregroundStyle(Color.gold)
+                        .shadow(color: Color.gold.opacity(0.6), radius: 14, x: 0, y: 0)
+                        .shadow(color: Color.ink.opacity(0.4), radius: 0, x: 0, y: 1)
+                        .padding(.top, -34)
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
                 }
 
-                Spacer().frame(height: 28)
+                Spacer().frame(height: 22)
 
                 VStack(spacing: 14) {
                     ForEach(players.indices, id: \.self) { i in
-                        playerRow(i)
+                        playerCard(i)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 20)
 
                 Spacer()
 
@@ -85,92 +80,78 @@ struct CountingCeremony: View {
     }
 
     @ViewBuilder
-    private func playerRow(_ i: Int) -> some View {
+    private func playerCard(_ i: Int) -> some View {
         let isRevealed = revealedPlayer >= i
         let isCurrentlyCounting = revealedPlayer == i && !winnerRevealed
         let isWinner = winnerRevealed && winnerIndices.contains(i)
         let displayedTotal = tickedTotals.indices.contains(i) ? tickedTotals[i] : 0
 
-        ZStack {
-            HStack(spacing: 14) {
-                Text(players[i].id.capitalized)
-                    .font(.avenir(16, weight: isWinner ? .demiBold : .medium, italic: true))
+        VStack(spacing: 12) {
+            // Name
+            Text(players[i].id.capitalized)
+                .font(.avenir(15, weight: isWinner ? .demiBold : .medium, italic: true))
+                .foregroundStyle(Color.ink)
+                .tracking(1)
+
+            // Tile row — each tile shows its number + the coins it's worth.
+            ZStack {
+                if players[i].tiles.isEmpty {
+                    Text("no safes claimed")
+                        .font(.avenir(11, weight: .medium, italic: true))
+                        .tracking(1.5)
+                        .textCase(.lowercase)
+                        .foregroundStyle(Color.ink.opacity(0.45))
+                } else {
+                    HStack(spacing: -4) {
+                        ForEach(players[i].tiles, id: \.self) { tile in
+                            tileChip(value: tile)
+                        }
+                    }
+                }
+            }
+            .frame(height: 44)
+
+            // Big coin total + same-sized coin, side by side.
+            HStack(alignment: .center, spacing: 10) {
+                Text("\(displayedTotal)")
+                    .font(.avenir(48, weight: .demiBold))
                     .foregroundStyle(Color.ink)
-                    .frame(width: 72, alignment: .leading)
-
-                Spacer()
-
-                // Mini vault row
-                HStack(spacing: -8) {
-                    ForEach(players[i].tiles.suffix(5), id: \.self) { safe in
-                        miniSafe(value: safe)
-                    }
-                    if players[i].tiles.count > 5 {
-                        Text("+\(players[i].tiles.count - 5)")
-                            .font(.avenir(10, weight: .medium, italic: true))
-                            .foregroundStyle(Color.dimInk)
-                            .padding(.leading, 14)
-                    }
-                }
-
-                Spacer()
-
-                // Coin total — large during ceremony
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text("\(displayedTotal)")
-                        .font(.avenir(30, weight: isWinner ? .demiBold : .ultraLight))
-                        .foregroundStyle(Color.ink)
-                    coinGlyph(size: 16)
-                        .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
-                }
-                .opacity(isRevealed ? 1.0 : 0.25)
-                .frame(width: 80, alignment: .trailing)
+                    .monospacedDigit()
+                coinGlyph(size: 48)
+                    .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 2)
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(isWinner ? Color.gold.opacity(0.25) : Color.white.opacity(0.3))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(
-                        isWinner ? Color.gold.opacity(0.65) : Color.ink.opacity(0.15),
-                        lineWidth: isWinner ? 1.5 : 1
-                    )
-            )
-            .shadow(color: isCurrentlyCounting ? Color.gold.opacity(0.4) : .clear, radius: 12, x: 0, y: 0)
-            .shadow(color: isWinner ? Color.gold.opacity(0.55) : .clear, radius: 18, x: 0, y: 0)
-            .scaleEffect(isWinner ? 1.04 : 1.0)
-            .animation(.easeOut(duration: 0.35), value: isWinner)
-
-            if isWinner {
-                SparkleField(count: 52, startRadius: 110, spread: 120, duration: 1.4)
-                    .id(sparkleWave)
-                    .allowsHitTesting(false)
-            }
+            .opacity(isRevealed ? 1.0 : 0.25)
         }
-    }
-
-    @ViewBuilder
-    private func coinGlyph(size: CGFloat) -> some View {
-        ZStack {
-            Circle()
-                .fill(Color.gold)
-                .overlay(
-                    Circle().strokeBorder(Color.treasureInk, lineWidth: 1.2)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(isWinner ? Color.gold.opacity(0.28) : Color.white.opacity(0.32))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(
+                    isWinner ? Color.gold.opacity(0.75) : Color.ink.opacity(0.15),
+                    lineWidth: isWinner ? 1.75 : 1
                 )
-            Circle()
-                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: 1)
-                .padding(2)
+        )
+        .shadow(color: isCurrentlyCounting ? Color.gold.opacity(0.4) : .clear, radius: 12, x: 0, y: 0)
+        .shadow(color: isWinner ? Color.gold.opacity(0.55) : .clear, radius: 22, x: 0, y: 0)
+        .scaleEffect(isWinner ? 1.03 : 1.0)
+        .animation(.easeOut(duration: 0.35), value: isWinner)
+        .overlay {
+            if isWinner {
+                EdgeSparkleField(count: 90, inset: 2, spread: 22, duration: 1.5)
+                    .id(sparkleWave)
+            }
         }
-        .frame(width: size, height: size)
     }
 
     @ViewBuilder
-    private func miniSafe(value: Int) -> some View {
+    private func tileChip(value: Int) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 5)
                 .fill(
                     LinearGradient(
                         colors: [Color.safePeachLight, Color.safePeachDark],
@@ -178,15 +159,40 @@ struct CountingCeremony: View {
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.treasureInk, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.treasureInk, lineWidth: 1.25)
                 )
-            Text("\(value)")
-                .font(.avenir(10, weight: .demiBold))
-                .foregroundStyle(Color.treasureInk)
+            VStack(spacing: 2) {
+                Text("\(value)")
+                    .font(.avenir(12, weight: .demiBold))
+                    .foregroundStyle(Color.treasureInk)
+                CoinPips(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
+            }
         }
-        .frame(width: 22, height: 26)
+        .frame(width: 30, height: 40)
         .shadow(color: Color.treasureInk.opacity(0.12), radius: 0, x: 0, y: 1)
+    }
+
+    @ViewBuilder
+    private func coinGlyph(size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.coinGoldLight, Color.gold],
+                        center: UnitPoint(x: 0.35, y: 0.3),
+                        startRadius: 0,
+                        endRadius: size / 2
+                    )
+                )
+                .overlay(
+                    Circle().strokeBorder(Color.treasureInk, lineWidth: 2)
+                )
+            Circle()
+                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: 1.5)
+                .padding(size * 0.13)
+        }
+        .frame(width: size, height: size)
     }
 
     private func runCeremony() async {
@@ -226,7 +232,7 @@ struct CountingCeremony: View {
             showNewGame = true
         }
 
-        // Keep the winner sparkling while the celebration is on screen.
+        // Keep the winner card ringed in sparkles while the celebration is up.
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             sparkleWave += 1

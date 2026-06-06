@@ -55,21 +55,22 @@ struct SafesGrid: View {
             // Base layer — dim unavailable styling, always rendered
             cellLayer(value: value, available: false)
 
-            // Active layer — rendered only when available. On removal it lifts
-            // up and fades, signaling the tile flying to the player's vault.
+            // Active layer — rendered only when available. On removal it
+            // punches forward (2.2× scale) and fades, so the tile clearly
+            // leaves the pool toward the player's vault.
             if available {
                 cellLayer(value: value, available: true)
                     .transition(
                         .asymmetric(
                             insertion: .opacity,
-                            removal: .scale(scale: 1.4).combined(with: .opacity)
+                            removal: .scale(scale: 2.2).combined(with: .opacity)
                         )
                     )
             }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 56)
-        .animation(.easeOut(duration: 0.55), value: available)
+        .animation(.easeOut(duration: 0.7), value: available)
     }
 
     @ViewBuilder

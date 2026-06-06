@@ -40,7 +40,7 @@ struct VaultStack: View {
                         .transition(
                             idx == 0
                             ? .asymmetric(
-                                insertion: .scale(scale: 0.4).combined(with: .opacity),
+                                insertion: .scale(scale: 0.15).combined(with: .opacity),
                                 removal: .opacity
                               )
                             : .opacity
@@ -48,7 +48,7 @@ struct VaultStack: View {
                 }
             }
             .frame(width: safeWidth, height: stackHeight, alignment: .top)
-            .animation(.spring(response: 0.45, dampingFraction: 0.7), value: safes.count)
+            .animation(.spring(response: 0.55, dampingFraction: 0.55), value: safes.count)
             .onChange(of: safes.count) { oldValue, newValue in
                 guard newValue > oldValue else { return }
                 addSparkleTrigger += 1

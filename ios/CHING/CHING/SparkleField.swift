@@ -87,6 +87,104 @@ private struct Sparkle: View {
     }
 }
 
+/// Sparkles distributed along the perimeter of the host view's frame and
+/// drifting outward, perpendicular to whichever edge they were born on.
+/// Use as an overlay on a card to ring it in tiny gold flecks.
+struct EdgeSparkleField: View {
+    var count: Int = 70
+    var inset: CGFloat = 4
+    var spread: CGFloat = 16
+    var duration: Double = 1.4
+
+    @SwiftUI.State private var go: Bool = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(0..<count, id: \.self) { i in
+                    EdgeSparkle(
+                        seed: i,
+                        size: geo.size,
+                        inset: inset,
+                        spread: spread,
+                        duration: duration,
+                        go: go
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .onAppear {
+            withAnimation { go = true }
+        }
+    }
+}
+
+private struct EdgeSparkle: View {
+    let seed: Int
+    let size: CGSize
+    let inset: CGFloat
+    let spread: CGFloat
+    let duration: Double
+    let go: Bool
+
+    /// Position 0..<1 along the perimeter walk: top → right → bottom → left.
+    private var perimeterT: CGFloat {
+        CGFloat((seed * 911) % 1009) / 1009.0
+    }
+
+    private var glyphSize: CGFloat {
+        3 + CGFloat((seed * 7) % 4)
+    }
+
+    private var delay: Double {
+        Double((seed * 13) % 17) / 17.0 * 0.45
+    }
+
+    private var rotation: Double {
+        Double((seed * 31) % 360)
+    }
+
+    private struct EdgePoint { let point: CGPoint; let normal: CGVector }
+
+    private func walkEdge() -> EdgePoint {
+        let w = size.width
+        let h = size.height
+        let perim = 2 * (w + h)
+        let d = perimeterT * perim
+        if d < w {
+            return EdgePoint(point: CGPoint(x: d, y: inset),
+                             normal: CGVector(dx: 0, dy: -1))
+        }
+        if d < w + h {
+            return EdgePoint(point: CGPoint(x: w - inset, y: d - w),
+                             normal: CGVector(dx: 1, dy: 0))
+        }
+        if d < 2 * w + h {
+            return EdgePoint(point: CGPoint(x: w - (d - w - h), y: h - inset),
+                             normal: CGVector(dx: 0, dy: 1))
+        }
+        return EdgePoint(point: CGPoint(x: inset, y: h - (d - 2 * w - h)),
+                         normal: CGVector(dx: -1, dy: 0))
+    }
+
+    var body: some View {
+        let edge = walkEdge()
+        let endX = edge.point.x + edge.normal.dx * spread
+        let endY = edge.point.y + edge.normal.dy * spread
+        Image(systemName: "sparkle")
+            .font(.system(size: glyphSize, weight: .bold))
+            .foregroundStyle(Color.coinGoldLight)
+            .shadow(color: Color.moonCenter.opacity(0.9), radius: 1.5, x: 0, y: 0)
+            .shadow(color: Color.gold.opacity(0.6), radius: 3, x: 0, y: 0)
+            .rotationEffect(.degrees(rotation))
+            .position(x: go ? endX : edge.point.x, y: go ? endY : edge.point.y)
+            .opacity(go ? 0 : 1)
+            .scaleEffect(go ? 0.4 : 1.2)
+            .animation(.easeOut(duration: duration).delay(delay), value: go)
+    }
+}
+
 #Preview {
     ZStack {
         Color.skyMid.ignoresSafeArea()

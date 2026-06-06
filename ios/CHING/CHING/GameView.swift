@@ -92,24 +92,35 @@ struct GameView: View {
         }
     }
 
+    /// A "cold coin" — a coin shape rendered in cream against the coral bust
+    /// wash so it stays legible. The empty interior reinforces "no coin".
     @ViewBuilder
     private func redCoinGlyph(size: CGFloat) -> some View {
         ZStack {
+            // Outer disc — cream so it pops on the coral background.
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color.coralLight, Color.coral, Color.coralDark],
-                        center: UnitPoint(x: 0.4, y: 0.35),
+                        colors: [Color.stampText, Color.stampText.opacity(0.85)],
+                        center: UnitPoint(x: 0.35, y: 0.3),
                         startRadius: 0,
                         endRadius: size / 2
                     )
                 )
                 .overlay(
-                    Circle().strokeBorder(Color.paper.opacity(0.9), lineWidth: 2)
+                    Circle().strokeBorder(Color.coralDark, lineWidth: 3)
                 )
+                .shadow(color: Color.coralDark.opacity(0.5), radius: 0, x: 0, y: 4)
+
+            // Inner ring — echoes the live coin glyph elsewhere.
             Circle()
-                .strokeBorder(Color.coralLight.opacity(0.75), lineWidth: 1.5)
-                .padding(6)
+                .strokeBorder(Color.coralDark.opacity(0.55), lineWidth: 1.5)
+                .padding(size * 0.13)
+
+            // A coral "C" — visibly the right shape, visibly the wrong color.
+            Text("C")
+                .font(.avenir(size * 0.45, weight: .demiBold, italic: true))
+                .foregroundStyle(Color.coralDark)
         }
         .frame(width: size, height: size)
     }
@@ -190,31 +201,51 @@ struct GameView: View {
         .overlay {
             if bustFlash {
                 ZStack {
+                    // Full coral wash — the danger color, with a vignette
+                    // toward the corners so the center stays loudest.
+                    RadialGradient(
+                        colors: [Color.coral, Color.coralDark],
+                        center: .center,
+                        startRadius: 80,
+                        endRadius: 540
+                    )
+                    .ignoresSafeArea()
+
+                    // Subtle paper-flecked grain so the wash doesn't read as flat.
                     LinearGradient(
-                        colors: [
-                            Color(red: 24/255, green: 16/255, blue: 34/255).opacity(0.95),
-                            Color(red: 44/255, green: 28/255, blue: 60/255).opacity(0.92)
-                        ],
+                        colors: [Color.coralLight.opacity(0.18), .clear, Color.coralDark.opacity(0.3)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                     .ignoresSafeArea()
-                    VStack(spacing: 18) {
+                    .blendMode(.softLight)
+
+                    VStack(spacing: 22) {
                         if bustReason == .greedy {
-                            redCoinGlyph(size: 80)
-                                .shadow(color: Color.coral.opacity(0.6), radius: 24, x: 0, y: 0)
-                                .shadow(color: Color.coralLight.opacity(0.4), radius: 10, x: 0, y: 0)
+                            redCoinGlyph(size: 96)
+                                .shadow(color: Color.stampText.opacity(0.35), radius: 22, x: 0, y: 0)
+                                .shadow(color: Color.coralDark, radius: 0, x: 0, y: 6)
                         }
+                        // "bust." as a stamped headline — hard offset shadow
+                        // for stamp character, cream against the coral wash.
                         Text("bust.")
-                            .font(.avenir(84, weight: .ultraLight, italic: true))
-                            .tracking(6)
-                            .foregroundStyle(Color.paper)
-                            .shadow(color: Color.coral.opacity(0.4), radius: 18, x: 0, y: 0)
+                            .font(.avenir(96, weight: .demiBold, italic: true))
+                            .tracking(4)
+                            .foregroundStyle(Color.stampText)
+                            .shadow(color: Color.coralDark, radius: 0, x: 3, y: 4)
+                            .shadow(color: Color.stampText.opacity(0.25), radius: 26, x: 0, y: 0)
+
+                        // Hairline rule beneath the headline — a printer's mark.
+                        Capsule()
+                            .fill(Color.stampText.opacity(0.55))
+                            .frame(width: 64, height: 1.5)
+
                         Text(bustSubline)
-                            .font(.avenir(13, weight: .medium, italic: true))
-                            .tracking(2)
+                            .font(.avenir(14, weight: .medium, italic: true))
+                            .tracking(2.5)
+                            .textCase(.lowercase)
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(Color.paper.opacity(0.75))
+                            .foregroundStyle(Color.stampText.opacity(0.92))
                             .padding(.horizontal, 30)
                     }
                 }
