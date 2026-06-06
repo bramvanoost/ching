@@ -1,32 +1,125 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Palette (Monument Valley)
+
 extension Color {
+    /// Top of sky gradient (light: cream peach, dark: deep plum).
     static let paper = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 26/255, green: 26/255, blue: 26/255, alpha: 1)
-            : UIColor(red: 250/255, green: 248/255, blue: 243/255, alpha: 1)
+            ? UIColor(red: 61/255, green: 46/255, blue: 72/255, alpha: 1)
+            : UIColor(red: 251/255, green: 231/255, blue: 208/255, alpha: 1)
     })
 
+    /// All type and borders (light: deep plum, dark: cream).
     static let ink = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 250/255, green: 248/255, blue: 243/255, alpha: 1)
-            : UIColor(red: 26/255, green: 26/255, blue: 26/255, alpha: 1)
+            ? UIColor(red: 251/255, green: 231/255, blue: 208/255, alpha: 1)
+            : UIColor(red: 74/255, green: 55/255, blue: 84/255, alpha: 1)
     })
 
+    /// Secondary text / dim borders (light: soft plum, dark: dusky lavender).
     static let dimInk = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 154/255, green: 154/255, blue: 154/255, alpha: 1)
-            : UIColor(red: 107/255, green: 107/255, blue: 107/255, alpha: 1)
+            ? UIColor(red: 168/255, green: 154/255, blue: 184/255, alpha: 1)
+            : UIColor(red: 122/255, green: 95/255, blue: 132/255, alpha: 1)
     })
 
-    /// Antique-gold accent for coin pips. Same hex in light and dark; gold
-    /// reads on both warm cream and near-black backgrounds.
-    static let gold = Color(red: 201/255, green: 169/255, blue: 97/255)
+    /// Coral accent — active seat, action stamp.
+    static let coral = Color(red: 210/255, green: 116/255, blue: 116/255)
+
+    /// Coral darker — stamp drop shadow.
+    static let coralDark = Color(red: 168/255, green: 88/255, blue: 88/255)
+
+    /// Gold pip — coin value markers on safes.
+    static let gold = Color(red: 201/255, green: 140/255, blue: 74/255)
+
+    /// Safe tile gradient stops (peach).
+    static let safePeachLight = Color(red: 253/255, green: 233/255, blue: 208/255)
+    static let safePeachDark = Color(red: 243/255, green: 214/255, blue: 184/255)
+
+    /// Coin die face gradient stops (gold).
+    static let coinGoldLight = Color(red: 250/255, green: 219/255, blue: 150/255)
+    static let coinGoldDark = Color(red: 240/255, green: 201/255, blue: 122/255)
+
+    // MARK: - Sky gradient stops
+
+    static let skyTop = paper
+
+    static let skyMid = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 90/255, green: 69/255, blue: 113/255, alpha: 1)
+            : UIColor(red: 245/255, green: 205/255, blue: 160/255, alpha: 1)
+    })
+
+    static let skyLavender = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 138/255, green: 106/255, blue: 138/255, alpha: 1)
+            : UIColor(red: 210/255, green: 182/255, blue: 208/255, alpha: 1)
+    })
+
+    static let skyPlum = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 168/255, green: 154/255, blue: 184/255, alpha: 1)
+            : UIColor(red: 165/255, green: 148/255, blue: 184/255, alpha: 1)
+    })
+
+    // MARK: - Architectural silhouette
+
+    static let citySilhouette = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 50/255, green: 38/255, blue: 60/255, alpha: 0.85)
+            : UIColor(red: 139/255, green: 100/255, blue: 136/255, alpha: 0.7)
+    })
+
+    static let citySilhouetteAccent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 70/255, green: 53/255, blue: 84/255, alpha: 0.85)
+            : UIColor(red: 168/255, green: 128/255, blue: 165/255, alpha: 0.7)
+    })
+
+    // MARK: - Moon
+
+    static let moonGlow = Color(red: 245/255, green: 212/255, blue: 155/255)
+    static let moonCenter = Color(red: 255/255, green: 248/255, blue: 232/255)
 }
 
-/// Small row of gold filled circles for coin value (1-4). Used on safes
-/// to make their coin value glance-readable.
+// MARK: - Typography (Avenir Next, single-family)
+
+enum AvenirWeight {
+    case ultraLight, regular, medium, demiBold, bold
+
+    func postScriptName(italic: Bool) -> String {
+        switch (self, italic) {
+        case (.ultraLight, false): return "AvenirNext-UltraLight"
+        case (.ultraLight, true):  return "AvenirNext-UltraLightItalic"
+        case (.regular, false):    return "AvenirNext-Regular"
+        case (.regular, true):     return "AvenirNext-Italic"
+        case (.medium, false):     return "AvenirNext-Medium"
+        case (.medium, true):      return "AvenirNext-MediumItalic"
+        case (.demiBold, false):   return "AvenirNext-DemiBold"
+        case (.demiBold, true):    return "AvenirNext-DemiBoldItalic"
+        case (.bold, false):       return "AvenirNext-Bold"
+        case (.bold, true):        return "AvenirNext-BoldItalic"
+        }
+    }
+}
+
+extension Font {
+    static func avenir(_ size: CGFloat, weight: AvenirWeight = .regular, italic: Bool = false) -> Font {
+        .custom(weight.postScriptName(italic: italic), size: size)
+    }
+
+    // Legacy Phase 4 font helpers — redirected to Avenir so the existing code
+    // builds against the MV typography while we migrate component-by-component.
+    static func cochin(_ size: CGFloat) -> Font { .avenir(size, weight: .regular) }
+    static func cochinItalic(_ size: CGFloat) -> Font { .avenir(size, weight: .medium, italic: true) }
+    static func bodoni(_ size: CGFloat) -> Font { .avenir(size, weight: .demiBold) }
+    static func bodoniItalic(_ size: CGFloat) -> Font { .avenir(size, weight: .demiBold, italic: true) }
+}
+
+// MARK: - CoinPips
+
 struct CoinPips: View {
     let count: Int
     var diameter: CGFloat = 5
@@ -43,59 +136,49 @@ struct CoinPips: View {
     }
 }
 
-extension Font {
-    static func cochin(_ size: CGFloat) -> Font {
-        .custom("Cochin", size: size)
-    }
+// MARK: - Stamp button (MV coral pill)
 
-    static func cochinItalic(_ size: CGFloat) -> Font {
-        .custom("Cochin-Italic", size: size)
-    }
+struct StampButtonStyle: ButtonStyle {
+    var primary: Bool = true
 
-    static func bodoni(_ size: CGFloat) -> Font {
-        .custom("BodoniSvtyTwoITCTT-Book", size: size)
-    }
-
-    static func bodoniItalic(_ size: CGFloat) -> Font {
-        .custom("BodoniSvtyTwoITCTT-BookIta", size: size)
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.avenir(15, weight: .demiBold))
+            .textCase(.uppercase)
+            .tracking(3)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .foregroundStyle(primary ? Color.paper : Color.coral)
+            .background(primary ? Color.coral : Color.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.coral, lineWidth: 1.5)
+            )
+            .shadow(color: Color.coralDark.opacity(0.55), radius: 0, x: 0, y: 5)
+            .shadow(color: Color.ink.opacity(0.18), radius: 8, x: 0, y: 8)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .opacity(configuration.isPressed ? 0.94 : 1.0)
     }
 }
 
+extension View {
+    func stampButton(primary: Bool = true) -> some View {
+        self.buttonStyle(StampButtonStyle(primary: primary))
+    }
+}
+
+// MARK: - Tiny shadow modifier (legacy, soft now)
+
 struct StampShadowModifier: ViewModifier {
     func body(content: Content) -> some View {
-        content.shadow(color: Color.ink, radius: 0, x: 2, y: 2)
+        content.shadow(color: Color.ink.opacity(0.22), radius: 0, x: 0, y: 3)
     }
 }
 
 extension View {
     func stampShadow() -> some View {
         modifier(StampShadowModifier())
-    }
-}
-
-struct StampButtonStyle: ButtonStyle {
-    var primary: Bool = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.bodoni(16))
-            .textCase(.uppercase)
-            .tracking(2)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .foregroundStyle(primary ? Color.paper : Color.ink)
-            .background(primary ? Color.ink : Color.paper)
-            .overlay(
-                Rectangle().strokeBorder(Color.ink, lineWidth: 1.5)
-            )
-            .stampShadow()
-            .opacity(configuration.isPressed ? 0.7 : 1.0)
-    }
-}
-
-extension View {
-    func stampButton(primary: Bool = false) -> some View {
-        self.buttonStyle(StampButtonStyle(primary: primary))
     }
 }

@@ -71,7 +71,7 @@ struct GameView: View {
 
     var body: some View {
         ZStack {
-            Color.paper.ignoresSafeArea()
+            Background()
 
             VStack(spacing: 0) {
                 ChromeBar(settings: settings, onNewGame: { store.newGame() })
