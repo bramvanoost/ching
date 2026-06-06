@@ -28,24 +28,16 @@ final class GameStore {
 
     private(set) var state: State
     private var rng: Mulberry32
+    private let settings: SettingsStore
 
-    private static let difficultyKey = "ching.difficulty"
-
-    var difficulty: Difficulty {
-        didSet {
-            UserDefaults.standard.set(difficulty.rawValue, forKey: Self.difficultyKey)
-        }
-    }
-
-    init(seed: UInt32) {
+    init(seed: UInt32, settings: SettingsStore) {
         self.rng = Mulberry32(seed: seed)
+        self.settings = settings
         self.state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
-        let raw = UserDefaults.standard.string(forKey: Self.difficultyKey) ?? ""
-        self.difficulty = Difficulty(rawValue: raw) ?? .normal
     }
 
-    convenience init() {
-        self.init(seed: UInt32.random(in: 1...UInt32.max))
+    convenience init(settings: SettingsStore) {
+        self.init(seed: UInt32.random(in: 1...UInt32.max), settings: settings)
     }
 
     var scores: [Int] { score(state) }
@@ -81,7 +73,7 @@ final class GameStore {
     var currentAIDifficulty: CHINGEngine.Difficulty? {
         guard !isHumanTurn else { return nil }
         let base = baseDiscipline[state.current] ?? 0.5
-        let adjusted = max(0, min(1, base + difficulty.modifier))
+        let adjusted = max(0, min(1, base + settings.difficulty.modifier))
         return CHINGEngine.Difficulty(discipline: adjusted)
     }
 
