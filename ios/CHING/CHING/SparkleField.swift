@@ -47,18 +47,24 @@ private struct Sparkle: View {
     }
 
     private var travelDistance: CGFloat {
-        let base = spread * 0.55
+        let base = spread * 0.6
         let extra = CGFloat(seed * 7 % 30) * (spread / 100)
         return base + extra
     }
 
-    private var dieSize: CGFloat {
-        // Bigger, brighter particles
-        7 + CGFloat(seed * 11 % 8)
+    /// Glyph size — small enough to twinkle, not glow like an orb.
+    private var glyphSize: CGFloat {
+        6 + CGFloat(seed * 11 % 7)
     }
 
+    /// Each sparkle starts at a different point in the twinkle so the burst
+    /// shimmers instead of pulsing in sync.
     private var delay: Double {
-        Double(seed * 5 % 13) / 13.0 * 0.18
+        Double(seed * 5 % 17) / 17.0 * (duration * 0.5)
+    }
+
+    private var rotation: Double {
+        Double(seed * 47 % 90) - 45
     }
 
     var body: some View {
@@ -67,24 +73,29 @@ private struct Sparkle: View {
         let endX = cos(angle) * (startRadius + travelDistance)
         let endY = sin(angle) * (startRadius + travelDistance)
 
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [Color.moonCenter, Color.coinGoldLight, Color.gold],
-                    center: UnitPoint(x: 0.4, y: 0.4),
-                    startRadius: 0,
-                    endRadius: dieSize / 2
-                )
-            )
-            .frame(width: dieSize, height: dieSize)
-            .shadow(color: Color.coinGoldLight, radius: 4, x: 0, y: 0)
-            .shadow(color: Color.gold.opacity(0.9), radius: 8, x: 0, y: 0)
-            .shadow(color: Color.gold.opacity(0.5), radius: 16, x: 0, y: 0)
+        Image(systemName: "sparkle")
+            .font(.system(size: glyphSize, weight: .bold))
+            .foregroundStyle(Color.coinGoldLight)
+            .shadow(color: Color.moonCenter.opacity(0.9), radius: 2, x: 0, y: 0)
+            .shadow(color: Color.gold.opacity(0.7), radius: 4, x: 0, y: 0)
+            .rotationEffect(.degrees(rotation))
+            // Drift outward — monotonic
             .offset(x: go ? endX : startX, y: go ? endY : startY)
-            .opacity(go ? 0 : 1)
-            .scaleEffect(go ? 0.3 : 1.4)
+            .animation(.easeOut(duration: duration).delay(delay), value: go)
+            // Twinkle the brightness — 0 → 1 → 0
+            .opacity(go ? 1 : 0)
             .animation(
-                .easeOut(duration: duration).delay(delay),
+                .easeInOut(duration: duration / 2)
+                    .repeatCount(2, autoreverses: true)
+                    .delay(delay),
+                value: go
+            )
+            // Twinkle the size — small → full → small
+            .scaleEffect(go ? 1.0 : 0.2)
+            .animation(
+                .easeInOut(duration: duration / 2)
+                    .repeatCount(2, autoreverses: true)
+                    .delay(delay),
                 value: go
             )
     }

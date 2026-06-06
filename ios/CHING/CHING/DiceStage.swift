@@ -176,8 +176,8 @@ struct DiceStage: View {
         .disabled(!canTap)
         .opacity(
             isPicked ? 1.0 :
-            isOther ? 0.25 :
-            (canTap ? 1.0 : (isAnimating ? 0.85 : 0.5))
+            (canTap || isOther) ? 1.0 :
+            (isAnimating ? 0.85 : 0.5)
         )
         .animation(.easeOut(duration: 0.25), value: pickingFace)
     }

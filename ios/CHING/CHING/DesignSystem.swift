@@ -170,7 +170,7 @@ struct StampButtonStyle: ButtonStyle {
                         .fill(
                             primary
                                 ? LinearGradient(
-                                    colors: [Color.coralLight, Color.coral, Color.coralDark],
+                                    colors: [Color.coinGoldLight, Color.coralLight, Color.coral, Color.coralDark],
                                     startPoint: .top,
                                     endPoint: .bottom
                                   )
