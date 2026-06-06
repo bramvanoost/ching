@@ -14,9 +14,10 @@ final class GameSFX {
     private var nextConfirmIdx = 0
 
     private init() {
-        // Two roll variants — alternate them for variety.
-        load("dice_picking", into: &rollPool, copies: 2, volume: 0.65)
-        load("dice_picking_2", into: &rollPool, copies: 2, volume: 0.65)
+        // The roll tick fires on every animation frame (~12/s during a
+        // roll), so preload enough copies that overlapping plays don't
+        // cut each other off.
+        load("dice_picking", into: &rollPool, copies: 6, volume: 0.6)
         load("dice_confirm", into: &confirmPool, copies: 2, volume: 0.7)
     }
 

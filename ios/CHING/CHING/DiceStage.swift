@@ -90,8 +90,9 @@ struct DiceStage: View {
         .padding(.vertical, 6)
         .onChange(of: rolled) { oldValue, newValue in
             if oldValue.isEmpty && !newValue.isEmpty {
-                GameSFX.shared.playRoll()
-                if !reduceMotion {
+                if reduceMotion {
+                    GameSFX.shared.playRoll()
+                } else {
                     animateRoll(count: newValue.count)
                 }
             }
@@ -117,6 +118,7 @@ struct DiceStage: View {
             let frames = 5
             let frameNs: UInt64 = 80_000_000
             for _ in 0..<frames {
+                GameSFX.shared.playRoll()
                 animatedRolled = (0..<count).map { _ in pool.randomElement()! }
                 try? await Task.sleep(nanoseconds: frameNs)
             }
