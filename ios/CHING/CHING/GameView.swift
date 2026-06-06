@@ -6,7 +6,13 @@ struct GameView: View {
     let settings: SettingsStore
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
     @SwiftUI.State private var bustFlash: Bool = false
+    @SwiftUI.State private var bustReason: BustReason = .rolled
     @SwiftUI.State private var stolenFromIdx: Int? = nil
+
+    enum BustReason {
+        case greedy  // tried to bank without a coin
+        case rolled  // roll produced no new pickable face
+    }
     @SwiftUI.State private var revealChrome: Bool = false
     @SwiftUI.State private var revealScoreboard: Bool = false
     @SwiftUI.State private var revealSafes: Bool = false
@@ -17,6 +23,7 @@ struct GameView: View {
         let humanSeat = GameStore.humanSeat
         let wasHumanTurn = store.isHumanTurn
         let beforeVault = store.state.players[humanSeat].tiles.count
+        let hadCoinBefore = store.state.setAside.contains(.coin)
 
         store.apply(action)
 
@@ -25,6 +32,11 @@ struct GameView: View {
         if wasHumanTurn && !store.isHumanTurn && !store.isOver {
             let afterVault = store.state.players[humanSeat].tiles.count
             if afterVault <= beforeVault {
+                if case .stop = action, !hadCoinBefore {
+                    bustReason = .greedy
+                } else {
+                    bustReason = .rolled
+                }
                 triggerBustFlash()
             }
         }
@@ -71,6 +83,35 @@ struct GameView: View {
         withAnimation(.easeOut(duration: 0.35)) { revealStage = true }
         try? await Task.sleep(nanoseconds: 180_000_000)
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { revealAction = true }
+    }
+
+    private var bustSubline: String {
+        switch bustReason {
+        case .greedy: return "you had no coins and got greedy"
+        case .rolled: return "a tile was burned"
+        }
+    }
+
+    @ViewBuilder
+    private func redCoinGlyph(size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.coralLight, Color.coral, Color.coralDark],
+                        center: UnitPoint(x: 0.4, y: 0.35),
+                        startRadius: 0,
+                        endRadius: size / 2
+                    )
+                )
+                .overlay(
+                    Circle().strokeBorder(Color.paper.opacity(0.9), lineWidth: 2)
+                )
+            Circle()
+                .strokeBorder(Color.coralLight.opacity(0.75), lineWidth: 1.5)
+                .padding(6)
+        }
+        .frame(width: size, height: size)
     }
 
     private func triggerBustFlash() {
@@ -159,15 +200,22 @@ struct GameView: View {
                     )
                     .ignoresSafeArea()
                     VStack(spacing: 18) {
+                        if bustReason == .greedy {
+                            redCoinGlyph(size: 80)
+                                .shadow(color: Color.coral.opacity(0.6), radius: 24, x: 0, y: 0)
+                                .shadow(color: Color.coralLight.opacity(0.4), radius: 10, x: 0, y: 0)
+                        }
                         Text("bust.")
                             .font(.avenir(84, weight: .ultraLight, italic: true))
                             .tracking(6)
                             .foregroundStyle(Color.paper)
                             .shadow(color: Color.coral.opacity(0.4), radius: 18, x: 0, y: 0)
-                        Text("a tile was burned")
+                        Text(bustSubline)
                             .font(.avenir(13, weight: .medium, italic: true))
                             .tracking(2)
-                            .foregroundStyle(Color.paper.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(Color.paper.opacity(0.75))
+                            .padding(.horizontal, 30)
                     }
                 }
                 .allowsHitTesting(false)
