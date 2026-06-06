@@ -103,14 +103,18 @@ struct DiceStage: View {
         Button {
             if pickable { onPick(face) }
         } label: {
-            Text(faceText(face))
-                .font(.cochin(30))
-                .foregroundStyle(face == .coin ? Color.paper : Color.ink)
-                .frame(maxWidth: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-                .background(face == .coin ? Color.ink : Color.paper)
-                .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: 1.5))
-                .shadow(color: Color.ink, radius: 0, x: 2, y: 2)
+            ZStack {
+                Rectangle()
+                    .fill(face == .coin ? Color.ink : Color.paper)
+                    .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: 1.5))
+                    .shadow(color: Color.ink, radius: 0, x: 2, y: 2)
+
+                Text(faceText(face))
+                    .font(.cochin(30))
+                    .foregroundStyle(face == .coin ? Color.paper : Color.ink)
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
         .disabled(!pickable)
