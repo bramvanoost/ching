@@ -121,7 +121,7 @@ struct CountingCeremony: View {
                     .monospacedDigit()
                 coinGlyph(size: 48)
                     .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 2)
-                    .offset(y: -6)
+                    .offset(y: -2)
             }
             .opacity(isRevealed ? 1.0 : 0.25)
         }
