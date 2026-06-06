@@ -7,6 +7,7 @@ struct DiceStage: View {
     let rolled: [Face]
     let locked: [Face]
     let diceInHand: Int
+    let isHumanTurn: Bool
     let canPick: (Face) -> Bool
     let onPick: (Face) -> Void
     var reduceMotion: Bool = false
@@ -91,9 +92,9 @@ struct DiceStage: View {
         .onChange(of: rolled) { oldValue, newValue in
             if oldValue.isEmpty && !newValue.isEmpty {
                 if reduceMotion {
-                    GameSFX.shared.playRoll()
+                    if isHumanTurn { GameSFX.shared.playRoll() }
                 } else {
-                    animateRoll(count: newValue.count)
+                    animateRoll(count: newValue.count, withSound: isHumanTurn)
                 }
             }
         }
@@ -112,13 +113,13 @@ struct DiceStage: View {
         }
     }
 
-    private func animateRoll(count: Int) {
+    private func animateRoll(count: Int, withSound: Bool) {
         let pool: [Face] = [.one, .two, .three, .four, .five, .coin]
         Task { @MainActor in
             let frames = 5
             let frameNs: UInt64 = 80_000_000
             for _ in 0..<frames {
-                GameSFX.shared.playRoll()
+                if withSound { GameSFX.shared.playRoll() }
                 animatedRolled = (0..<count).map { _ in pool.randomElement()! }
                 try? await Task.sleep(nanoseconds: frameNs)
             }

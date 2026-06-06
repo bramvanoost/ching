@@ -164,6 +164,7 @@ struct GameView: View {
     }
 
     private func triggerBustFlash() {
+        GameSFX.shared.playBust()
         guard !settings.reducedMotion, !iosReduceMotion else { return }
         withAnimation(.easeOut(duration: 0.25)) {
             bustFlash = true
@@ -209,6 +210,7 @@ struct GameView: View {
                     rolled: store.state.rolled,
                     locked: store.state.setAside,
                     diceInHand: store.state.diceInHand,
+                    isHumanTurn: store.isHumanTurn,
                     canPick: { store.canPick($0) },
                     onPick: { act(.pick(face: $0)) },
                     reduceMotion: settings.reducedMotion || iosReduceMotion
