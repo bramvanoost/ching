@@ -81,28 +81,6 @@ struct GameView: View {
         }
     }
 
-    private var gameOverMessage: String {
-        let ranked = zip(store.state.players, store.scores)
-            .map { (id: $0.id, score: $1) }
-            .sorted { $0.score > $1.score }
-
-        let top = ranked.first!.score
-        let leaders = ranked.filter { $0.score == top }
-
-        let headline: String
-        if leaders.count == 1 {
-            headline = "\(leaders[0].id.capitalized) wins."
-        } else {
-            headline = "Tie at the top."
-        }
-
-        let body = ranked
-            .map { "\($0.id.capitalized) \($0.score)" }
-            .joined(separator: " · ")
-
-        return "\(headline)\n\(body)"
-    }
-
     var body: some View {
         ZStack {
             Background()

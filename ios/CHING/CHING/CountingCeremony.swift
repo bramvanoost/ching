@@ -18,9 +18,13 @@ struct CountingCeremony: View {
 
     private var winnerHeadline: String {
         if winnerIndices.count == 1 {
-            return "\(players[winnerIndices[0]].id.capitalized) wins."
+            let idx = winnerIndices[0]
+            if idx == GameStore.humanSeat {
+                return "You win."
+            }
+            return "\(players[idx].id.capitalized) wins."
         }
-        return "tie at the top."
+        return "Tie at the top."
     }
 
     var body: some View {
