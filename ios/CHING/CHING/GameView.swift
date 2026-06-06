@@ -5,8 +5,8 @@ struct GameView: View {
     let store: GameStore
     let settings: SettingsStore
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
-    @SwiftUI.State private var bankFlash: Bool = false
     @SwiftUI.State private var bustFlash: Bool = false
+    @SwiftUI.State private var stolenFromIdx: Int? = nil
     @SwiftUI.State private var revealChrome: Bool = false
     @SwiftUI.State private var revealScoreboard: Bool = false
     @SwiftUI.State private var revealSafes: Bool = false
@@ -20,12 +20,11 @@ struct GameView: View {
 
         store.apply(action)
 
-        // Detect end-of-turn outcomes for the human player.
+        // Detect end-of-turn outcomes for the human player — bust gets a flash;
+        // bank/steal celebration is handled per-column (sparkles + steal pulse).
         if wasHumanTurn && !store.isHumanTurn && !store.isOver {
             let afterVault = store.state.players[humanSeat].tiles.count
-            if afterVault > beforeVault {
-                triggerBankFlash()
-            } else {
+            if afterVault <= beforeVault {
                 triggerBustFlash()
             }
         }
@@ -34,15 +33,21 @@ struct GameView: View {
         Task { await store.runAIIfNeeded(reduceMotion: reduce) }
     }
 
-    private func triggerBankFlash() {
-        guard !settings.reducedMotion, !iosReduceMotion else { return }
-        withAnimation(.easeOut(duration: 0.12)) {
-            bankFlash = true
-        }
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 280_000_000)
-            withAnimation(.easeIn(duration: 0.3)) {
-                bankFlash = false
+    private func detectSteal(oldCounts: [Int], newCounts: [Int]) {
+        guard oldCounts.count == newCounts.count else { return }
+        for i in 0..<newCounts.count {
+            if newCounts[i] < oldCounts[i] {
+                let someoneGained = (0..<newCounts.count).contains { j in
+                    j != i && newCounts[j] > oldCounts[j]
+                }
+                if someoneGained {
+                    stolenFromIdx = i
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_400_000_000)
+                        if stolenFromIdx == i { stolenFromIdx = nil }
+                    }
+                }
+                return
             }
         }
     }
@@ -94,7 +99,8 @@ struct GameView: View {
                     players: store.state.players,
                     scores: store.scores,
                     current: store.state.current,
-                    revealed: revealScoreboard
+                    revealed: revealScoreboard,
+                    stolenFrom: stolenFromIdx
                 )
 
                 Spacer().frame(height: 18)
@@ -136,20 +142,8 @@ struct GameView: View {
             .task {
                 await runIntroAnimation()
             }
-        }
-        .overlay {
-            if bankFlash {
-                LinearGradient(
-                    colors: [
-                        Color.coinGoldLight.opacity(0.85),
-                        Color.coinGoldDark.opacity(0.7)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                .transition(.opacity)
+            .onChange(of: store.state.players.map { $0.tiles.count }) { oldCounts, newCounts in
+                detectSteal(oldCounts: oldCounts, newCounts: newCounts)
             }
         }
         .overlay {

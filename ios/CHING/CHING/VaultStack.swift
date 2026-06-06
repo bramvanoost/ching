@@ -28,6 +28,13 @@ struct VaultStack: View {
             ZStack(alignment: .top) {
                 ForEach(Array(stackedNewestFirst.enumerated()), id: \.offset) { idx, safe in
                     safeView(value: safe, isTop: idx == 0)
+                        .overlay {
+                            if idx == 0 && addSparkleTrigger > 0 {
+                                SparkleField(count: 42, startRadius: 22, spread: 70, duration: 1.1)
+                                    .frame(width: 90, height: 90)
+                                    .id(addSparkleTrigger)
+                            }
+                        }
                         .offset(y: CGFloat(idx) * layerOffset)
                         .zIndex(Double(stackedNewestFirst.count - idx))
                         .transition(
@@ -38,12 +45,6 @@ struct VaultStack: View {
                               )
                             : .opacity
                         )
-                }
-
-                if addSparkleTrigger > 0 {
-                    SparkleField(count: 42, startRadius: 22, spread: 70, duration: 1.1)
-                        .frame(width: 100, height: 70)
-                        .id(addSparkleTrigger)
                 }
             }
             .frame(width: safeWidth, height: stackHeight, alignment: .top)
