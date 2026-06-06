@@ -40,6 +40,17 @@ struct GameView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Spacer()
+                NavigationLink {
+                    SettingsView(settings: settings)
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.ink)
+                }
+            }
+
             Text("CHING")
                 .font(.largeTitle)
                 .bold()
@@ -68,6 +79,7 @@ struct GameView: View {
 
             Spacer()
         }
+        .navigationBarHidden(true)
         .padding()
         .alert("Game over", isPresented: .constant(store.isOver)) {
             Button("New Game") {
