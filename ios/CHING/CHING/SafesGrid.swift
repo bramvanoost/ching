@@ -51,6 +51,29 @@ struct SafesGrid: View {
 
     @ViewBuilder
     private func safeCell(value: Int, available: Bool) -> some View {
+        ZStack {
+            // Base layer — dim unavailable styling, always rendered
+            cellLayer(value: value, available: false)
+
+            // Active layer — rendered only when available. On removal it lifts
+            // up and fades, signaling the tile flying to the player's vault.
+            if available {
+                cellLayer(value: value, available: true)
+                    .transition(
+                        .asymmetric(
+                            insertion: .opacity,
+                            removal: .scale(scale: 1.4).combined(with: .opacity)
+                        )
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 56)
+        .animation(.easeOut(duration: 0.55), value: available)
+    }
+
+    @ViewBuilder
+    private func cellLayer(value: Int, available: Bool) -> some View {
         let coins = tileCoinsForView(value)
 
         ZStack {
@@ -85,8 +108,6 @@ struct SafesGrid: View {
                     .opacity(available ? 1.0 : 0.3)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 56)
         .opacity(available ? 1.0 : 0.6)
     }
 
