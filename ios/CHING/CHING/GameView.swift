@@ -49,19 +49,21 @@ struct GameView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Spacer()
-                NavigationLink {
-                    SettingsView(settings: settings)
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.ink)
+        ZStack {
+            Color.paper.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Spacer()
+                    NavigationLink {
+                        SettingsView(settings: settings)
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color.ink)
+                    }
                 }
-            }
 
-            Text("ching!")
+                Text("ching!")
                 .font(.bodoniItalic(44))
                 .foregroundStyle(Color.ink)
 
@@ -86,16 +88,17 @@ struct GameView: View {
             PickBar(store: store, act: act)
             ActionBar(store: store, act: act)
 
-            if !store.isHumanTurn && !store.isOver {
-                Text("\(displayName(currentSeatName)) is thinking…")
-                    .font(.cochinItalic(13))
-                    .foregroundStyle(Color.dimInk)
-            }
+                if !store.isHumanTurn && !store.isOver {
+                    Text("\(displayName(currentSeatName)) is thinking…")
+                        .font(.cochinItalic(13))
+                        .foregroundStyle(Color.dimInk)
+                }
 
-            Spacer()
+                Spacer()
+            }
+            .padding(20)
         }
         .navigationBarHidden(true)
-        .padding()
         .alert("Game over", isPresented: .constant(store.isOver)) {
             Button("New Game") {
                 store.newGame()
@@ -200,54 +203,57 @@ struct DiceRow: View {
     let diceInHand: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .center, spacing: 6) {
             Text("Dice")
                 .font(.cochinItalic(10))
                 .textCase(.uppercase)
                 .tracking(1.5)
                 .foregroundStyle(Color.dimInk)
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Rolled")
-                        .font(.cochinItalic(9))
-                        .textCase(.uppercase)
-                        .tracking(1)
-                        .foregroundStyle(Color.dimInk)
-                    HStack(spacing: 4) {
-                        ForEach(Array(rolled.enumerated()), id: \.offset) { _, f in
-                            Text(faceLabel(f))
-                                .frame(width: 22, height: 22)
-                                .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5))
-                        }
-                        if rolled.isEmpty {
-                            Text("(none)").font(.cochinItalic(11)).foregroundStyle(Color.dimInk)
-                        }
-                    }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 4) {
+                ForEach(Array(rolled.enumerated()), id: \.offset) { _, f in
+                    Text(faceLabel(f))
+                        .font(.cochin(15))
+                        .foregroundStyle(Color.ink)
+                        .frame(width: 28, height: 28)
+                        .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5))
                 }
-                Spacer()
-                VStack(alignment: .leading) {
-                    Text("Set aside · sum \(setAsideSum)")
-                        .font(.cochinItalic(9))
-                        .textCase(.uppercase)
-                        .tracking(1)
+                if rolled.isEmpty {
+                    Text("(none)")
+                        .font(.cochinItalic(11))
                         .foregroundStyle(Color.dimInk)
-                    HStack(spacing: 4) {
-                        ForEach(Array(setAside.enumerated()), id: \.offset) { _, f in
-                            Text(faceLabel(f))
-                                .frame(width: 22, height: 22)
-                                .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5).opacity(0.5))
-                        }
-                        if setAside.isEmpty {
-                            Text("(none)").font(.cochinItalic(11)).foregroundStyle(Color.dimInk)
-                        }
-                    }
                 }
             }
+
+            Text("Set aside · sum \(setAsideSum)")
+                .font(.cochinItalic(9))
+                .textCase(.uppercase)
+                .tracking(1)
+                .foregroundStyle(Color.dimInk)
+                .padding(.top, 4)
+
+            HStack(spacing: 4) {
+                ForEach(Array(setAside.enumerated()), id: \.offset) { _, f in
+                    Text(faceLabel(f))
+                        .font(.cochin(15))
+                        .foregroundStyle(Color.ink)
+                        .frame(width: 28, height: 28)
+                        .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5).opacity(0.5))
+                }
+                if setAside.isEmpty {
+                    Text("(none)")
+                        .font(.cochinItalic(11))
+                        .foregroundStyle(Color.dimInk)
+                }
+            }
+
             Text("In hand · \(diceInHand)")
                 .font(.cochinItalic(9))
                 .textCase(.uppercase)
                 .tracking(1)
                 .foregroundStyle(Color.dimInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
