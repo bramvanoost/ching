@@ -163,6 +163,8 @@ struct GameView: View {
                     revealed: revealSafes
                 )
 
+                Spacer().frame(height: 10)
+
                 DiceStage(
                     phaseHint: store.phaseHint,
                     setAsideSum: store.setAsideSum,
