@@ -101,7 +101,7 @@ final class GameStoreTests: XCTestCase {
         s.phase = .pick
         s.rolled = [.three, .three, .five, .coin]
         store.setStateForTesting(s)
-        XCTAssertEqual(store.phaseHint, "Tap a face to lock.")
+        XCTAssertEqual(store.phaseHint, "Make your choice.")
 
         s.current = GameStore.jonesSeat
         s.phase = .roll

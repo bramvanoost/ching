@@ -33,27 +33,21 @@ struct DiceStage: View {
                 .frame(height: 18)
 
             // Hero number — the running sum, treated as a stamped headline
-            // with a hard ink offset and a soft halo. Tiny gold tally rule
-            // underneath gives it presence without needing a label.
-            VStack(spacing: 4) {
-                ZStack {
-                    Text("\(setAsideSum)")
-                        .font(.avenir(76, weight: .demiBold, italic: true))
-                        .foregroundStyle(Color.ink)
-                        .monospacedDigit()
-                        .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
-                        .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
-                    if pickSparkleTrigger > 0 {
-                        SparkleField(count: 50, startRadius: 50, spread: 90, duration: 1.0)
-                            .frame(width: 220, height: 160)
-                            .id(pickSparkleTrigger)
-                    }
+            // with a hard ink offset and a soft halo.
+            ZStack {
+                Text("\(setAsideSum)")
+                    .font(.avenir(76, weight: .demiBold, italic: true))
+                    .foregroundStyle(Color.ink)
+                    .monospacedDigit()
+                    .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
+                    .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
+                if pickSparkleTrigger > 0 {
+                    SparkleField(count: 50, startRadius: 50, spread: 90, duration: 1.0)
+                        .frame(width: 220, height: 160)
+                        .id(pickSparkleTrigger)
                 }
-                Capsule()
-                    .fill(Color.gold.opacity(0.65))
-                    .frame(width: 32, height: 2)
             }
-            .frame(height: 90)
+            .frame(height: 84)
 
             // "dice" label — invisible when nothing rolled so siblings don't jump.
             Text("dice")
