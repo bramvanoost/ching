@@ -216,6 +216,9 @@ struct GameView: View {
                     isHumanTurn: store.isHumanTurn,
                     canPick: { store.canPick($0) },
                     onPick: { act(.pick(face: $0)) },
+                    canBank: store.canBank && store.isHumanTurn,
+                    bankPreview: store.bankActionLabel,
+                    onBank: { act(.stop) },
                     reduceMotion: settings.reducedMotion || iosReduceMotion
                 )
                 .opacity(revealStage ? 1 : 0)
@@ -225,13 +228,10 @@ struct GameView: View {
 
                 ActionBar(
                     canRoll: store.canRoll,
-                    canBank: store.canBank,
                     isHumanTurn: store.isHumanTurn,
                     isOver: store.isOver,
                     hasSetAside: !store.state.setAside.isEmpty,
-                    bankLabel: store.bankActionLabel,
-                    onRoll: { act(.roll) },
-                    onBank: { act(.stop) }
+                    onRoll: { act(.roll) }
                 )
                 .opacity(revealAction ? 1 : 0)
                 .offset(y: revealAction ? 0 : 30)
@@ -356,20 +356,17 @@ struct ChromeBar: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 12)
+        .padding(.top, 28)
         .padding(.bottom, 4)
     }
 }
 
 struct ActionBar: View {
     let canRoll: Bool
-    let canBank: Bool
     let isHumanTurn: Bool
     let isOver: Bool
     let hasSetAside: Bool
-    let bankLabel: String
     let onRoll: () -> Void
-    let onBank: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -389,26 +386,14 @@ struct ActionBar: View {
                     .foregroundStyle(Color.dimInk)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
-            }
-            else if hasSetAside {
-                HStack(spacing: 10) {
-                    Button("Roll Again") { onRoll() }
-                        .stampButton(primary: true, invite: canRoll)
-                        .disabled(!canRoll)
-                        .opacity(canRoll ? 1.0 : 0.4)
-
-                    Button(bankLabel) { onBank() }
-                        .stampButton(primary: false)
-                        .disabled(!canBank)
-                        .opacity(canBank ? 1.0 : 0.4)
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 8)
-                .padding(.bottom, 22)
             } else {
+                // Single position-stable Roll button — never moves between
+                // turns or phases. Bank is anchored to the running sum
+                // inside DiceStage, so the bottom of the screen always
+                // means "throw the dice."
                 HStack {
                     Spacer()
-                    Button("Roll") { onRoll() }
+                    Button(hasSetAside ? "Roll Again" : "Roll") { onRoll() }
                         .stampButton(primary: true, invite: canRoll)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)

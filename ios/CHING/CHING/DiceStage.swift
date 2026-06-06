@@ -10,6 +10,12 @@ struct DiceStage: View {
     let isHumanTurn: Bool
     let canPick: (Face) -> Bool
     let onPick: (Face) -> Void
+    // Bank is anchored to the sum — tap the big number to bank it. Keeps the
+    // bottom action bar a single position-stable Roll button so a thumb
+    // resting on Roll never accidentally banks the turn.
+    var canBank: Bool = false
+    var bankPreview: String = ""
+    var onBank: () -> Void = {}
     var reduceMotion: Bool = false
 
     @SwiftUI.State private var animatedRolled: [Face]?
@@ -34,21 +40,51 @@ struct DiceStage: View {
                 .frame(height: 18)
 
             // Hero number — the running sum, treated as a stamped headline
-            // with a hard ink offset and a soft halo.
+            // with a hard ink offset and a soft halo. When canBank is true
+            // the whole thing becomes the bank affordance: gold tint, a
+            // thin underline, and a bank-preview chip below.
             ZStack {
-                Text("\(setAsideSum)")
-                    .font(.avenir(76, weight: .demiBold, italic: true))
-                    .foregroundStyle(Color.ink)
-                    .monospacedDigit()
-                    .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
-                    .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
+                Button {
+                    guard canBank else { return }
+                    onBank()
+                } label: {
+                    VStack(spacing: 4) {
+                        Text("\(setAsideSum)")
+                            .font(.avenir(76, weight: .demiBold, italic: true))
+                            .foregroundStyle(canBank ? Color.gold : Color.ink)
+                            .monospacedDigit()
+                            .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
+                            .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
+                            .shadow(color: canBank ? Color.gold.opacity(0.5) : .clear, radius: 18, x: 0, y: 0)
+
+                        if canBank {
+                            // Gold underline + bank label chip — affordance
+                            // that says "this number is also a button."
+                            Capsule()
+                                .fill(Color.gold.opacity(0.85))
+                                .frame(width: 56, height: 2)
+                            Text(bankPreview)
+                                .font(.avenir(11, weight: .demiBold))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundStyle(Color.ink.opacity(0.85))
+                                .padding(.top, 2)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!canBank)
+
                 if pickSparkleTrigger > 0 {
                     SparkleField(count: 50, startRadius: 50, spread: 90, duration: 1.0)
                         .frame(width: 220, height: 160)
                         .id(pickSparkleTrigger)
                 }
             }
-            .frame(height: 84)
+            // Always reserve room for the chip + underline so the layout
+            // doesn't jump when canBank flips on/off mid-turn.
+            .frame(height: 124)
 
             // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
             // or a centered status line. Swapping inside doesn't reflow.

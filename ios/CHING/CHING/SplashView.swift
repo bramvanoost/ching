@@ -18,7 +18,9 @@ struct SplashView: View {
             Background()
 
             VStack(spacing: 0) {
-                Spacer()
+                // Breathing room above the wordmark so the status bar /
+                // Dynamic Island doesn't crowd the logo.
+                Spacer().frame(minHeight: 56)
 
                 // Hero medallion — gold coin with a shell engraved on it.
                 ShellMedallion(size: 124)
