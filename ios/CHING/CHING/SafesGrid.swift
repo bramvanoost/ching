@@ -3,6 +3,7 @@ import SwiftUI
 struct SafesGrid: View {
     let availableSafes: [Int]
     let remainingCount: Int
+    var revealed: Bool = true
 
     private let allSafes: [Int] = Array(21...36)
 
@@ -17,13 +18,21 @@ struct SafesGrid: View {
                     .foregroundStyle(Color.ink.opacity(0.75))
             }
             .frame(maxWidth: .infinity)
+            .opacity(revealed ? 1 : 0)
+            .animation(.easeOut(duration: 0.4), value: revealed)
 
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 8),
                 spacing: 5
             ) {
-                ForEach(allSafes, id: \.self) { safe in
+                ForEach(Array(allSafes.enumerated()), id: \.offset) { idx, safe in
                     safeCell(value: safe, available: availableSafes.contains(safe))
+                        .opacity(revealed ? 1 : 0)
+                        .scaleEffect(revealed ? 1 : 0.5)
+                        .animation(
+                            .spring(response: 0.5, dampingFraction: 0.7).delay(Double(idx) * 0.035),
+                            value: revealed
+                        )
                 }
             }
         }

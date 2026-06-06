@@ -5,12 +5,19 @@ struct Scoreboard: View {
     let players: [Player]
     let scores: [Int]
     let current: Int
+    var revealed: Bool = true
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(players.indices, id: \.self) { i in
                 column(playerIndex: i)
                     .frame(maxWidth: .infinity)
+                    .opacity(revealed ? 1 : 0)
+                    .offset(y: revealed ? 0 : 24)
+                    .animation(
+                        .spring(response: 0.55, dampingFraction: 0.78).delay(Double(i) * 0.12),
+                        value: revealed
+                    )
             }
         }
         .padding(.horizontal, 14)

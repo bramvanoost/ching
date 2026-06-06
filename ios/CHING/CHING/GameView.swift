@@ -7,6 +7,11 @@ struct GameView: View {
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
     @SwiftUI.State private var bankFlash: Bool = false
     @SwiftUI.State private var bustFlash: Bool = false
+    @SwiftUI.State private var revealChrome: Bool = false
+    @SwiftUI.State private var revealScoreboard: Bool = false
+    @SwiftUI.State private var revealSafes: Bool = false
+    @SwiftUI.State private var revealStage: Bool = false
+    @SwiftUI.State private var revealAction: Bool = false
 
     private func act(_ action: Action) {
         let humanSeat = GameStore.humanSeat
@@ -40,6 +45,27 @@ struct GameView: View {
                 bankFlash = false
             }
         }
+    }
+
+    private func runIntroAnimation() async {
+        let reduce = settings.reducedMotion || iosReduceMotion
+        if reduce {
+            revealChrome = true
+            revealScoreboard = true
+            revealSafes = true
+            revealStage = true
+            revealAction = true
+            return
+        }
+        withAnimation(.easeOut(duration: 0.35)) { revealChrome = true }
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) { revealScoreboard = true }
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        withAnimation(.easeOut(duration: 0.45)) { revealSafes = true }
+        try? await Task.sleep(nanoseconds: 650_000_000)
+        withAnimation(.easeOut(duration: 0.35)) { revealStage = true }
+        try? await Task.sleep(nanoseconds: 180_000_000)
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { revealAction = true }
     }
 
     private func triggerBustFlash() {
@@ -83,18 +109,22 @@ struct GameView: View {
 
             VStack(spacing: 0) {
                 ChromeBar(settings: settings, onNewGame: { store.newGame() })
+                    .opacity(revealChrome ? 1 : 0)
+                    .offset(y: revealChrome ? 0 : -16)
 
                 Scoreboard(
                     players: store.state.players,
                     scores: store.scores,
-                    current: store.state.current
+                    current: store.state.current,
+                    revealed: revealScoreboard
                 )
 
                 Spacer().frame(height: 18)
 
                 SafesGrid(
                     availableSafes: store.state.centerTiles,
-                    remainingCount: store.state.centerTiles.count
+                    remainingCount: store.state.centerTiles.count,
+                    revealed: revealSafes
                 )
 
                 DiceStage(
@@ -107,6 +137,8 @@ struct GameView: View {
                     onPick: { act(.pick(face: $0)) },
                     reduceMotion: settings.reducedMotion || iosReduceMotion
                 )
+                .opacity(revealStage ? 1 : 0)
+                .offset(y: revealStage ? 0 : 12)
 
                 Spacer(minLength: 0)
 
@@ -120,6 +152,11 @@ struct GameView: View {
                     onRoll: { act(.roll) },
                     onBank: { act(.stop) }
                 )
+                .opacity(revealAction ? 1 : 0)
+                .offset(y: revealAction ? 0 : 30)
+            }
+            .task {
+                await runIntroAnimation()
             }
         }
         .overlay {
