@@ -14,6 +14,7 @@ struct DiceStage: View {
     @SwiftUI.State private var animatedRolled: [Face]?
     @SwiftUI.State private var pickSparkleTrigger: Int = 0
     @SwiftUI.State private var lastSum: Int = -1
+    @SwiftUI.State private var pickingFace: Face?
 
     private var displayRolled: [Face] {
         animatedRolled ?? rolled
@@ -122,9 +123,11 @@ struct DiceStage: View {
 
     @ViewBuilder
     private func dieButton(face: Face) -> some View {
-        let pickable = !isAnimating && canPick(face)
+        let isPicked = pickingFace == face
+        let isOther = pickingFace != nil && pickingFace != face
+        let canTap = !isAnimating && pickingFace == nil && canPick(face)
         Button {
-            if pickable { onPick(face) }
+            handlePick(face)
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
@@ -143,10 +146,14 @@ struct DiceStage: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.treasureInk, lineWidth: 1.5)
+                            .strokeBorder(
+                                isPicked ? Color.gold : Color.treasureInk,
+                                lineWidth: isPicked ? 2.5 : 1.5
+                            )
                     )
                     .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 3)
                     .shadow(color: Color.treasureInk.opacity(0.12), radius: 6, x: 0, y: 5)
+                    .shadow(color: isPicked ? Color.gold.opacity(0.7) : .clear, radius: 14, x: 0, y: 0)
 
                 if face == .coin {
                     coinGlyph(size: 30)
@@ -155,13 +162,38 @@ struct DiceStage: View {
                         .font(.avenir(22, weight: .demiBold))
                         .foregroundStyle(Color.treasureInk)
                 }
+
+                if isPicked {
+                    SparkleField(count: 10, spread: 60, duration: 1.3)
+                }
             }
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
+            .scaleEffect(isPicked ? 1.08 : 1.0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isPicked)
         }
         .buttonStyle(.plain)
-        .disabled(!pickable)
-        .opacity(pickable ? 1.0 : (isAnimating ? 0.85 : 0.5))
+        .disabled(!canTap)
+        .opacity(
+            isPicked ? 1.0 :
+            isOther ? 0.25 :
+            (canTap ? 1.0 : (isAnimating ? 0.85 : 0.5))
+        )
+        .animation(.easeOut(duration: 0.25), value: pickingFace)
+    }
+
+    private func handlePick(_ face: Face) {
+        guard !isAnimating, pickingFace == nil, canPick(face) else { return }
+        if reduceMotion {
+            onPick(face)
+            return
+        }
+        pickingFace = face
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            onPick(face)
+            pickingFace = nil
+        }
     }
 
     @ViewBuilder
