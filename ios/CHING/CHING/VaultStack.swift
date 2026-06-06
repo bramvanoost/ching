@@ -41,7 +41,7 @@ struct VaultStack: View {
                 }
 
                 if addSparkleTrigger > 0 {
-                    SparkleField(count: 28, startRadius: 22, spread: 70, duration: 1.1)
+                    SparkleField(count: 42, startRadius: 22, spread: 70, duration: 1.1)
                         .frame(width: 100, height: 70)
                         .id(addSparkleTrigger)
                 }

@@ -41,7 +41,7 @@ struct DiceStage: View {
                     .font(.avenir(60, weight: .ultraLight))
                     .foregroundStyle(Color.ink)
                 if pickSparkleTrigger > 0 {
-                    SparkleField(count: 32, startRadius: 50, spread: 90, duration: 1.0)
+                    SparkleField(count: 50, startRadius: 50, spread: 90, duration: 1.0)
                         .frame(width: 220, height: 160)
                         .id(pickSparkleTrigger)
                 }
@@ -164,7 +164,7 @@ struct DiceStage: View {
                 }
 
                 if isPicked {
-                    SparkleField(count: 28, startRadius: 30, spread: 75, duration: 1.3)
+                    SparkleField(count: 44, startRadius: 30, spread: 75, duration: 1.3)
                 }
             }
             .aspectRatio(1, contentMode: .fit)

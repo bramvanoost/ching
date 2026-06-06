@@ -43,7 +43,7 @@ struct CountingCeremony: View {
 
                 if winnerRevealed {
                     ZStack {
-                        SparkleField(count: 48, startRadius: 80, spread: 150, duration: 1.6)
+                        SparkleField(count: 70, startRadius: 80, spread: 150, duration: 1.6)
                             .frame(width: 360, height: 100)
                             .offset(y: 0)
                         Text(winnerHeadline)
@@ -146,7 +146,7 @@ struct CountingCeremony: View {
             .animation(.easeOut(duration: 0.35), value: isWinner)
 
             if isWinner {
-                SparkleField(count: 36, startRadius: 110, spread: 120, duration: 1.4)
+                SparkleField(count: 52, startRadius: 110, spread: 120, duration: 1.4)
                     .allowsHitTesting(false)
             }
         }

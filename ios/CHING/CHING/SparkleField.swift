@@ -52,15 +52,15 @@ private struct Sparkle: View {
         return base + extra
     }
 
-    /// Glyph size — small enough to twinkle, not glow like an orb.
+    /// Tiny glyph — reads as a pinpoint sparkle, not an orb.
     private var glyphSize: CGFloat {
-        4 + CGFloat(seed * 11 % 6)
+        3 + CGFloat(seed * 11 % 5)
     }
 
-    /// Each sparkle starts at a different point in the twinkle so the burst
-    /// shimmers instead of pulsing in sync.
+    /// Just enough stagger to avoid a single-frame pop. Most sparkles
+    /// appear effectively instantly.
     private var delay: Double {
-        Double(seed * 5 % 17) / 17.0 * (duration * 0.5)
+        Double(seed * 3 % 11) / 11.0 * 0.12
     }
 
     private var rotation: Double {
@@ -79,25 +79,11 @@ private struct Sparkle: View {
             .shadow(color: Color.moonCenter.opacity(0.9), radius: 1.5, x: 0, y: 0)
             .shadow(color: Color.gold.opacity(0.6), radius: 3, x: 0, y: 0)
             .rotationEffect(.degrees(rotation))
-            // Drift outward — monotonic
+            // Start visible at the edge, drift outward as it fades.
             .offset(x: go ? endX : startX, y: go ? endY : startY)
+            .opacity(go ? 0 : 1)
+            .scaleEffect(go ? 0.4 : 1.2)
             .animation(.easeOut(duration: duration).delay(delay), value: go)
-            // Twinkle the brightness — 0 → 1 → 0
-            .opacity(go ? 1 : 0)
-            .animation(
-                .easeInOut(duration: duration / 2)
-                    .repeatCount(2, autoreverses: true)
-                    .delay(delay),
-                value: go
-            )
-            // Twinkle the size — small → full → small
-            .scaleEffect(go ? 1.0 : 0.2)
-            .animation(
-                .easeInOut(duration: duration / 2)
-                    .repeatCount(2, autoreverses: true)
-                    .delay(delay),
-                value: go
-            )
     }
 }
 
