@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The Monument-Valley-inspired atmospheric background.
-/// Sky gradient + distant cityscape silhouette.
+/// Golden-hour Balearic backdrop. Sky gradient + distant headland, sea band,
+/// dune, and a couple of palm silhouettes. Used by every screen so all the
+/// foreground chrome floats on the same atmosphere.
 struct Background: View {
     var body: some View {
         ZStack {
@@ -17,10 +18,10 @@ struct Background: View {
                 endPoint: .bottom
             )
 
-            // Distant cityscape silhouette
+            // Distant beach silhouette anchored near the bottom edge so the
+            // top 2/3 of the screen stays clear for UI.
             GeometryReader { geo in
-                Cityscape(baseY: geo.size.height - 110)
-                    .opacity(0.5)
+                BeachScene(horizonY: geo.size.height - 130)
                     .mask(
                         LinearGradient(
                             stops: [
@@ -39,180 +40,280 @@ struct Background: View {
     }
 }
 
-/// A row of overlapping isometric buildings of varied types and sizes,
-/// receding into the horizon haze. Soft ground gradient anchors the bottom.
-private struct Cityscape: View {
-    let baseY: CGFloat
-
-    private struct Building {
-        var x: CGFloat
-        var width: CGFloat
-        var height: CGFloat
-        var z: Int            // higher z = drawn later (in front)
-        var accent: Bool
-        var peak: Bool
-        var windowRows: Int   // 0 = no windows
-    }
-
-    /// Hand-tuned layout: overlapping buildings, varied sizes, mix of plain
-    /// blocks, peaked towers, and window-grids. Sorted by z so foreground
-    /// buildings draw last.
-    private static let buildings: [Building] = [
-        Building(x:  -8, width: 30, height: 64, z: 0, accent: false, peak: false, windowRows: 2),
-        Building(x:  22, width: 18, height: 86, z: 1, accent: false, peak: true,  windowRows: 0),
-        Building(x:  44, width: 36, height: 50, z: 0, accent: true,  peak: false, windowRows: 1),
-        Building(x:  72, width: 22, height: 72, z: 2, accent: false, peak: false, windowRows: 2),
-        Building(x: 100, width: 28, height: 44, z: 0, accent: false, peak: false, windowRows: 1),
-        Building(x: 122, width: 18, height: 96, z: 2, accent: true,  peak: true,  windowRows: 0),
-        Building(x: 144, width: 32, height: 58, z: 1, accent: false, peak: false, windowRows: 2),
-        Building(x: 178, width: 22, height: 40, z: 0, accent: false, peak: false, windowRows: 1),
-        Building(x: 196, width: 26, height: 68, z: 2, accent: true,  peak: false, windowRows: 2),
-        Building(x: 226, width: 20, height: 80, z: 1, accent: false, peak: true,  windowRows: 0),
-        Building(x: 250, width: 30, height: 52, z: 0, accent: false, peak: false, windowRows: 1),
-        Building(x: 278, width: 18, height: 90, z: 2, accent: true,  peak: false, windowRows: 2),
-        Building(x: 302, width: 28, height: 48, z: 1, accent: false, peak: false, windowRows: 1),
-        Building(x: 328, width: 20, height: 70, z: 2, accent: false, peak: true,  windowRows: 0),
-        Building(x: 352, width: 30, height: 40, z: 0, accent: true,  peak: false, windowRows: 1),
-        Building(x: 382, width: 16, height: 60, z: 1, accent: false, peak: false, windowRows: 2)
-    ]
+/// Layered beach: far headland on the horizon, narrow sea band, lonely
+/// sailboat, foreground dune with two palm silhouettes planted in it.
+private struct BeachScene: View {
+    let horizonY: CGFloat
 
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                ForEach(Array(Self.buildings.enumerated()), id: \.offset) { _, b in
-                    BuildingView(
-                        width: b.width,
-                        height: b.height,
-                        accent: b.accent,
-                        peak: b.peak,
-                        windowRows: b.windowRows
-                    )
-                    .offset(x: b.x, y: baseY - b.height)
-                    .zIndex(Double(b.z))
-                }
+            let w = geo.size.width
+            let h = geo.size.height
+            let groundHeight = max(h - horizonY, 130)
 
-                // Soft ground gradient extends below to avoid a hard cutoff.
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.citySilhouette.opacity(0.0),
-                                Color.citySilhouette.opacity(0.4)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: max(200, geo.size.height - baseY + 200))
-                    .offset(y: baseY)
-                    .zIndex(-1)
+            ZStack(alignment: .topLeading) {
+                // Far headland — distant rolling hills hugging the horizon.
+                FarHeadland(width: w)
+                    .opacity(0.38)
+                    .offset(y: horizonY - 18)
+
+                // Sea band — thin cooler strip below the horizon.
+                SeaBand(width: w)
+                    .offset(y: horizonY)
+
+                // Sailboat — tiny lateen sail catching the last light.
+                Sailboat()
+                    .opacity(0.55)
+                    .offset(x: w * 0.62, y: horizonY - 11)
+
+                // Dune — wavy foreground hill filling everything below
+                // the horizon line.
+                Dune(width: w, height: groundHeight)
+                    .offset(y: horizonY)
+
+                // Foreground palms — taller one leans gently inland on
+                // the left, smaller cousin on the right.
+                Palm(height: 110, leanDegrees: -8)
+                    .frame(width: 140, height: 110)
+                    .offset(x: w * 0.16 - 70, y: horizonY - 66)
+
+                Palm(height: 84, leanDegrees: 10)
+                    .frame(width: 116, height: 84)
+                    .offset(x: w * 0.76 - 58, y: horizonY - 46)
             }
         }
     }
 }
 
-private struct BuildingView: View {
+/// Far headland: low rolling silhouette right on the horizon line.
+private struct FarHeadland: View {
     let width: CGFloat
-    let height: CGFloat
-    let accent: Bool
-    let peak: Bool
-    let windowRows: Int
 
     var body: some View {
-        let leftColor = accent ? Color.citySilhouetteAccent : Color.citySilhouette
-        let rightColor = accent ? Color.citySilhouette : Color.citySilhouetteAccent
-        let topColor = accent ? Color.citySilhouetteAccent.opacity(0.9) : Color.citySilhouette.opacity(0.9)
+        Path { p in
+            p.move(to: CGPoint(x: 0, y: 18))
+            p.addCurve(
+                to: CGPoint(x: width * 0.32, y: 4),
+                control1: CGPoint(x: width * 0.10, y: 16),
+                control2: CGPoint(x: width * 0.22, y: 2)
+            )
+            p.addCurve(
+                to: CGPoint(x: width * 0.68, y: 9),
+                control1: CGPoint(x: width * 0.46, y: 10),
+                control2: CGPoint(x: width * 0.58, y: 16)
+            )
+            p.addCurve(
+                to: CGPoint(x: width, y: 14),
+                control1: CGPoint(x: width * 0.82, y: 2),
+                control2: CGPoint(x: width * 0.92, y: 8)
+            )
+            p.addLine(to: CGPoint(x: width, y: 22))
+            p.addLine(to: CGPoint(x: 0, y: 22))
+            p.closeSubpath()
+        }
+        .fill(Color.citySilhouette)
+        .frame(height: 22)
+    }
+}
 
-        // Body height stops below peak room
-        let peakHeight: CGFloat = peak ? min(width * 0.45, 18) : 0
-        let bodyTop: CGFloat = peakHeight
-        let bodyHeight: CGFloat = height - peakHeight
+/// Sea band: ~8pt strip where the water meets the shore. Slight cool wash
+/// over the sky color so it reads as water, not a stripe.
+private struct SeaBand: View {
+    let width: CGFloat
 
-        ZStack(alignment: .topLeading) {
-            // Optional triangular peak on top of body
-            if peak {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: peakHeight + 6))
-                    path.addLine(to: CGPoint(x: width / 2, y: 0))
-                    path.addLine(to: CGPoint(x: width, y: peakHeight + 6))
-                    path.closeSubpath()
+    var body: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.skyLavender.opacity(0.55),
+                        Color.skyMid.opacity(0.25)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(width: width, height: 8)
+    }
+}
+
+/// Tiny lateen sailboat triangle on the horizon.
+private struct Sailboat: View {
+    var body: some View {
+        Path { p in
+            p.move(to: CGPoint(x: 4, y: 0))
+            p.addLine(to: CGPoint(x: 4, y: 11))
+            p.addLine(to: CGPoint(x: 0, y: 11))
+            p.closeSubpath()
+            p.move(to: CGPoint(x: 4.6, y: 1))
+            p.addLine(to: CGPoint(x: 9, y: 11))
+            p.addLine(to: CGPoint(x: 4.6, y: 11))
+            p.closeSubpath()
+        }
+        .fill(Color.citySilhouette)
+        .frame(width: 9, height: 12)
+    }
+}
+
+/// Dune: wavy foreground hill from horizon to bottom edge. Subtle gradient
+/// fade from crest to base so the foreground doesn't read as a flat slab.
+private struct Dune: View {
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Path { p in
+                p.move(to: CGPoint(x: 0, y: 28))
+                p.addCurve(
+                    to: CGPoint(x: width * 0.42, y: 6),
+                    control1: CGPoint(x: width * 0.14, y: 20),
+                    control2: CGPoint(x: width * 0.28, y: 2)
+                )
+                p.addCurve(
+                    to: CGPoint(x: width, y: 34),
+                    control1: CGPoint(x: width * 0.62, y: 12),
+                    control2: CGPoint(x: width * 0.82, y: 44)
+                )
+                p.addLine(to: CGPoint(x: width, y: height))
+                p.addLine(to: CGPoint(x: 0, y: height))
+                p.closeSubpath()
+            }
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.citySilhouette.opacity(0.72),
+                        Color.citySilhouette.opacity(0.5)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+
+            // Lit crest accent — a thin warm line along the top of the dune,
+            // catching the last of the sun.
+            Path { p in
+                p.move(to: CGPoint(x: 0, y: 28))
+                p.addCurve(
+                    to: CGPoint(x: width * 0.42, y: 6),
+                    control1: CGPoint(x: width * 0.14, y: 20),
+                    control2: CGPoint(x: width * 0.28, y: 2)
+                )
+                p.addCurve(
+                    to: CGPoint(x: width, y: 34),
+                    control1: CGPoint(x: width * 0.62, y: 12),
+                    control2: CGPoint(x: width * 0.82, y: 44)
+                )
+            }
+            .stroke(Color.citySilhouetteAccent.opacity(0.7), lineWidth: 1.2)
+        }
+    }
+}
+
+/// Procedural palm silhouette: gently curved trunk + seven drooping fronds
+/// radiating from the crown. `leanDegrees` tilts the whole tree at the base
+/// so the two palms in the scene have different attitudes.
+private struct Palm: View {
+    var height: CGFloat
+    var leanDegrees: Double = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let trunkBaseX = w * 0.5
+            let trunkBaseY = h
+            let crownY = h * 0.36
+            let crownX = trunkBaseX + sin(leanDegrees * .pi / 180) * (h - crownY) * 0.6
+
+            let trunkWidthBase = max(3.5, height / 26)
+            let trunkWidthTop = max(2.0, height / 44)
+
+            ZStack {
+                // Trunk — slightly curved, narrows toward the crown.
+                Path { p in
+                    p.move(to: CGPoint(x: trunkBaseX - trunkWidthBase, y: trunkBaseY))
+                    p.addQuadCurve(
+                        to: CGPoint(x: crownX - trunkWidthTop, y: crownY),
+                        control: CGPoint(
+                            x: (trunkBaseX + crownX) / 2 - trunkWidthBase * 1.6,
+                            y: (trunkBaseY + crownY) / 2
+                        )
+                    )
+                    p.addLine(to: CGPoint(x: crownX + trunkWidthTop, y: crownY))
+                    p.addQuadCurve(
+                        to: CGPoint(x: trunkBaseX + trunkWidthBase, y: trunkBaseY),
+                        control: CGPoint(
+                            x: (trunkBaseX + crownX) / 2 + trunkWidthBase * 0.4,
+                            y: (trunkBaseY + crownY) / 2
+                        )
+                    )
+                    p.closeSubpath()
                 }
-                .fill(leftColor)
-            }
+                .fill(Color.citySilhouette)
 
-            // Left face
-            Path { path in
-                path.move(to: CGPoint(x: 0, y: bodyTop + 8))
-                path.addLine(to: CGPoint(x: width / 2, y: bodyTop))
-                path.addLine(to: CGPoint(x: width / 2, y: bodyTop + bodyHeight))
-                path.addLine(to: CGPoint(x: 0, y: bodyTop + bodyHeight - 8))
-                path.closeSubpath()
-            }
-            .fill(leftColor)
-
-            // Right face
-            Path { path in
-                path.move(to: CGPoint(x: width / 2, y: bodyTop))
-                path.addLine(to: CGPoint(x: width, y: bodyTop + 8))
-                path.addLine(to: CGPoint(x: width, y: bodyTop + bodyHeight - 8))
-                path.addLine(to: CGPoint(x: width / 2, y: bodyTop + bodyHeight))
-                path.closeSubpath()
-            }
-            .fill(rightColor)
-
-            // Top diamond (only if not peaked)
-            if !peak {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: bodyTop + 8))
-                    path.addLine(to: CGPoint(x: width / 2, y: bodyTop))
-                    path.addLine(to: CGPoint(x: width, y: bodyTop + 8))
-                    path.addLine(to: CGPoint(x: width / 2, y: bodyTop + 16))
-                    path.closeSubpath()
+                // Fronds — seven leaves sweeping out from the crown, each
+                // drooping at the tip.
+                ForEach(0..<frondAngles.count, id: \.self) { i in
+                    frond(
+                        crownX: crownX,
+                        crownY: crownY,
+                        angle: frondAngles[i],
+                        length: frondLengths[i] * (height / 110)
+                    )
                 }
-                .fill(topColor)
-            }
 
-            // Windows on the front faces (left + right)
-            if windowRows > 0 {
-                windowGrid(bodyTop: bodyTop, bodyHeight: bodyHeight)
+                // Crown dot — tightens the trunk-to-fronds junction.
+                Circle()
+                    .fill(Color.citySilhouette)
+                    .frame(width: trunkWidthTop * 3, height: trunkWidthTop * 3)
+                    .position(x: crownX, y: crownY)
             }
         }
-        .frame(width: width, height: height)
     }
 
-    @ViewBuilder
-    private func windowGrid(bodyTop: CGFloat, bodyHeight: CGFloat) -> some View {
-        let rows = windowRows
-        let topPadding: CGFloat = 12
-        let bottomPadding: CGFloat = 8
-        let rowSpacing = max(8, (bodyHeight - topPadding - bottomPadding) / CGFloat(max(1, rows)))
-        let windowColor = Color.skyTop.opacity(0.55)
+    // Six fat fronds fanning across the upper hemisphere only — chunky
+    // enough to read as a palm crown even at distance.
+    private let frondAngles: [Double] = [-160, -125, -90, -55, -20, 15]
+    private let frondLengths: [CGFloat] = [40, 48, 52, 50, 44, 38]
 
-        // Left face windows
-        ForEach(0..<rows, id: \.self) { r in
-            let y = bodyTop + topPadding + CGFloat(r) * rowSpacing
-            Rectangle()
-                .fill(windowColor)
-                .frame(width: 3, height: 3)
-                .offset(x: width / 2 - 8, y: y)
-            Rectangle()
-                .fill(windowColor)
-                .frame(width: 3, height: 3)
-                .offset(x: width / 2 - 4, y: y)
-        }
+    private func frond(crownX: CGFloat, crownY: CGFloat, angle: Double, length: CGFloat) -> some View {
+        let rad = angle * .pi / 180
+        let straightTipX = crownX + cos(rad) * length
+        let straightTipY = crownY + sin(rad) * length
 
-        // Right face windows
-        ForEach(0..<rows, id: \.self) { r in
-            let y = bodyTop + topPadding + CGFloat(r) * rowSpacing
-            Rectangle()
-                .fill(windowColor)
-                .frame(width: 3, height: 3)
-                .offset(x: width / 2 + 1, y: y)
-            Rectangle()
-                .fill(windowColor)
-                .frame(width: 3, height: 3)
-                .offset(x: width / 2 + 5, y: y)
+        // Side-pointing fronds droop more; near-vertical fronds barely droop.
+        let horizontality = abs(cos(rad))
+        let droop = length * 0.32 * horizontality + 4
+        let tipX = straightTipX
+        let tipY = straightTipY + droop
+
+        return Path { p in
+            // Wide tapered leaf: 10pt at the base, point at the tip. The
+            // belly bulges downward so the silhouette reads as a hanging
+            // frond rather than a rigid spike.
+            let baseWidth: CGFloat = 10
+            let perpX = -sin(rad) * baseWidth / 2
+            let perpY = cos(rad) * baseWidth / 2
+
+            p.move(to: CGPoint(x: crownX - perpX, y: crownY - perpY))
+            p.addQuadCurve(
+                to: CGPoint(x: tipX, y: tipY),
+                control: CGPoint(
+                    x: (crownX + tipX) / 2 - perpX * 0.3,
+                    y: (crownY + tipY) / 2 - perpY * 0.3 + droop * 0.6
+                )
+            )
+            p.addQuadCurve(
+                to: CGPoint(x: crownX + perpX, y: crownY + perpY),
+                control: CGPoint(
+                    x: (crownX + tipX) / 2 + perpX * 0.3,
+                    y: (crownY + tipY) / 2 + perpY * 0.3 + droop
+                )
+            )
+            p.closeSubpath()
         }
+        .fill(Color.citySilhouette)
     }
 }
 
