@@ -39,7 +39,7 @@ struct GameView: View {
             Color.paper.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ChromeBar(settings: settings)
+                ChromeBar(settings: settings, onNewGame: { store.newGame() })
 
                 Scoreboard(
                     players: store.state.players,
@@ -87,6 +87,7 @@ struct GameView: View {
 
 struct ChromeBar: View {
     let settings: SettingsStore
+    let onNewGame: () -> Void
 
     var body: some View {
         HStack {
@@ -95,7 +96,7 @@ struct ChromeBar: View {
                 .foregroundStyle(Color.ink)
             Spacer()
             NavigationLink {
-                SettingsView(settings: settings)
+                SettingsView(settings: settings, onNewGame: onNewGame)
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 20))

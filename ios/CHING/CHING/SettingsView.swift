@@ -2,7 +2,10 @@ import SwiftUI
 
 struct SettingsView: View {
     let settings: SettingsStore
+    let onNewGame: () -> Void
+    @Environment(\.dismiss) private var dismiss
     @SwiftUI.State private var showAbout = false
+    @SwiftUI.State private var showRestartConfirm = false
     @SwiftUI.State private var placeholderOff = false
 
     var body: some View {
@@ -28,6 +31,17 @@ struct SettingsView: View {
                             )
                             .frame(maxWidth: 220)
                         }
+                        Button {
+                            showRestartConfirm = true
+                        } label: {
+                            SettingsRow(title: "New game") {
+                                Text("tap")
+                                    .font(.cochinItalic(13))
+                                    .underline()
+                                    .foregroundStyle(Color.ink)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     SettingsSection(title: "Appearance") {
@@ -101,6 +115,15 @@ struct SettingsView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .sheet(isPresented: $showAbout) {
             AboutSheet()
+        }
+        .alert("Start a new game?", isPresented: $showRestartConfirm) {
+            Button("New game", role: .destructive) {
+                onNewGame()
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your current game will be discarded.")
         }
     }
 }
