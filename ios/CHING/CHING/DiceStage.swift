@@ -12,6 +12,8 @@ struct DiceStage: View {
     var reduceMotion: Bool = false
 
     @SwiftUI.State private var animatedRolled: [Face]?
+    @SwiftUI.State private var pickSparkleTrigger: Int = 0
+    @SwiftUI.State private var lastSum: Int = -1
 
     private var displayRolled: [Face] {
         animatedRolled ?? rolled
@@ -33,9 +35,16 @@ struct DiceStage: View {
                 .tracking(2)
                 .foregroundStyle(Color.ink.opacity(0.55))
 
-            Text("\(setAsideSum)")
-                .font(.avenir(60, weight: .ultraLight))
-                .foregroundStyle(Color.ink)
+            ZStack {
+                Text("\(setAsideSum)")
+                    .font(.avenir(60, weight: .ultraLight))
+                    .foregroundStyle(Color.ink)
+                if pickSparkleTrigger > 0 {
+                    SparkleField(count: 12, spread: 90, duration: 1.0)
+                        .frame(width: 140, height: 100)
+                        .id(pickSparkleTrigger)
+                }
+            }
 
             if !displayRolled.isEmpty {
                 Text("dice")
@@ -82,6 +91,19 @@ struct DiceStage: View {
             if oldValue.isEmpty && !newValue.isEmpty {
                 animateRoll(count: newValue.count)
             }
+        }
+        .onChange(of: setAsideSum) { oldValue, newValue in
+            guard !reduceMotion, newValue > oldValue, oldValue >= 0 else {
+                lastSum = newValue
+                return
+            }
+            pickSparkleTrigger += 1
+            let trigger = pickSparkleTrigger
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                if pickSparkleTrigger == trigger { pickSparkleTrigger = 0 }
+            }
+            lastSum = newValue
         }
     }
 

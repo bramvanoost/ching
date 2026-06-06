@@ -5,6 +5,8 @@ struct VaultStack: View {
     let safes: [Int]
     var activeSeat: Bool = false
 
+    @SwiftUI.State private var addSparkleTrigger: Int = 0
+
     private let safeWidth: CGFloat = 38
     private let safeHeight: CGFloat = 34
     private let layerOffset: CGFloat = 5
@@ -37,9 +39,24 @@ struct VaultStack: View {
                             : .opacity
                         )
                 }
+
+                if addSparkleTrigger > 0 {
+                    SparkleField(count: 14, spread: 60, duration: 1.1)
+                        .frame(width: 80, height: 60)
+                        .id(addSparkleTrigger)
+                }
             }
             .frame(width: safeWidth, height: stackHeight, alignment: .top)
             .animation(.spring(response: 0.45, dampingFraction: 0.7), value: safes.count)
+            .onChange(of: safes.count) { oldValue, newValue in
+                guard newValue > oldValue else { return }
+                addSparkleTrigger += 1
+                let trigger = addSparkleTrigger
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    if addSparkleTrigger == trigger { addSparkleTrigger = 0 }
+                }
+            }
         }
     }
 
