@@ -86,15 +86,17 @@ struct GameView: View {
                 diceInHand: store.state.diceInHand
             )
             PickBar(store: store, act: act)
+
+            Spacer()
+
+            if !store.isHumanTurn && !store.isOver {
+                Text("\(displayName(currentSeatName)) is thinking…")
+                    .font(.cochinItalic(13))
+                    .foregroundStyle(Color.dimInk)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+
             ActionBar(store: store, act: act)
-
-                if !store.isHumanTurn && !store.isOver {
-                    Text("\(displayName(currentSeatName)) is thinking…")
-                        .font(.cochinItalic(13))
-                        .foregroundStyle(Color.dimInk)
-                }
-
-                Spacer()
             }
             .padding(20)
         }
@@ -265,19 +267,28 @@ struct PickBar: View {
     private let faces: [Face] = [.one, .two, .three, .four, .five, .coin]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Pick")
                 .font(.cochinItalic(10))
                 .textCase(.uppercase)
                 .tracking(1.5)
                 .foregroundStyle(Color.dimInk)
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(faces, id: \.self) { face in
                     Button(faceLabel(face)) {
                         act(.pick(face: face))
                     }
+                    .frame(width: 36, height: 36)
+                    .font(.cochin(15))
+                    .foregroundStyle(store.canPick(face) ? Color.ink : Color.dimInk)
+                    .background(Color.paper)
+                    .overlay(Rectangle().strokeBorder(
+                        store.canPick(face) ? Color.ink : Color.dimInk,
+                        lineWidth: 1.5
+                    ))
+                    .stampShadow()
+                    .opacity(store.canPick(face) ? 1.0 : 0.4)
                     .disabled(!store.canPick(face))
-                    .buttonStyle(.bordered)
                 }
             }
         }
@@ -293,14 +304,16 @@ struct ActionBar: View {
             Button("Roll") {
                 act(.roll)
             }
+            .stampButton(primary: true)
             .disabled(!store.canRoll)
-            .buttonStyle(.borderedProminent)
+            .opacity(store.canRoll ? 1.0 : 0.4)
 
             Button(store.bankActionLabel) {
                 act(.stop)
             }
+            .stampButton(primary: false)
             .disabled(!store.canBank)
-            .buttonStyle(.borderedProminent)
+            .opacity(store.canBank ? 1.0 : 0.4)
         }
     }
 }
