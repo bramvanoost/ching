@@ -203,19 +203,18 @@ struct StampButtonStyle: ButtonStyle {
                                 )
                                 .padding(1)
                         )
-                        // Animated shine — a diagonal light band that sweeps
-                        // across the face every couple of seconds when the
-                        // button is in invite mode.
+                        // Animated shine — soft, wide warm-light wash that
+                        // drifts across the face, like the sun passing.
                         .overlay {
                             if invite {
                                 GeometryReader { geo in
-                                    let bandWidth: CGFloat = 70
+                                    let bandWidth: CGFloat = 150
                                     Rectangle()
                                         .fill(
                                             LinearGradient(
                                                 colors: [
                                                     .clear,
-                                                    Color.white.opacity(0.85),
+                                                    Color.coinGoldLight.opacity(0.32),
                                                     .clear
                                                 ],
                                                 startPoint: .leading,
@@ -223,11 +222,11 @@ struct StampButtonStyle: ButtonStyle {
                                             )
                                         )
                                         .frame(width: bandWidth, height: geo.size.height * 2.5)
-                                        .rotationEffect(.degrees(22))
+                                        .rotationEffect(.degrees(16))
                                         .offset(x: shineSwept
                                                 ? geo.size.width / 2 + bandWidth
                                                 : -geo.size.width / 2 - bandWidth)
-                                        .blendMode(.plusLighter)
+                                        .blendMode(.softLight)
                                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
                                 }
                                 .mask(RoundedRectangle(cornerRadius: 14))
@@ -244,14 +243,14 @@ struct StampButtonStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.94 : 1.0)
             .task(id: invite) {
                 guard invite else { return }
-                // Loop: sweep across (1.4s), invisibly snap back, wait 1.6s.
+                // Loop: slow drift across (2.4s), invisibly snap back, wait 2.6s.
                 while !Task.isCancelled {
-                    withAnimation(.easeInOut(duration: 1.4)) {
+                    withAnimation(.easeInOut(duration: 2.4)) {
                         shineSwept = true
                     }
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
                     shineSwept = false
-                    try? await Task.sleep(nanoseconds: 1_600_000_000)
+                    try? await Task.sleep(nanoseconds: 2_600_000_000)
                 }
             }
     }
