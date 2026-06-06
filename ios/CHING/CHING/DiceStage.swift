@@ -60,8 +60,7 @@ struct DiceStage: View {
                             Text("\(setAsideSum)")
                                 .font(.avenir(56, weight: .demiBold, italic: true))
                                 .foregroundStyle(Color.ink)
-                                .monospacedDigit()
-                                .shadow(color: Color.ink.opacity(0.22), radius: 0, x: 2, y: 3)
+                                    .shadow(color: Color.ink.opacity(0.22), radius: 0, x: 2, y: 3)
                                 .padding(.horizontal, 22)
                                 .padding(.top, 6)
                                 .padding(.bottom, 4)
@@ -100,7 +99,6 @@ struct DiceStage: View {
                         Text("\(setAsideSum)")
                             .font(.avenir(70, weight: .demiBold, italic: true))
                             .foregroundStyle(Color.ink)
-                            .monospacedDigit()
                             .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
                             .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
                     }
