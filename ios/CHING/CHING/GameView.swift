@@ -6,6 +6,7 @@ struct GameView: View {
     let settings: SettingsStore
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
     @SwiftUI.State private var bankFlash: Bool = false
+    @SwiftUI.State private var bustFlash: Bool = false
 
     private func act(_ action: Action) {
         let humanSeat = GameStore.humanSeat
@@ -14,11 +15,13 @@ struct GameView: View {
 
         store.apply(action)
 
-        // Celebrate a successful bank (or steal) by the human player.
-        if wasHumanTurn, case .stop = action {
+        // Detect end-of-turn outcomes for the human player.
+        if wasHumanTurn && !store.isHumanTurn && !store.isOver {
             let afterVault = store.state.players[humanSeat].tiles.count
             if afterVault > beforeVault {
                 triggerBankFlash()
+            } else {
+                triggerBustFlash()
             }
         }
 
@@ -32,6 +35,15 @@ struct GameView: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 90_000_000)
             bankFlash = false
+        }
+    }
+
+    private func triggerBustFlash() {
+        guard !settings.reducedMotion, !iosReduceMotion else { return }
+        bustFlash = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            bustFlash = false
         }
     }
 
@@ -105,6 +117,19 @@ struct GameView: View {
                 Color.gold
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if bustFlash {
+                ZStack {
+                    Color.ink.ignoresSafeArea()
+                    Text("BUST")
+                        .font(.bodoni(80))
+                        .textCase(.uppercase)
+                        .tracking(8)
+                        .foregroundStyle(Color.paper)
+                }
+                .allowsHitTesting(false)
             }
         }
         .navigationBarHidden(true)
