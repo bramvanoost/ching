@@ -4,7 +4,6 @@ struct SplashView: View {
     let store: GameStore
     let settings: SettingsStore
 
-    @SwiftUI.State private var audio = HomeAudio()
     @SwiftUI.State private var logoVisible: Bool = false
     @SwiftUI.State private var actionsVisible: Bool = false
     @SwiftUI.State private var creditVisible: Bool = false
@@ -49,7 +48,10 @@ struct SplashView: View {
                         GameView(store: store, settings: settings)
                             .onAppear {
                                 store.newGame()
-                                audio.stop()
+                                AudioPolicy.shared.setInGame(true)
+                            }
+                            .onDisappear {
+                                AudioPolicy.shared.setInGame(false)
                             }
                     } label: {
                         Text("New Game")
@@ -94,7 +96,7 @@ struct SplashView: View {
         }
         .navigationBarHidden(true)
         .task {
-            audio.start()
+            AudioPolicy.shared.setInGame(false)
             withAnimation(.easeOut(duration: 0.7)) {
                 logoVisible = true
             }

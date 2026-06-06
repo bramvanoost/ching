@@ -72,8 +72,16 @@ struct SettingsView: View {
 
                     glassCard {
                         SettingsSection(title: "feedback") {
-                            SettingsRow(title: "Sound", disabled: true) {
-                                StampToggle(isOn: $placeholderOff, disabled: true)
+                            SettingsRow(title: "Sound") {
+                                StampSegmented(
+                                    selection: Binding(
+                                        get: { settings.soundMode },
+                                        set: { settings.soundMode = $0 }
+                                    ),
+                                    options: SoundMode.allCases,
+                                    labelFor: soundModeLabel
+                                )
+                                .frame(maxWidth: 240)
                             }
                             SettingsRow(title: "Haptics", disabled: true) {
                                 StampToggle(isOn: $placeholderOff, disabled: true)
@@ -135,6 +143,14 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your current game will be discarded.")
+        }
+    }
+
+    private func soundModeLabel(_ mode: SoundMode) -> String {
+        switch mode {
+        case .all: return "All"
+        case .gameOnly: return "Game"
+        case .muted: return "Off"
         }
     }
 

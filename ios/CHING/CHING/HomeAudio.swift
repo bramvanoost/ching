@@ -1,18 +1,21 @@
 import Foundation
 import AVFoundation
 
-/// Owns the looping home-screen music. One instance per app session;
-/// `start()` is idempotent so re-entering the splash screen resumes the
-/// existing player instead of double-playing.
+/// Looping home-screen music. Singleton so SplashView, GameView, and
+/// SettingsView can all reach it through AudioPolicy without owning
+/// instances themselves.
+@MainActor
 final class HomeAudio {
-    private var player: AVAudioPlayer?
+    static let shared = HomeAudio()
 
-    /// Filename (without extension) for the home-screen track. Keeping the
-    /// Pixabay-issued name preserves the artist + track ID in the bundle.
+    private var player: AVAudioPlayer?
     private let resourceName = "farran_ez-minimal-piano-underscore-456148"
 
-    @MainActor
-    func start() {
+    private init() {}
+
+    /// Idempotent — only spins up an AVAudioPlayer the first time, and
+    /// resumes playback if a previous `stop(fade:)` paused it.
+    func startIfNeeded() {
         if let existing = player {
             if !existing.isPlaying { existing.play() }
             return
@@ -34,7 +37,10 @@ final class HomeAudio {
         }
     }
 
-    @MainActor
+    func setVolume(_ volume: Float, fade: TimeInterval = 0.5) {
+        player?.setVolume(volume, fadeDuration: fade)
+    }
+
     func stop(fade: TimeInterval = 0.4) {
         guard let p = player else { return }
         if fade <= 0 {

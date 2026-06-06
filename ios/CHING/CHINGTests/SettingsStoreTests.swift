@@ -6,18 +6,21 @@ final class SettingsStoreTests: XCTestCase {
     private static let difficultyKey = "ching.difficulty"
     private static let colorModeKey = "ching.colorMode"
     private static let reducedMotionKey = "ching.reducedMotion"
+    private static let soundModeKey = "ching.soundMode"
 
     override func setUp() {
         super.setUp()
         UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
         UserDefaults.standard.removeObject(forKey: Self.colorModeKey)
         UserDefaults.standard.removeObject(forKey: Self.reducedMotionKey)
+        UserDefaults.standard.removeObject(forKey: Self.soundModeKey)
     }
 
     override func tearDown() {
         UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
         UserDefaults.standard.removeObject(forKey: Self.colorModeKey)
         UserDefaults.standard.removeObject(forKey: Self.reducedMotionKey)
+        UserDefaults.standard.removeObject(forKey: Self.soundModeKey)
         super.tearDown()
     }
 
@@ -55,5 +58,17 @@ final class SettingsStoreTests: XCTestCase {
         a.reducedMotion = true
         let b = SettingsStore()
         XCTAssertTrue(b.reducedMotion)
+    }
+
+    func test_soundMode_defaultIsAll() {
+        let store = SettingsStore()
+        XCTAssertEqual(store.soundMode, .all)
+    }
+
+    func test_soundMode_persistsAcrossInstances() {
+        let a = SettingsStore()
+        a.soundMode = .gameOnly
+        let b = SettingsStore()
+        XCTAssertEqual(b.soundMode, .gameOnly)
     }
 }

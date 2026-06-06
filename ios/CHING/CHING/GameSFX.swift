@@ -54,7 +54,7 @@ final class GameSFX {
     }
 
     private func play(from pool: inout [AVAudioPlayer], cursor: inout Int) {
-        guard !pool.isEmpty else { return }
+        guard AudioPolicy.shared.sfxEnabled, !pool.isEmpty else { return }
         let p = pool[cursor % pool.count]
         cursor += 1
         p.currentTime = 0
