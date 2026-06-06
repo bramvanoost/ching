@@ -39,15 +39,15 @@ struct SafesGrid: View {
         let stroke = available ? Color.ink : Color.dimInk
         let fg = available ? Color.ink : Color.dimInk
         let coins = tileCoinsForView(value)
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             Text("\(value)")
-                .font(.cochin(18))
+                .font(.cochin(22))
                 .foregroundStyle(fg)
-            CoinPips(count: coins, diameter: 6, spacing: 3)
+            CoinPips(count: coins, diameter: 7, spacing: 3)
                 .opacity(available ? 1.0 : 0.35)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 50)
+        .frame(height: 64)
         .background(available ? Color.paper : Color.dimInk.opacity(0.08))
         .overlay(Rectangle().strokeBorder(stroke, lineWidth: 1.5))
     }
