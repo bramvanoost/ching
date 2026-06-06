@@ -33,44 +33,57 @@ struct DiceStage: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Phase hint — fixed height, always present.
-            Text(phaseHint.lowercased())
+            // Phase hint — fixed height, always present. Keep the source
+            // casing (the strings already read in sentence case).
+            Text(phaseHint)
                 .font(.avenir(14, weight: .medium, italic: true))
                 .foregroundStyle(Color.ink.opacity(0.78))
                 .frame(height: 18)
 
-            // Hero number — the running sum, treated as a stamped headline
-            // with a hard ink offset and a soft halo. When canBank is true
-            // the whole thing becomes the bank affordance: gold tint, a
-            // thin underline, and a bank-preview chip below.
+            // Hero number — the running sum. When canBank is true, the
+            // whole thing wraps in a stamped card: thin coral border, hard
+            // offset shadow, "tap to bank" label below the number. Reads as
+            // a button at a glance even before you spot the wink.
             ZStack {
                 Button {
                     guard canBank else { return }
                     onBank()
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 2) {
                         Text("\(setAsideSum)")
-                            .font(.avenir(76, weight: .demiBold, italic: true))
-                            .foregroundStyle(canBank ? Color.gold : Color.ink)
+                            .font(.avenir(70, weight: .demiBold, italic: true))
+                            .foregroundStyle(Color.ink)
                             .monospacedDigit()
                             .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
                             .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
-                            .shadow(color: canBank ? Color.gold.opacity(0.5) : .clear, radius: 18, x: 0, y: 0)
 
                         if canBank {
-                            // Gold underline + bank label chip — affordance
-                            // that says "this number is also a button."
-                            Capsule()
-                                .fill(Color.gold.opacity(0.85))
-                                .frame(width: 56, height: 2)
-                            Text(bankPreview)
+                            Text(bankPreview.uppercased())
                                 .font(.avenir(11, weight: .demiBold))
-                                .tracking(2)
-                                .textCase(.uppercase)
-                                .foregroundStyle(Color.ink.opacity(0.85))
-                                .padding(.top, 2)
+                                .tracking(3)
+                                .foregroundStyle(Color.coral)
+                                .padding(.top, 4)
                         }
                     }
+                    .padding(.horizontal, canBank ? 26 : 0)
+                    .padding(.vertical, canBank ? 4 : 0)
+                    .background(
+                        Group {
+                            if canBank {
+                                // Solid paper tile so the number reads sharp
+                                // against the gradient instead of dissolving
+                                // into it.
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.safePeachLight)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .strokeBorder(Color.coral, lineWidth: 2)
+                                    )
+                                    .shadow(color: Color.coralDark.opacity(0.45), radius: 0, x: 0, y: 4)
+                                    .shadow(color: Color.coralDark.opacity(0.25), radius: 12, x: 0, y: 6)
+                            }
+                        }
+                    )
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -82,9 +95,9 @@ struct DiceStage: View {
                         .id(pickSparkleTrigger)
                 }
             }
-            // Always reserve room for the chip + underline so the layout
-            // doesn't jump when canBank flips on/off mid-turn.
-            .frame(height: 124)
+            // Always reserve room for the stamped card so the layout doesn't
+            // reflow when canBank flips on/off mid-turn.
+            .frame(height: 110)
 
             // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
             // or a centered status line. Swapping inside doesn't reflow.

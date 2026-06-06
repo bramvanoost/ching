@@ -401,8 +401,8 @@ struct ActionBar: View {
                     Spacer()
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 8)
-                .padding(.bottom, 22)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 100, alignment: .bottom)
