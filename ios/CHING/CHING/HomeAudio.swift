@@ -7,9 +7,9 @@ import AVFoundation
 final class HomeAudio {
     private var player: AVAudioPlayer?
 
-    /// Filename (without extension) for the home-screen track. Add the file
-    /// to the CHING target in Xcode; the loader tries .m4a then .mp3.
-    private let resourceName = "home_theme"
+    /// Filename (without extension) for the home-screen track. Keeping the
+    /// Pixabay-issued name preserves the artist + track ID in the bundle.
+    private let resourceName = "farran_ez-minimal-piano-underscore-456148"
 
     @MainActor
     func start() {
@@ -17,8 +17,8 @@ final class HomeAudio {
             if !existing.isPlaying { existing.play() }
             return
         }
-        let url = Bundle.main.url(forResource: resourceName, withExtension: "m4a")
-              ?? Bundle.main.url(forResource: resourceName, withExtension: "mp3")
+        let url = Bundle.main.url(forResource: resourceName, withExtension: "mp3")
+              ?? Bundle.main.url(forResource: resourceName, withExtension: "m4a")
         guard let url else { return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
