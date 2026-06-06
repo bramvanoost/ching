@@ -57,7 +57,8 @@ final class GameStore {
         guard canBank else { return "Bank" }
         for i in state.players.indices where i != state.current {
             if let top = state.players[i].tiles.last, top == setAsideSum {
-                return "STEAL FROM \(state.players[i].id)"
+                let name = state.players[i].id.capitalized
+                return "Steal \(name)'s safe"
             }
         }
         return "Bank"

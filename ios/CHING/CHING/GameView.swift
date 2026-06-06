@@ -12,8 +12,18 @@ struct GameView: View {
         Task { await store.runAIIfNeeded(reduceMotion: reduce) }
     }
 
+    private func displayName(_ id: String) -> String {
+        id.capitalized
+    }
+
     private var currentSeatName: String {
         store.state.players[store.state.current].id
+    }
+
+    private var scoresLine: String {
+        zip(store.state.players, store.scores)
+            .map { "\(displayName($0.id)) \($1)" }
+            .joined(separator: " · ")
     }
 
     private var gameOverMessage: String {
@@ -26,13 +36,13 @@ struct GameView: View {
 
         let headline: String
         if leaders.count == 1 {
-            headline = "\(leaders[0].id) wins."
+            headline = "\(leaders[0].id.capitalized) wins."
         } else {
             headline = "Tie at the top."
         }
 
         let body = ranked
-            .map { "\($0.id) \($0.score)" }
+            .map { "\($0.id.capitalized) \($0.score)" }
             .joined(separator: " · ")
 
         return "\(headline)\n\(body)"
@@ -51,15 +61,20 @@ struct GameView: View {
                 }
             }
 
-            Text("CHING")
-                .font(.largeTitle)
-                .bold()
+            Text("ching!")
+                .font(.bodoniItalic(44))
+                .foregroundStyle(Color.ink)
 
-            Text("Phase: \(store.state.phase.rawValue)")
-            Text("Turn: \(store.state.players[store.state.current].id)")
-            Text("Scores: " + zip(store.state.players, store.scores)
-                .map { "\($0.id) \($1)" }
-                .joined(separator: "  "))
+            Text("Turn · \(displayName(currentSeatName)) · \(store.state.phase.rawValue) phase")
+                .font(.cochinItalic(10))
+                .textCase(.uppercase)
+                .tracking(1.5)
+                .foregroundStyle(Color.dimInk)
+
+            Text(scoresLine)
+                .font(.cochin(13))
+                .foregroundStyle(Color.ink)
+
             CenterTileRow(tiles: store.state.centerTiles)
             VaultRow(players: store.state.players, current: store.state.current)
             DiceRow(
@@ -72,9 +87,9 @@ struct GameView: View {
             ActionBar(store: store, act: act)
 
             if !store.isHumanTurn && !store.isOver {
-                Text("\(currentSeatName) is thinking…")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Text("\(displayName(currentSeatName)) is thinking…")
+                    .font(.cochinItalic(13))
+                    .foregroundStyle(Color.dimInk)
             }
 
             Spacer()
@@ -96,16 +111,24 @@ struct CenterTileRow: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text("CENTER").font(.caption).bold()
+            Text("Safes")
+                .font(.cochinItalic(10))
+                .textCase(.uppercase)
+                .tracking(1.5)
+                .foregroundStyle(Color.dimInk)
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach(tiles, id: \.self) { tile in
-                        VStack {
-                            Text("\(tile)").font(.headline)
-                            Text("\(tileCoins(tile))c").font(.caption2)
+                        VStack(spacing: 0) {
+                            Text("\(tile)")
+                                .font(.cochin(14))
+                                .foregroundStyle(Color.ink)
+                            Text("\(tileCoins(tile))c")
+                                .font(.cochinItalic(8))
+                                .foregroundStyle(Color.dimInk)
                         }
                         .padding(6)
-                        .overlay(Rectangle().stroke())
+                        .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5))
                     }
                 }
             }
@@ -119,24 +142,43 @@ struct VaultRow: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text("VAULTS").font(.caption).bold()
+            Text("Vaults")
+                .font(.cochinItalic(10))
+                .textCase(.uppercase)
+                .tracking(1.5)
+                .foregroundStyle(Color.dimInk)
             ForEach(players.indices, id: \.self) { i in
                 HStack {
-                    Text(players[i].id)
-                        .bold(i == current)
+                    Text(players[i].id.capitalized)
+                        .font(.cochinItalic(11))
+                        .textCase(.uppercase)
+                        .tracking(1)
                         .frame(width: 70, alignment: .leading)
+                        .foregroundStyle(Color.ink)
+                        .overlay(alignment: .leading) {
+                            if i == current {
+                                Text("▸ ").font(.cochin(11))
+                                    .offset(x: -10)
+                            }
+                        }
                     if players[i].tiles.isEmpty {
-                        Text("(empty)").font(.caption).foregroundStyle(.secondary)
+                        Text("empty")
+                            .font(.cochinItalic(11))
+                            .foregroundStyle(Color.dimInk)
                     } else {
                         HStack(spacing: 4) {
                             ForEach(players[i].tiles, id: \.self) { tile in
                                 VStack(spacing: 0) {
                                     Text("\(tile)")
-                                    Text("\(tileCoins(tile))c").font(.caption2)
+                                        .font(.cochin(13))
+                                        .foregroundStyle(Color.ink)
+                                    Text("\(tileCoins(tile))c")
+                                        .font(.cochinItalic(8))
+                                        .foregroundStyle(Color.dimInk)
                                 }
-                                .padding(.horizontal, 4)
+                                .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
-                                .overlay(Rectangle().stroke())
+                                .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5))
                             }
                         }
                     }
@@ -159,37 +201,53 @@ struct DiceRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("DICE").font(.caption).bold()
+            Text("Dice")
+                .font(.cochinItalic(10))
+                .textCase(.uppercase)
+                .tracking(1.5)
+                .foregroundStyle(Color.dimInk)
             HStack {
                 VStack(alignment: .leading) {
-                    Text("Rolled").font(.caption2)
+                    Text("Rolled")
+                        .font(.cochinItalic(9))
+                        .textCase(.uppercase)
+                        .tracking(1)
+                        .foregroundStyle(Color.dimInk)
                     HStack(spacing: 4) {
                         ForEach(Array(rolled.enumerated()), id: \.offset) { _, f in
                             Text(faceLabel(f))
                                 .frame(width: 22, height: 22)
-                                .overlay(Rectangle().stroke())
+                                .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5))
                         }
                         if rolled.isEmpty {
-                            Text("(none)").font(.caption).foregroundStyle(.secondary)
+                            Text("(none)").font(.cochinItalic(11)).foregroundStyle(Color.dimInk)
                         }
                     }
                 }
                 Spacer()
                 VStack(alignment: .leading) {
-                    Text("Set aside (sum \(setAsideSum))").font(.caption2)
+                    Text("Set aside · sum \(setAsideSum)")
+                        .font(.cochinItalic(9))
+                        .textCase(.uppercase)
+                        .tracking(1)
+                        .foregroundStyle(Color.dimInk)
                     HStack(spacing: 4) {
                         ForEach(Array(setAside.enumerated()), id: \.offset) { _, f in
                             Text(faceLabel(f))
                                 .frame(width: 22, height: 22)
-                                .overlay(Rectangle().stroke().opacity(0.5))
+                                .overlay(Rectangle().stroke(Color.ink, lineWidth: 1.5).opacity(0.5))
                         }
                         if setAside.isEmpty {
-                            Text("(none)").font(.caption).foregroundStyle(.secondary)
+                            Text("(none)").font(.cochinItalic(11)).foregroundStyle(Color.dimInk)
                         }
                     }
                 }
             }
-            Text("In hand: \(diceInHand)").font(.caption2)
+            Text("In hand · \(diceInHand)")
+                .font(.cochinItalic(9))
+                .textCase(.uppercase)
+                .tracking(1)
+                .foregroundStyle(Color.dimInk)
         }
     }
 }
@@ -202,7 +260,11 @@ struct PickBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("PICK").font(.caption).bold()
+            Text("Pick")
+                .font(.cochinItalic(10))
+                .textCase(.uppercase)
+                .tracking(1.5)
+                .foregroundStyle(Color.dimInk)
             HStack(spacing: 6) {
                 ForEach(faces, id: \.self) { face in
                     Button(faceLabel(face)) {
