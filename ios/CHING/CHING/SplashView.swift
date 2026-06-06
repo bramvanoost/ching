@@ -9,7 +9,7 @@ struct SplashView: View {
     @SwiftUI.State private var creditVisible: Bool = false
 
     private var creditAttributed: AttributedString {
-        let raw = "Sound effect by [Alfarran Basalim](https://pixabay.com/users/farran_ez-45967570/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148) from [Pixabay](https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148)."
+        let raw = "Background music by [Alfarran Basalim](https://pixabay.com/users/farran_ez-45967570/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148) from [Pixabay](https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148)."
         return (try? AttributedString(markdown: raw)) ?? AttributedString(raw)
     }
 
@@ -43,12 +43,14 @@ struct SplashView: View {
                 .opacity(logoVisible ? 1 : 0)
                 .scaleEffect(logoVisible ? 1 : 0.92)
 
-                Text("push your luck. score the shore.")
-                    .font(.avenir(14, weight: .medium, italic: true))
-                    .tracking(2)
+                Text("they have shells. they could be your shells. score the shore.")
+                    .font(.avenir(13, weight: .medium, italic: true))
+                    .tracking(1.5)
                     .textCase(.lowercase)
+                    .multilineTextAlignment(.center)
                     .foregroundStyle(Color.ink.opacity(0.6))
-                    .padding(.top, 6)
+                    .padding(.top, 8)
+                    .padding(.horizontal, 30)
                     .opacity(logoVisible ? 1 : 0)
 
                 VStack(spacing: 18) {
