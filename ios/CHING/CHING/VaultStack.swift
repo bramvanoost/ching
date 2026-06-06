@@ -5,27 +5,23 @@ struct VaultStack: View {
     let safes: [Int]
     var activeSeat: Bool = false
 
-    private let safeWidth: CGFloat = 44
-    private let safeHeight: CGFloat = 42
-    private let layerOffset: CGFloat = 6
+    private let safeWidth: CGFloat = 38
+    private let safeHeight: CGFloat = 34
+    private let layerOffset: CGFloat = 5
 
-    var stackHeight: CGFloat {
-        if safes.isEmpty { return 48 }
+    private var stackHeight: CGFloat {
+        if safes.isEmpty { return 36 }
         return safeHeight + CGFloat(max(0, safes.count - 1)) * layerOffset
     }
 
+    /// Newest first (top of pile). Engine stores newest at end of `tiles`.
     private var stackedNewestFirst: [Int] {
         safes.reversed()
     }
 
     var body: some View {
         if safes.isEmpty {
-            Text("empty")
-                .font(.cochinItalic(9))
-                .textCase(.uppercase)
-                .tracking(1)
-                .foregroundStyle(activeSeat ? Color.paper.opacity(0.6) : Color.dimInk)
-                .frame(width: safeWidth, height: 48)
+            EmptyView()
         } else {
             ZStack(alignment: .top) {
                 ForEach(Array(stackedNewestFirst.enumerated()), id: \.offset) { idx, safe in
@@ -40,20 +36,30 @@ struct VaultStack: View {
 
     @ViewBuilder
     private func safeView(value: Int, isTop: Bool) -> some View {
-        let strokeColor = activeSeat ? Color.paper : Color.ink
-        let fillColor = activeSeat ? Color.ink : Color.paper
-        VStack(spacing: 3) {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.safePeachLight, Color.safePeachDark],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.ink, lineWidth: 1.5)
+                )
+                .shadow(color: Color.ink.opacity(0.15), radius: 0, x: 0, y: 2)
+
             if isTop {
-                Text("\(value)")
-                    .font(.cochin(18))
-                    .foregroundStyle(activeSeat ? Color.paper : Color.ink)
-                CoinPips(count: GameStore.safeCoins(value), diameter: 5, spacing: 2)
-            } else {
-                EmptyView()
+                VStack(spacing: 2) {
+                    Text("\(value)")
+                        .font(.avenir(13, weight: .demiBold))
+                        .foregroundStyle(Color.ink)
+                    CoinPips(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
+                }
             }
         }
         .frame(width: safeWidth, height: safeHeight)
-        .background(fillColor)
-        .overlay(Rectangle().strokeBorder(strokeColor, lineWidth: 1.5))
     }
 }
