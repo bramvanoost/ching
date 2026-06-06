@@ -236,7 +236,7 @@ struct GameView: View {
                 .opacity(revealAction ? 1 : 0)
                 .offset(y: revealAction ? 0 : 30)
 
-                Spacer().frame(height: 10)
+                Spacer().frame(height: 32)
             }
             .task {
                 await runIntroAnimation()
@@ -402,7 +402,7 @@ struct ActionBar: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 4)
-                .padding(.bottom, 8)
+                .padding(.bottom, 4)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 100, alignment: .bottom)

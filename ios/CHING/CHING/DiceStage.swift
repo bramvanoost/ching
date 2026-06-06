@@ -72,15 +72,16 @@ struct DiceStage: View {
                             if canBank {
                                 // Solid paper tile so the number reads sharp
                                 // against the gradient instead of dissolving
-                                // into it.
+                                // into it. Soft halo only — no hard-offset
+                                // shadow that would read as a duplicate edge
+                                // line under the card.
                                 RoundedRectangle(cornerRadius: 14)
                                     .fill(Color.safePeachLight)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 14)
-                                            .strokeBorder(Color.coral, lineWidth: 2)
+                                            .strokeBorder(Color.coral, lineWidth: 1.5)
                                     )
-                                    .shadow(color: Color.coralDark.opacity(0.45), radius: 0, x: 0, y: 4)
-                                    .shadow(color: Color.coralDark.opacity(0.25), radius: 12, x: 0, y: 6)
+                                    .shadow(color: Color.coralDark.opacity(0.28), radius: 14, x: 0, y: 6)
                             }
                         }
                     )
