@@ -18,6 +18,7 @@ struct Scoreboard: View {
                 }
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .overlay(
             VStack(spacing: 0) {
                 Rectangle().fill(Color.ink).frame(height: 1.5)
@@ -30,21 +31,29 @@ struct Scoreboard: View {
     @ViewBuilder
     private func column(playerIndex i: Int) -> some View {
         let isActive = i == current
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             Text(players[i].id.capitalized)
-                .font(.cochinItalic(10))
-                .textCase(.uppercase)
-                .tracking(1.5)
-                .foregroundStyle(isActive ? Color.paper.opacity(0.7) : Color.dimInk)
-                .padding(.top, 12)
+                .font(.bodoniItalic(18))
+                .foregroundStyle(isActive ? Color.paper : Color.ink)
+                .padding(.top, 8)
 
             Text("\(scores[i])")
-                .font(.cochin(36))
+                .font(.cochin(32))
                 .foregroundStyle(isActive ? Color.paper : Color.ink)
 
-            VaultStack(safes: players[i].tiles, activeSeat: isActive)
-                .padding(.top, 6)
-                .padding(.bottom, 12)
+            if players[i].tiles.isEmpty {
+                Text("empty")
+                    .font(.cochinItalic(9))
+                    .textCase(.uppercase)
+                    .tracking(1)
+                    .foregroundStyle(isActive ? Color.paper.opacity(0.6) : Color.dimInk)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+            } else {
+                VaultStack(safes: players[i].tiles, activeSeat: isActive)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .background(isActive ? Color.ink : Color.paper)
