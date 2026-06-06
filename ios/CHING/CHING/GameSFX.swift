@@ -10,9 +10,11 @@ final class GameSFX {
 
     private var rollPool: [AVAudioPlayer] = []
     private var confirmPool: [AVAudioPlayer] = []
+    private var bankPool: [AVAudioPlayer] = []
     private var bustPool: [AVAudioPlayer] = []
     private var nextRollIdx = 0
     private var nextConfirmIdx = 0
+    private var nextBankIdx = 0
     private var nextBustIdx = 0
 
     private init() {
@@ -20,7 +22,8 @@ final class GameSFX {
         // roll), so preload enough copies that overlapping plays don't
         // cut each other off.
         load("dice_picking", into: &rollPool, copies: 6, volume: 0.6)
-        load("outcome-success", into: &confirmPool, copies: 2, volume: 0.7)
+        load("dice_confirm", into: &confirmPool, copies: 2, volume: 0.7)
+        load("outcome-success", into: &bankPool, copies: 2, volume: 0.7)
         load("outcome-failure", into: &bustPool, copies: 2, volume: 0.75)
     }
 
@@ -40,6 +43,10 @@ final class GameSFX {
 
     func playConfirm() {
         play(from: &confirmPool, cursor: &nextConfirmIdx)
+    }
+
+    func playBank() {
+        play(from: &bankPool, cursor: &nextBankIdx)
     }
 
     func playBust() {

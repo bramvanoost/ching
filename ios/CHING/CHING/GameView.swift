@@ -49,6 +49,9 @@ struct GameView: View {
                 }
                 burnedTile = pool.max()
                 triggerBustFlash()
+            } else {
+                // Vault grew — successful bank or steal.
+                GameSFX.shared.playBank()
             }
         }
 
