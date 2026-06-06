@@ -25,7 +25,7 @@ struct Scoreboard: View {
         VStack(spacing: 8) {
             Text(players[i].id.capitalized)
                 .font(.avenir(14, weight: isActive ? .demiBold : .medium))
-                .foregroundStyle(isActive ? Color.coral : Color.ink.opacity(0.85))
+                .foregroundStyle(Color.ink)
 
             // Always reserve the vault area height so columns don't jump
             ZStack {
@@ -37,7 +37,7 @@ struct Scoreboard: View {
             }
             .frame(height: 54, alignment: .top)
 
-            Text("\(safeCount) \(safeCount == 1 ? "safe" : "safes")")
+            Text("\(safeCount) \(safeCount == 1 ? "tile" : "tiles")")
                 .font(.avenir(10, weight: .medium, italic: true))
                 .tracking(1)
                 .foregroundStyle(Color.ink.opacity(0.55))

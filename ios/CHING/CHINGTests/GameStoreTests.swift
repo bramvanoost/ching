@@ -133,6 +133,6 @@ final class GameStoreTests: XCTestCase {
         s.current = GameStore.humanSeat
         store.setStateForTesting(s)
         XCTAssertEqual(store.setAsideSum, 25)
-        XCTAssertEqual(store.bankActionLabel, "Steal Jones's safe")
+        XCTAssertEqual(store.bankActionLabel, "Steal Jones's tile")
     }
 }

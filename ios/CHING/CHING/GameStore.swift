@@ -58,7 +58,7 @@ final class GameStore {
         for i in state.players.indices where i != state.current {
             if let top = state.players[i].tiles.last, top == setAsideSum {
                 let name = state.players[i].id.capitalized
-                return "Steal \(name)'s safe"
+                return "Steal \(name)'s tile"
             }
         }
         return "Bank"

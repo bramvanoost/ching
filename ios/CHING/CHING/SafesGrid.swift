@@ -12,7 +12,7 @@ struct SafesGrid: View {
                 Text("\(remainingCount)")
                     .font(.avenir(18, weight: .demiBold))
                     .foregroundStyle(Color.coral)
-                Text("safes left")
+                Text("tiles left")
                     .font(.avenir(15, weight: .medium, italic: true))
                     .foregroundStyle(Color.ink.opacity(0.75))
             }
