@@ -201,7 +201,7 @@ struct GameView: View {
                     revealed: revealSafes
                 )
 
-                Spacer().frame(height: 10)
+                Spacer().frame(height: 22)
 
                 DiceStage(
                     phaseHint: store.phaseHint,
@@ -230,6 +230,8 @@ struct GameView: View {
                 )
                 .opacity(revealAction ? 1 : 0)
                 .offset(y: revealAction ? 0 : 30)
+
+                Spacer().frame(height: 10)
             }
             .task {
                 await runIntroAnimation()

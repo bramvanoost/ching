@@ -73,7 +73,7 @@ final class GameStore {
         case .roll:
             return state.setAside.isEmpty ? "Your roll." : "Roll again, or bank."
         case .pick:
-            return "Make your choice."
+            return "Choose wisely."
         case .over:
             return "Game over."
         }

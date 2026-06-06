@@ -49,13 +49,6 @@ struct DiceStage: View {
             }
             .frame(height: 84)
 
-            // "dice" label — invisible when nothing rolled so siblings don't jump.
-            Text("dice")
-                .font(.avenir(10, weight: .medium, italic: true))
-                .tracking(2)
-                .foregroundStyle(Color.ink.opacity(displayRolled.isEmpty ? 0 : 0.55))
-                .frame(height: 12)
-
             // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
             // or a centered status line. Swapping inside doesn't reflow.
             ZStack {
