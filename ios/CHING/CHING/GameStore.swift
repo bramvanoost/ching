@@ -28,24 +28,16 @@ final class GameStore {
 
     private(set) var state: State
     private var rng: Mulberry32
+    private let settings: SettingsStore
 
-    private static let difficultyKey = "ching.difficulty"
-
-    var difficulty: Difficulty {
-        didSet {
-            UserDefaults.standard.set(difficulty.rawValue, forKey: Self.difficultyKey)
-        }
-    }
-
-    init(seed: UInt32) {
+    init(seed: UInt32, settings: SettingsStore) {
         self.rng = Mulberry32(seed: seed)
+        self.settings = settings
         self.state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
-        let raw = UserDefaults.standard.string(forKey: Self.difficultyKey) ?? ""
-        self.difficulty = Difficulty(rawValue: raw) ?? .normal
     }
 
-    convenience init() {
-        self.init(seed: UInt32.random(in: 1...UInt32.max))
+    convenience init(settings: SettingsStore) {
+        self.init(seed: UInt32.random(in: 1...UInt32.max), settings: settings)
     }
 
     var scores: [Int] { score(state) }
@@ -65,10 +57,35 @@ final class GameStore {
         guard canBank else { return "Bank" }
         for i in state.players.indices where i != state.current {
             if let top = state.players[i].tiles.last, top == setAsideSum {
-                return "STEAL FROM \(state.players[i].id)"
+                let name = state.players[i].id.capitalized
+                return "Steal \(name)'s safe"
             }
         }
         return "Bank"
+    }
+
+    var phaseHint: String {
+        if !isHumanTurn && !isOver {
+            return "\(state.players[state.current].id.capitalized) is thinking…"
+        }
+        if isOver { return "Game over." }
+        switch state.phase {
+        case .roll:
+            return state.setAside.isEmpty ? "Your roll." : "Roll again, or bank."
+        case .pick:
+            return "Tap a face to lock."
+        case .over:
+            return "Game over."
+        }
+    }
+
+    var burnedCount: Int {
+        let totalInUse = state.centerTiles.count + state.players.reduce(0) { $0 + $1.tiles.count }
+        return max(0, 16 - totalInUse)
+    }
+
+    static func safeCoins(_ safe: Int) -> Int {
+        tileCoins(safe)
     }
 
     func canPick(_ face: Face) -> Bool {
@@ -81,7 +98,7 @@ final class GameStore {
     var currentAIDifficulty: CHINGEngine.Difficulty? {
         guard !isHumanTurn else { return nil }
         let base = baseDiscipline[state.current] ?? 0.5
-        let adjusted = max(0, min(1, base + difficulty.modifier))
+        let adjusted = max(0, min(1, base + settings.difficulty.modifier))
         return CHINGEngine.Difficulty(discipline: adjusted)
     }
 

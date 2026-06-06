@@ -5,19 +5,29 @@ import CHINGEngine
 @MainActor
 final class GameStoreTests: XCTestCase {
     private static let difficultyKey = "ching.difficulty"
+    private static let colorModeKey = "ching.colorMode"
+    private static let reducedMotionKey = "ching.reducedMotion"
 
     override func setUp() {
         super.setUp()
         UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
+        UserDefaults.standard.removeObject(forKey: Self.colorModeKey)
+        UserDefaults.standard.removeObject(forKey: Self.reducedMotionKey)
     }
 
     override func tearDown() {
         UserDefaults.standard.removeObject(forKey: Self.difficultyKey)
+        UserDefaults.standard.removeObject(forKey: Self.colorModeKey)
+        UserDefaults.standard.removeObject(forKey: Self.reducedMotionKey)
         super.tearDown()
     }
 
+    private func makeStore(seed: UInt32 = 1) -> GameStore {
+        GameStore(seed: seed, settings: SettingsStore())
+    }
+
     func test_init_setsUpThreePlayersHumanTurnRollPhase() {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         XCTAssertEqual(store.state.players.count, 3)
         XCTAssertEqual(store.state.players[0].id, "YOU")
         XCTAssertEqual(store.state.players[1].id, "JONES")
@@ -30,14 +40,14 @@ final class GameStoreTests: XCTestCase {
     }
 
     func test_apply_rollAdvancesPhaseOrTurn() {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         store.apply(.roll)
         let advanced = store.state.phase == .pick || store.state.current != 0
         XCTAssertTrue(advanced)
     }
 
     func test_newGame_resetsState() {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         store.apply(.roll)
         store.newGame()
         XCTAssertEqual(store.state.centerTiles, Array(21...36))
@@ -49,14 +59,14 @@ final class GameStoreTests: XCTestCase {
     }
 
     func test_runAIIfNeeded_isNoOpOnHumanTurn() async {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         let before = store.state
         await store.runAIIfNeeded(reduceMotion: true)
         XCTAssertEqual(store.state, before)
     }
 
     func test_runAIIfNeeded_reduceMotionRunsInstantly() async {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         let start = Date()
         await store.runAIIfNeeded(reduceMotion: true)
         let elapsed = Date().timeIntervalSince(start)
@@ -64,7 +74,7 @@ final class GameStoreTests: XCTestCase {
     }
 
     func test_fullThreePlayerGameTerminates() {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         var safetyLimit = 5000
         while !store.isOver && safetyLimit > 0 {
             let action = decide(state: store.state, ai: CHINGEngine.Difficulty(discipline: 0.5))
@@ -83,20 +93,36 @@ final class GameStoreTests: XCTestCase {
         XCTAssertEqual(Difficulty.allCases, [.easy, .normal, .hard])
     }
 
-    func test_difficulty_defaultIsNormalOnFirstLaunch() {
-        let store = GameStore(seed: 1)
-        XCTAssertEqual(store.difficulty, .normal)
+    func test_phaseHint_byPhaseAndSeat() {
+        let store = makeStore(seed: 1)
+        XCTAssertEqual(store.phaseHint, "Your roll.")
+
+        var s = store.state
+        s.phase = .pick
+        s.rolled = [.three, .three, .five, .coin]
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.phaseHint, "Tap a face to lock.")
+
+        s.current = GameStore.jonesSeat
+        s.phase = .roll
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.phaseHint, "Jones is thinking…")
     }
 
-    func test_difficulty_persistsAcrossInstances() {
-        let store1 = GameStore(seed: 1)
-        store1.difficulty = .hard
-        let store2 = GameStore(seed: 2)
-        XCTAssertEqual(store2.difficulty, .hard)
+    func test_burnedCount_derivesFromMissingSafes() {
+        let store = makeStore(seed: 1)
+        XCTAssertEqual(store.burnedCount, 0)
+
+        var s = store.state
+        s.centerTiles = [23, 24, 25]
+        s.players[0].tiles = [21, 22]
+        s.players[1].tiles = [26, 27, 28]
+        store.setStateForTesting(s)
+        XCTAssertEqual(store.burnedCount, 8)
     }
 
     func test_bankActionLabel_pointsAtFirstRivalWithMatchingTop() {
-        let store = GameStore(seed: 1)
+        let store = makeStore(seed: 1)
         var s = store.state
         s.players[1].tiles = [25]
         s.players[2].tiles = [25]
@@ -107,6 +133,6 @@ final class GameStoreTests: XCTestCase {
         s.current = GameStore.humanSeat
         store.setStateForTesting(s)
         XCTAssertEqual(store.setAsideSum, 25)
-        XCTAssertEqual(store.bankActionLabel, "STEAL FROM JONES")
+        XCTAssertEqual(store.bankActionLabel, "Steal Jones's safe")
     }
 }

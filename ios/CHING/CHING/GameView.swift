@@ -2,17 +2,49 @@ import SwiftUI
 import CHINGEngine
 
 struct GameView: View {
-    @SwiftUI.State private var store = GameStore()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let store: GameStore
+    let settings: SettingsStore
+    @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
+    @SwiftUI.State private var bankFlash: Bool = false
+    @SwiftUI.State private var bustFlash: Bool = false
 
     private func act(_ action: Action) {
+        let humanSeat = GameStore.humanSeat
+        let wasHumanTurn = store.isHumanTurn
+        let beforeVault = store.state.players[humanSeat].tiles.count
+
         store.apply(action)
-        let reduce = reduceMotion
+
+        // Detect end-of-turn outcomes for the human player.
+        if wasHumanTurn && !store.isHumanTurn && !store.isOver {
+            let afterVault = store.state.players[humanSeat].tiles.count
+            if afterVault > beforeVault {
+                triggerBankFlash()
+            } else {
+                triggerBustFlash()
+            }
+        }
+
+        let reduce = settings.reducedMotion || iosReduceMotion
         Task { await store.runAIIfNeeded(reduceMotion: reduce) }
     }
 
-    private var currentSeatName: String {
-        store.state.players[store.state.current].id
+    private func triggerBankFlash() {
+        guard !settings.reducedMotion, !iosReduceMotion else { return }
+        bankFlash = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            bankFlash = false
+        }
+    }
+
+    private func triggerBustFlash() {
+        guard !settings.reducedMotion, !iosReduceMotion else { return }
+        bustFlash = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            bustFlash = false
+        }
     }
 
     private var gameOverMessage: String {
@@ -25,223 +57,179 @@ struct GameView: View {
 
         let headline: String
         if leaders.count == 1 {
-            headline = "\(leaders[0].id) wins."
+            headline = "\(leaders[0].id.capitalized) wins."
         } else {
             headline = "Tie at the top."
         }
 
         let body = ranked
-            .map { "\($0.id) \($0.score)" }
+            .map { "\($0.id.capitalized) \($0.score)" }
             .joined(separator: " · ")
 
         return "\(headline)\n\(body)"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            DifficultyPicker(difficulty: Binding(
-                get: { store.difficulty },
-                set: { store.difficulty = $0 }
-            ))
+        ZStack {
+            Color.paper.ignoresSafeArea()
 
-            Text("CHING")
-                .font(.largeTitle)
-                .bold()
+            VStack(spacing: 0) {
+                ChromeBar(settings: settings, onNewGame: { store.newGame() })
 
-            Text("Phase: \(store.state.phase.rawValue)")
-            Text("Turn: \(store.state.players[store.state.current].id)")
-            Text("Scores: " + zip(store.state.players, store.scores)
-                .map { "\($0.id) \($1)" }
-                .joined(separator: "  "))
-            CenterTileRow(tiles: store.state.centerTiles)
-            VaultRow(players: store.state.players, current: store.state.current)
-            DiceRow(
-                rolled: store.state.rolled,
-                setAside: store.state.setAside,
-                setAsideSum: store.setAsideSum,
-                diceInHand: store.state.diceInHand
-            )
-            PickBar(store: store, act: act)
-            ActionBar(store: store, act: act)
+                Scoreboard(
+                    players: store.state.players,
+                    scores: store.scores,
+                    current: store.state.current
+                )
 
-            if !store.isHumanTurn && !store.isOver {
-                Text("\(currentSeatName) is thinking…")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                SafesGrid(
+                    availableSafes: store.state.centerTiles,
+                    remainingCount: store.state.centerTiles.count
+                )
+
+                DiceStage(
+                    phaseHint: store.phaseHint,
+                    setAsideSum: store.setAsideSum,
+                    rolled: store.state.rolled,
+                    locked: store.state.setAside,
+                    diceInHand: store.state.diceInHand,
+                    canPick: { store.canPick($0) },
+                    onPick: { act(.pick(face: $0)) },
+                    reduceMotion: settings.reducedMotion || iosReduceMotion
+                )
+
+                Spacer(minLength: 0)
+
+                ActionBar(
+                    canRoll: store.canRoll,
+                    canBank: store.canBank,
+                    isHumanTurn: store.isHumanTurn,
+                    isOver: store.isOver,
+                    hasSetAside: !store.state.setAside.isEmpty,
+                    bankLabel: store.bankActionLabel,
+                    onRoll: { act(.roll) },
+                    onBank: { act(.stop) }
+                )
             }
-
-            Spacer()
         }
-        .padding()
-        .alert("Game over", isPresented: .constant(store.isOver)) {
-            Button("New Game") {
-                store.newGame()
+        .overlay {
+            if bankFlash {
+                Color.gold
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
             }
+        }
+        .overlay {
+            if bustFlash {
+                ZStack {
+                    Color.ink.ignoresSafeArea()
+                    Text("BUST")
+                        .font(.bodoni(80))
+                        .textCase(.uppercase)
+                        .tracking(8)
+                        .foregroundStyle(Color.paper)
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .navigationBarHidden(true)
+        .alert("Game over", isPresented: .constant(store.isOver)) {
+            Button("New Game") { store.newGame() }
         } message: {
             Text(gameOverMessage)
         }
     }
 }
 
-struct CenterTileRow: View {
-    let tiles: [Int]
+struct ChromeBar: View {
+    let settings: SettingsStore
+    let onNewGame: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Text("CENTER").font(.caption).bold()
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(tiles, id: \.self) { tile in
-                        VStack {
-                            Text("\(tile)").font(.headline)
-                            Text("\(tileCoins(tile))c").font(.caption2)
-                        }
-                        .padding(6)
-                        .overlay(Rectangle().stroke())
-                    }
-                }
+        HStack {
+            Text("ching!")
+                .font(.bodoniItalic(22))
+                .foregroundStyle(Color.ink)
+            Spacer()
+            NavigationLink {
+                SettingsView(settings: settings, onNewGame: onNewGame)
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.ink)
+                    .opacity(0.6)
             }
         }
-    }
-}
-
-struct VaultRow: View {
-    let players: [Player]
-    let current: Int
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text("VAULTS").font(.caption).bold()
-            ForEach(players.indices, id: \.self) { i in
-                HStack {
-                    Text(players[i].id)
-                        .bold(i == current)
-                        .frame(width: 70, alignment: .leading)
-                    if players[i].tiles.isEmpty {
-                        Text("(empty)").font(.caption).foregroundStyle(.secondary)
-                    } else {
-                        HStack(spacing: 4) {
-                            ForEach(players[i].tiles, id: \.self) { tile in
-                                VStack(spacing: 0) {
-                                    Text("\(tile)")
-                                    Text("\(tileCoins(tile))c").font(.caption2)
-                                }
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .overlay(Rectangle().stroke())
-                            }
-                        }
-                    }
-                    Spacer()
-                }
-            }
-        }
-    }
-}
-
-func faceLabel(_ f: Face) -> String {
-    f == .coin ? "C" : "\(f.rawValue)"
-}
-
-struct DiceRow: View {
-    let rolled: [Face]
-    let setAside: [Face]
-    let setAsideSum: Int
-    let diceInHand: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("DICE").font(.caption).bold()
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Rolled").font(.caption2)
-                    HStack(spacing: 4) {
-                        ForEach(Array(rolled.enumerated()), id: \.offset) { _, f in
-                            Text(faceLabel(f))
-                                .frame(width: 22, height: 22)
-                                .overlay(Rectangle().stroke())
-                        }
-                        if rolled.isEmpty {
-                            Text("(none)").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                Spacer()
-                VStack(alignment: .leading) {
-                    Text("Set aside (sum \(setAsideSum))").font(.caption2)
-                    HStack(spacing: 4) {
-                        ForEach(Array(setAside.enumerated()), id: \.offset) { _, f in
-                            Text(faceLabel(f))
-                                .frame(width: 22, height: 22)
-                                .overlay(Rectangle().stroke().opacity(0.5))
-                        }
-                        if setAside.isEmpty {
-                            Text("(none)").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            Text("In hand: \(diceInHand)").font(.caption2)
-        }
-    }
-}
-
-struct PickBar: View {
-    let store: GameStore
-    let act: (Action) -> Void
-
-    private let faces: [Face] = [.one, .two, .three, .four, .five, .coin]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("PICK").font(.caption).bold()
-            HStack(spacing: 6) {
-                ForEach(faces, id: \.self) { face in
-                    Button(faceLabel(face)) {
-                        act(.pick(face: face))
-                    }
-                    .disabled(!store.canPick(face))
-                    .buttonStyle(.bordered)
-                }
-            }
-        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
     }
 }
 
 struct ActionBar: View {
-    let store: GameStore
-    let act: (Action) -> Void
+    let canRoll: Bool
+    let canBank: Bool
+    let isHumanTurn: Bool
+    let isOver: Bool
+    let hasSetAside: Bool
+    let bankLabel: String
+    let onRoll: () -> Void
+    let onBank: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button("Roll") {
-                act(.roll)
-            }
-            .disabled(!store.canRoll)
-            .buttonStyle(.borderedProminent)
+        VStack(spacing: 0) {
+            Rectangle().fill(Color.ink).frame(height: 1.5)
 
-            Button(store.bankActionLabel) {
-                act(.stop)
+            if isOver {
+                Text("— game over —")
+                    .font(.bodoni(15))
+                    .textCase(.uppercase)
+                    .tracking(2)
+                    .foregroundStyle(Color.dimInk)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+            } else if !isHumanTurn {
+                Text("— waiting —")
+                    .font(.bodoni(15))
+                    .textCase(.uppercase)
+                    .tracking(2)
+                    .foregroundStyle(Color.dimInk)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+            } else if hasSetAside {
+                HStack(spacing: 12) {
+                    Button("Roll Again") { onRoll() }
+                        .stampButton(primary: true)
+                        .disabled(!canRoll)
+                        .opacity(canRoll ? 1.0 : 0.4)
+
+                    Button(bankLabel) { onBank() }
+                        .stampButton(primary: false)
+                        .disabled(!canBank)
+                        .opacity(canBank ? 1.0 : 0.4)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 18)
+            } else {
+                HStack {
+                    Spacer()
+                    Button("Roll") { onRoll() }
+                        .stampButton(primary: true)
+                        .disabled(!canRoll)
+                        .opacity(canRoll ? 1.0 : 0.4)
+                        .frame(maxWidth: 260)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 18)
             }
-            .disabled(!store.canBank)
-            .buttonStyle(.borderedProminent)
         }
-    }
-}
-
-struct DifficultyPicker: View {
-    @Binding var difficulty: Difficulty
-
-    var body: some View {
-        Picker("Difficulty", selection: $difficulty) {
-            ForEach(Difficulty.allCases, id: \.self) { d in
-                Text(d.rawValue.capitalized).tag(d)
-            }
-        }
-        .pickerStyle(.segmented)
+        .background(Color.paper)
     }
 }
 
 #Preview {
-    GameView()
+    GameView(store: GameStore(settings: SettingsStore()), settings: SettingsStore())
 }
