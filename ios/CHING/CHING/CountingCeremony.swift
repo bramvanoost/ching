@@ -25,7 +25,7 @@ struct CountingCeremony: View {
             }
             return "\(players[idx].id.capitalized) wins."
         }
-        return "Tie at the top."
+        return "It's a tie!"
     }
 
     var body: some View {

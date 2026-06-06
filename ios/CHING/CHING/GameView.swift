@@ -7,6 +7,7 @@ struct GameView: View {
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
     @SwiftUI.State private var bustFlash: Bool = false
     @SwiftUI.State private var bustReason: BustReason = .rolled
+    @SwiftUI.State private var burnedTile: Int? = nil
     @SwiftUI.State private var stolenFromIdx: Int? = nil
 
     enum BustReason {
@@ -24,6 +25,10 @@ struct GameView: View {
         let wasHumanTurn = store.isHumanTurn
         let beforeVault = store.state.players[humanSeat].tiles.count
         let hadCoinBefore = store.state.setAside.contains(.coin)
+        // Snapshot the pool the bust logic will burn from: current center +
+        // the player's top tile (which returns to center on bust).
+        let beforeCenter = store.state.centerTiles
+        let beforeTopVaultTile = store.state.players[humanSeat].tiles.last
 
         store.apply(action)
 
@@ -37,6 +42,12 @@ struct GameView: View {
                 } else {
                     bustReason = .rolled
                 }
+                // The burned tile is the highest in (centerTiles + returned top).
+                var pool = beforeCenter
+                if let returned = beforeTopVaultTile, afterVault < beforeVault {
+                    pool.append(returned)
+                }
+                burnedTile = pool.max()
                 triggerBustFlash()
             }
         }
@@ -88,8 +99,35 @@ struct GameView: View {
     private var bustSubline: String {
         switch bustReason {
         case .greedy: return "you had no coins and got greedy"
-        case .rolled: return "a tile was burned"
+        case .rolled: return "the roll gave you nothing"
         }
+    }
+
+    @ViewBuilder
+    private func burnedTileChip(value: Int) -> some View {
+        let coins = GameStore.safeCoins(value)
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.safePeachLight, Color.safePeachDark],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.stampText.opacity(0.95), lineWidth: 2)
+                )
+                .shadow(color: Color.coralDark.opacity(0.6), radius: 0, x: 0, y: 5)
+                .shadow(color: Color.coralDark.opacity(0.3), radius: 14, x: 0, y: 0)
+            VStack(spacing: 4) {
+                Text("\(value)")
+                    .font(.avenir(28, weight: .demiBold))
+                    .foregroundStyle(Color.treasureInk)
+                CoinPips(count: coins, diameter: 7, spacing: 3)
+            }
+        }
+        .frame(width: 64, height: 80)
     }
 
     /// A "cold coin" — a coin shape rendered in cream against the coral bust
@@ -222,9 +260,9 @@ struct GameView: View {
                     .ignoresSafeArea()
                     .blendMode(.softLight)
 
-                    VStack(spacing: 22) {
+                    VStack(spacing: 20) {
                         if bustReason == .greedy {
-                            redCoinGlyph(size: 96)
+                            redCoinGlyph(size: 84)
                                 .shadow(color: Color.stampText.opacity(0.35), radius: 22, x: 0, y: 0)
                                 .shadow(color: Color.coralDark, radius: 0, x: 0, y: 6)
                         }
@@ -249,6 +287,20 @@ struct GameView: View {
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Color.stampText.opacity(0.92))
                             .padding(.horizontal, 30)
+
+                        // The tile the bank just burned — show it so the player
+                        // knows exactly what the supply lost.
+                        if let burned = burnedTile {
+                            VStack(spacing: 8) {
+                                Text("tile burned")
+                                    .font(.avenir(10, weight: .medium, italic: true))
+                                    .tracking(2.5)
+                                    .textCase(.lowercase)
+                                    .foregroundStyle(Color.stampText.opacity(0.7))
+                                burnedTileChip(value: burned)
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                 }
                 .allowsHitTesting(false)
