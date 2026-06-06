@@ -62,15 +62,14 @@ struct DiceStage: View {
                         }
                     }
                     .padding(.horizontal, 40)
-                } else if !locked.isEmpty {
-                    Text("roll again or bank")
-                        .font(.avenir(13, weight: .medium, italic: true))
-                        .foregroundStyle(Color.ink.opacity(0.65))
-                } else {
+                } else if locked.isEmpty {
                     Text("\(diceInHand) dice ready")
                         .font(.avenir(13, weight: .medium, italic: true))
                         .foregroundStyle(Color.ink.opacity(0.65))
                 }
+                // When dice are empty but you have locked tiles, the phase
+                // hint at the top already says "Roll again, or bank." — no
+                // need to repeat it here.
             }
             .frame(height: 158)
 
