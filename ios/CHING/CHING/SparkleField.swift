@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// A burst of gold particles emanating from the center of its frame.
-/// Triggers once when the view appears.
+/// A burst of bright gold particles emanating outward from the edge of
+/// the host view in 360 degrees. Triggers once when the view appears.
 struct SparkleField: View {
     var count: Int = 16
+    var startRadius: CGFloat = 0
     var spread: CGFloat = 90
     var duration: Double = 1.4
 
@@ -15,6 +16,7 @@ struct SparkleField: View {
                 Sparkle(
                     seed: i,
                     count: count,
+                    startRadius: startRadius,
                     spread: spread,
                     duration: duration,
                     go: go
@@ -33,25 +35,26 @@ struct SparkleField: View {
 private struct Sparkle: View {
     let seed: Int
     let count: Int
+    let startRadius: CGFloat
     let spread: CGFloat
     let duration: Double
     let go: Bool
 
     private var angle: Double {
-        // Spread evenly around 360°, with a small random jitter from seed.
         let base = Double(seed) / Double(count) * .pi * 2
-        let jitter = (Double(seed * 13 % 31) / 31.0 - 0.5) * 0.35
+        let jitter = (Double(seed * 13 % 31) / 31.0 - 0.5) * 0.5
         return base + jitter
     }
 
-    private var distance: CGFloat {
+    private var travelDistance: CGFloat {
         let base = spread * 0.55
         let extra = CGFloat(seed * 7 % 30) * (spread / 100)
         return base + extra
     }
 
     private var dieSize: CGFloat {
-        4 + CGFloat(seed * 11 % 6)
+        // Bigger, brighter particles
+        7 + CGFloat(seed * 11 % 8)
     }
 
     private var delay: Double {
@@ -59,22 +62,27 @@ private struct Sparkle: View {
     }
 
     var body: some View {
-        let endX = cos(angle) * distance
-        let endY = sin(angle) * distance
+        let startX = cos(angle) * startRadius
+        let startY = sin(angle) * startRadius
+        let endX = cos(angle) * (startRadius + travelDistance)
+        let endY = sin(angle) * (startRadius + travelDistance)
 
         Circle()
             .fill(
-                LinearGradient(
-                    colors: [Color.moonCenter, Color.gold],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                RadialGradient(
+                    colors: [Color.moonCenter, Color.coinGoldLight, Color.gold],
+                    center: UnitPoint(x: 0.4, y: 0.4),
+                    startRadius: 0,
+                    endRadius: dieSize / 2
                 )
             )
             .frame(width: dieSize, height: dieSize)
-            .shadow(color: Color.gold.opacity(0.7), radius: 4, x: 0, y: 0)
-            .offset(x: go ? endX : 0, y: go ? endY : 0)
+            .shadow(color: Color.coinGoldLight, radius: 4, x: 0, y: 0)
+            .shadow(color: Color.gold.opacity(0.9), radius: 8, x: 0, y: 0)
+            .shadow(color: Color.gold.opacity(0.5), radius: 16, x: 0, y: 0)
+            .offset(x: go ? endX : startX, y: go ? endY : startY)
             .opacity(go ? 0 : 1)
-            .scaleEffect(go ? 0.4 : 1.3)
+            .scaleEffect(go ? 0.3 : 1.4)
             .animation(
                 .easeOut(duration: duration).delay(delay),
                 value: go
@@ -85,6 +93,13 @@ private struct Sparkle: View {
 #Preview {
     ZStack {
         Color.skyMid.ignoresSafeArea()
-        SparkleField()
+        VStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.safePeachLight)
+                .frame(width: 60, height: 60)
+                .overlay(
+                    SparkleField(count: 14, startRadius: 30, spread: 60)
+                )
+        }
     }
 }
