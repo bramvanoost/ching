@@ -50,32 +50,33 @@ struct DiceStage: View {
                     onBank()
                 } label: {
                     if canBank {
-                        // Two-tone receipt: cream half holds the value, coral
-                        // half is the action footer with cream BANK label —
-                        // unambiguously a button without losing the editorial
-                        // weight of the running sum on top.
+                        // Compact two-tone receipt: cream half holds the
+                        // value, coral half is the action footer with the
+                        // BANK label in cream stamp text. Width capped so it
+                        // doesn't bleed past the app's horizontal rhythm and
+                        // sits like a card you can tap, not a banner.
                         VStack(spacing: 0) {
                             Text("\(setAsideSum)")
-                                .font(.avenir(60, weight: .demiBold, italic: true))
+                                .font(.avenir(56, weight: .demiBold, italic: true))
                                 .foregroundStyle(Color.ink)
                                 .monospacedDigit()
                                 .shadow(color: Color.ink.opacity(0.22), radius: 0, x: 2, y: 3)
-                                .padding(.horizontal, 28)
-                                .padding(.top, 10)
-                                .padding(.bottom, 6)
+                                .padding(.horizontal, 22)
+                                .padding(.top, 6)
+                                .padding(.bottom, 4)
                                 .frame(maxWidth: .infinity)
                                 .background(Color.safePeachLight)
 
                             HStack(spacing: 6) {
                                 Text(bankPreview.uppercased())
-                                    .font(.avenir(12, weight: .demiBold))
-                                    .tracking(3)
+                                    .font(.avenir(11, weight: .demiBold))
+                                    .tracking(2.5)
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: 10, weight: .bold))
                             }
                             .foregroundStyle(Color.stampText)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 18)
+                            .padding(.vertical, 7)
+                            .padding(.horizontal, 14)
                             .frame(maxWidth: .infinity)
                             .background(
                                 LinearGradient(
@@ -85,9 +86,10 @@ struct DiceStage: View {
                                 )
                             )
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .frame(maxWidth: 200)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14)
+                            RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(Color.coralDark.opacity(0.5), lineWidth: 1)
                         )
                         .shadow(color: Color.coralDark.opacity(0.25), radius: 12, x: 0, y: 6)
@@ -113,7 +115,7 @@ struct DiceStage: View {
             }
             // Always reserve room for the stamped card so the layout doesn't
             // reflow when canBank flips on/off mid-turn.
-            .frame(height: 124)
+            .frame(height: 108)
 
             // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
             // or a centered status line. Swapping inside doesn't reflow.

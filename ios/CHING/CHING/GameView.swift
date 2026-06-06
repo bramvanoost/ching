@@ -224,7 +224,9 @@ struct GameView: View {
                 .opacity(revealStage ? 1 : 0)
                 .offset(y: revealStage ? 0 : 12)
 
-                Spacer(minLength: 0)
+                // Anchor the Roll button right under the dice stage instead
+                // of letting a flex Spacer float it to the screen bottom.
+                Spacer().frame(height: 8)
 
                 ActionBar(
                     canRoll: store.canRoll,
@@ -391,10 +393,14 @@ struct ActionBar: View {
                 // turns or phases. Bank is anchored to the running sum
                 // inside DiceStage, so the bottom of the screen always
                 // means "throw the dice."
+                // No invite shine on the in-game Roll/Roll Again — once
+                // you're playing you don't need the come-hither animation,
+                // and the sweeping band reads as a stripe through the
+                // button at any opacity.
                 HStack {
                     Spacer()
                     Button(hasSetAside ? "Roll Again" : "Roll") { onRoll() }
-                        .stampButton(primary: true, invite: canRoll)
+                        .stampButton(primary: true, invite: false)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)
                         .frame(maxWidth: 280)
@@ -405,7 +411,7 @@ struct ActionBar: View {
                 .padding(.bottom, 4)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 100, alignment: .bottom)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .bottom)
     }
 }
 
