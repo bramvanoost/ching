@@ -18,17 +18,21 @@ struct DiceStage: View {
     var onBank: () -> Void = {}
     var reduceMotion: Bool = false
 
-    @SwiftUI.State private var animatedRolled: [Face]?
+    // Source of truth for what the dice slot renders. Updated by the roll
+    // animation in steps so the player never sees the final `rolled` values
+    // pop in before the cycle starts.
+    @SwiftUI.State private var displayedRolled: [Face] = []
+    @SwiftUI.State private var rollAnimationTask: Task<Void, Never>?
     @SwiftUI.State private var pickSparkleTrigger: Int = 0
     @SwiftUI.State private var lastSum: Int = -1
     @SwiftUI.State private var pickingFace: Face?
 
     private var displayRolled: [Face] {
-        animatedRolled ?? rolled
+        displayedRolled
     }
 
     private var isAnimating: Bool {
-        animatedRolled != nil
+        rollAnimationTask != nil && rollAnimationTask?.isCancelled == false
     }
 
     var body: some View {
@@ -156,13 +160,29 @@ struct DiceStage: View {
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 6)
-        .onChange(of: rolled) { oldValue, newValue in
-            if oldValue.isEmpty && !newValue.isEmpty {
-                if reduceMotion {
-                    if isHumanTurn { GameSFX.shared.playRoll() }
-                } else {
-                    animateRoll(count: newValue.count, withSound: isHumanTurn)
+        .onChange(of: rolled, initial: true) { oldValue, newValue in
+            let isFreshRoll = oldValue.isEmpty && !newValue.isEmpty
+            rollAnimationTask?.cancel()
+            if isFreshRoll && !reduceMotion {
+                rollAnimationTask = Task { @MainActor in
+                    let pool: [Face] = [.one, .two, .three, .four, .five, .coin]
+                    let frames = 5
+                    let frameNs: UInt64 = 80_000_000
+                    for _ in 0..<frames {
+                        if Task.isCancelled { return }
+                        if isHumanTurn { GameSFX.shared.playRoll() }
+                        displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
+                        try? await Task.sleep(nanoseconds: frameNs)
+                    }
+                    if !Task.isCancelled {
+                        displayedRolled = newValue
+                    }
                 }
+            } else {
+                if isFreshRoll, reduceMotion, isHumanTurn {
+                    GameSFX.shared.playRoll()
+                }
+                displayedRolled = newValue
             }
         }
         .onChange(of: setAsideSum) { oldValue, newValue in
@@ -177,20 +197,6 @@ struct DiceStage: View {
                 if pickSparkleTrigger == trigger { pickSparkleTrigger = 0 }
             }
             lastSum = newValue
-        }
-    }
-
-    private func animateRoll(count: Int, withSound: Bool) {
-        let pool: [Face] = [.one, .two, .three, .four, .five, .coin]
-        Task { @MainActor in
-            let frames = 5
-            let frameNs: UInt64 = 80_000_000
-            for _ in 0..<frames {
-                if withSound { GameSFX.shared.playRoll() }
-                animatedRolled = (0..<count).map { _ in pool.randomElement()! }
-                try? await Task.sleep(nanoseconds: frameNs)
-            }
-            animatedRolled = nil
         }
     }
 
