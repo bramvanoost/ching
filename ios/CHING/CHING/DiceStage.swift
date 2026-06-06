@@ -9,6 +9,17 @@ struct DiceStage: View {
     let diceInHand: Int
     let canPick: (Face) -> Bool
     let onPick: (Face) -> Void
+    var reduceMotion: Bool = false
+
+    @SwiftUI.State private var animatedRolled: [Face]?
+
+    private var displayRolled: [Face] {
+        animatedRolled ?? rolled
+    }
+
+    private var isAnimating: Bool {
+        animatedRolled != nil
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -26,12 +37,12 @@ struct DiceStage: View {
                 .font(.cochin(64))
                 .foregroundStyle(Color.ink)
 
-            if !rolled.isEmpty {
+            if !displayRolled.isEmpty {
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
                     spacing: 8
                 ) {
-                    ForEach(Array(rolled.enumerated()), id: \.offset) { _, face in
+                    ForEach(Array(displayRolled.enumerated()), id: \.offset) { _, face in
                         dieButton(face: face)
                     }
                 }
@@ -65,11 +76,30 @@ struct DiceStage: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
+        .onChange(of: rolled) { oldValue, newValue in
+            guard !reduceMotion else { return }
+            if oldValue.isEmpty && !newValue.isEmpty {
+                animateRoll(count: newValue.count)
+            }
+        }
+    }
+
+    private func animateRoll(count: Int) {
+        let pool: [Face] = [.one, .two, .three, .four, .five, .coin]
+        Task { @MainActor in
+            let frames = 5
+            let frameNs: UInt64 = 80_000_000
+            for _ in 0..<frames {
+                animatedRolled = (0..<count).map { _ in pool.randomElement()! }
+                try? await Task.sleep(nanoseconds: frameNs)
+            }
+            animatedRolled = nil
+        }
     }
 
     @ViewBuilder
     private func dieButton(face: Face) -> some View {
-        let pickable = canPick(face)
+        let pickable = !isAnimating && canPick(face)
         Button {
             if pickable { onPick(face) }
         } label: {
@@ -84,7 +114,7 @@ struct DiceStage: View {
         }
         .buttonStyle(.plain)
         .disabled(!pickable)
-        .opacity(pickable ? 1.0 : 0.5)
+        .opacity(pickable ? 1.0 : (isAnimating ? 0.85 : 0.5))
     }
 
     @ViewBuilder

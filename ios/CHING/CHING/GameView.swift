@@ -59,7 +59,8 @@ struct GameView: View {
                     locked: store.state.setAside,
                     diceInHand: store.state.diceInHand,
                     canPick: { store.canPick($0) },
-                    onPick: { act(.pick(face: $0)) }
+                    onPick: { act(.pick(face: $0)) },
+                    reduceMotion: settings.reducedMotion || iosReduceMotion
                 )
 
                 Spacer(minLength: 0)
