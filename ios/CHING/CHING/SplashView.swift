@@ -20,6 +20,14 @@ struct SplashView: View {
             VStack(spacing: 0) {
                 Spacer()
 
+                // Hero shell — wordmark icon sitting above the logo.
+                ShellGlyph(size: 116)
+                    .shadow(color: Color.gold.opacity(0.45), radius: 22, x: 0, y: 0)
+                    .shadow(color: Color.treasureInk.opacity(0.18), radius: 0, x: 0, y: 5)
+                    .opacity(logoVisible ? 1 : 0)
+                    .scaleEffect(logoVisible ? 1 : 0.85)
+                    .padding(.bottom, 18)
+
                 // Big lowercase logo — the "y" in yes is the punchline letter.
                 HStack(spacing: 0) {
                     Text("shell ")
