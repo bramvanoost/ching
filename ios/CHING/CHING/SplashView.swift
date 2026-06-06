@@ -20,10 +20,10 @@ struct SplashView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Hero shell — wordmark icon sitting above the logo.
-                ShellGlyph(size: 116)
+                // Hero medallion — gold coin with a shell engraved on it.
+                ShellMedallion(size: 124)
                     .shadow(color: Color.gold.opacity(0.45), radius: 22, x: 0, y: 0)
-                    .shadow(color: Color.treasureInk.opacity(0.18), radius: 0, x: 0, y: 5)
+                    .shadow(color: Color.treasureInk.opacity(0.22), radius: 0, x: 0, y: 6)
                     .opacity(logoVisible ? 1 : 0)
                     .scaleEffect(logoVisible ? 1 : 0.85)
                     .padding(.bottom, 18)

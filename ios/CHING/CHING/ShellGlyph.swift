@@ -99,17 +99,65 @@ struct ShellGlyph: View {
     }
 }
 
+/// A gold coin with a shell engraved on it. Used everywhere the original
+/// gold-disc coin lived — dice "coin" face, splash hero, ceremony totals.
+/// The shell is drawn with no body fill so the gold field shows through,
+/// and stroked in treasure ink so it reads like a mint stamp.
+struct ShellMedallion: View {
+    var size: CGFloat
+    var shellScale: CGFloat = 0.66
+
+    var body: some View {
+        ZStack {
+            // Coin body
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.coinGoldLight, Color.gold],
+                        center: UnitPoint(x: 0.35, y: 0.3),
+                        startRadius: 0,
+                        endRadius: size / 2
+                    )
+                )
+                .overlay(
+                    Circle().strokeBorder(Color.treasureInk, lineWidth: max(1, size / 28))
+                )
+
+            // Inner highlight ring
+            Circle()
+                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: max(0.8, size / 40))
+                .padding(size * 0.1)
+
+            // Engraved shell — no fill, ink stroke so the gold reads through.
+            ShellGlyph(
+                size: size * shellScale,
+                fillTop: .clear,
+                fillBottom: .clear,
+                stroke: Color.treasureInk,
+                showRidges: true
+            )
+            // Lift slightly so the shell's visual mass sits near the coin's
+            // optical center, not its geometric one.
+            .offset(y: -size * 0.04)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 #Preview {
     ZStack {
         Color.skyMid.ignoresSafeArea()
-        VStack(spacing: 30) {
+        VStack(spacing: 24) {
             HStack(alignment: .bottom, spacing: 16) {
-                ShellGlyph(size: 6)
-                ShellGlyph(size: 10)
-                ShellGlyph(size: 16)
+                ShellGlyph(size: 12)
                 ShellGlyph(size: 28)
-                ShellGlyph(size: 48)
-                ShellGlyph(size: 90)
+                ShellGlyph(size: 60)
+            }
+            HStack(alignment: .bottom, spacing: 16) {
+                ShellMedallion(size: 28)
+                ShellMedallion(size: 48)
+                ShellMedallion(size: 90)
+                ShellMedallion(size: 120)
             }
         }
     }
