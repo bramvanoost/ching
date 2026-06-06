@@ -10,6 +10,7 @@ struct CountingCeremony: View {
     @SwiftUI.State private var tickedTotals: [Int] = []
     @SwiftUI.State private var winnerRevealed: Bool = false
     @SwiftUI.State private var showNewGame: Bool = false
+    @SwiftUI.State private var sparkleWave: Int = 0
 
     private var winnerIndices: [Int] {
         guard let top = scores.max() else { return [] }
@@ -115,17 +116,15 @@ struct CountingCeremony: View {
                 Spacer()
 
                 // Coin total — large during ceremony
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text("\(displayedTotal)")
                         .font(.avenir(30, weight: isWinner ? .demiBold : .ultraLight))
                         .foregroundStyle(Color.ink)
-                    Text("c")
-                        .font(.avenir(13, weight: .medium, italic: true))
-                        .foregroundStyle(Color.gold)
-                        .padding(.bottom, 5)
+                    coinGlyph(size: 16)
+                        .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
                 }
                 .opacity(isRevealed ? 1.0 : 0.25)
-                .frame(width: 72, alignment: .trailing)
+                .frame(width: 80, alignment: .trailing)
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
@@ -147,9 +146,25 @@ struct CountingCeremony: View {
 
             if isWinner {
                 SparkleField(count: 52, startRadius: 110, spread: 120, duration: 1.4)
+                    .id(sparkleWave)
                     .allowsHitTesting(false)
             }
         }
+    }
+
+    @ViewBuilder
+    private func coinGlyph(size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.gold)
+                .overlay(
+                    Circle().strokeBorder(Color.treasureInk, lineWidth: 1.2)
+                )
+            Circle()
+                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: 1)
+                .padding(2)
+        }
+        .frame(width: size, height: size)
     }
 
     @ViewBuilder
@@ -209,6 +224,12 @@ struct CountingCeremony: View {
         try? await Task.sleep(nanoseconds: 900_000_000)
         withAnimation(.easeOut(duration: 0.4)) {
             showNewGame = true
+        }
+
+        // Keep the winner sparkling while the celebration is on screen.
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            sparkleWave += 1
         }
     }
 }
