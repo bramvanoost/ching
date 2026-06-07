@@ -1,5 +1,5 @@
 import SwiftUI
-import CHINGEngine
+import ShellYesEngine
 
 struct GameOverSheet: View {
     let players: [Player]

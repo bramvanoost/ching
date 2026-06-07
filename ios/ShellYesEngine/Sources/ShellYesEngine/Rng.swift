@@ -1,13 +1,13 @@
 /// A deterministic pseudo-random source returning Doubles in [0, 1).
 /// Matches the contract of TS `Rng` from src/engine.ts.
-public protocol CHINGRandom {
+public protocol ShellYesRandom {
     mutating func next() -> Double
 }
 
 /// Bit-identical port of the mulberry32 PRNG used in sim/regression.ts.
 /// Must produce the same sequence as the TS implementation for the same seed,
 /// since parity tests rely on this.
-public struct Mulberry32: CHINGRandom {
+public struct Mulberry32: ShellYesRandom {
     private var a: UInt32
 
     public init(seed: UInt32) {

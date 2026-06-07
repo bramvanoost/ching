@@ -1,5 +1,5 @@
 import Foundation
-import CHINGEngine
+import ShellYesEngine
 
 struct ParityCase: Codable {
     struct ActionDTO: Codable {

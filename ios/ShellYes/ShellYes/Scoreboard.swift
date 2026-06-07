@@ -1,5 +1,5 @@
 import SwiftUI
-import CHINGEngine
+import ShellYesEngine
 
 struct Scoreboard: View {
     let players: [Player]
@@ -7,6 +7,12 @@ struct Scoreboard: View {
     let current: Int
     var revealed: Bool = true
     var stolenFrom: Int? = nil
+
+    /// One trigger per seat. Increments when that seat becomes the active
+    /// player; the column overlays a sparkle burst keyed off this value.
+    /// Used to make AI turns visually obvious — "Jones is up" reads as a
+    /// little firework over their tile instead of just a wordmark change.
+    @SwiftUI.State private var activeSparkleTriggers: [Int: Int] = [:]
 
     var body: some View {
         HStack(spacing: 6) {
@@ -24,6 +30,19 @@ struct Scoreboard: View {
         .padding(.horizontal, 14)
         .padding(.top, 4)
         .fixedSize(horizontal: false, vertical: true)
+        .onChange(of: current) { _, newCurrent in
+            // Only sparkle for non-human seats — the human knows it's their
+            // turn from the action bar. The AI turn cue is what's missing.
+            guard newCurrent != GameStore.humanSeat else { return }
+            let t = (activeSparkleTriggers[newCurrent] ?? 0) + 1
+            activeSparkleTriggers[newCurrent] = t
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_400_000_000)
+                if activeSparkleTriggers[newCurrent] == t {
+                    activeSparkleTriggers[newCurrent] = 0
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -84,6 +103,13 @@ struct Scoreboard: View {
             radius: isStolen ? 18 : 12,
             x: 0, y: 0
         )
+        .overlay {
+            if let trigger = activeSparkleTriggers[i], trigger > 0 {
+                SparkleField(count: 40, startRadius: 36, spread: 75, duration: 1.2)
+                    .id(trigger)
+                    .allowsHitTesting(false)
+            }
+        }
         .scaleEffect(isStolen ? 1.04 : 1.0)
         .overlay(alignment: .top) {
             if isStolen {

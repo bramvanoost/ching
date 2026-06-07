@@ -1,5 +1,5 @@
 import XCTest
-@testable import CHINGEngine
+@testable import ShellYesEngine
 
 final class EngineRollTests: XCTestCase {
 
@@ -31,7 +31,7 @@ final class EngineRollTests: XCTestCase {
     func testRollBustsWhenAllFacesAlreadyPicked() {
         // Setup: player has picked faces 1 and 2. Only one die left, RNG forces it to 1.
         // Player must bust because no new face is available.
-        struct ForcedOne: CHINGRandom {
+        struct ForcedOne: ShellYesRandom {
             mutating func next() -> Double { 0.0 }  // -> floor(0 * 6) + 1 = 1
         }
         var rng = ForcedOne()

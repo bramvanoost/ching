@@ -115,6 +115,21 @@ extension Color {
 
     static let moonGlow = Color(red: 245/255, green: 212/255, blue: 155/255)
     static let moonCenter = Color(red: 255/255, green: 248/255, blue: 232/255)
+
+    // MARK: - Turn-note tones (banner card backgrounds)
+
+    /// Soft sea-foam green — used as the card fill on banners that read
+    /// as "good for you" (you claimed a shell, a rival went bust).
+    static let bannerPositive = Color(red: 196/255, green: 222/255, blue: 200/255)
+    /// Deeper sage accent for the positive banner stroke.
+    static let bannerPositiveAccent = Color(red: 96/255, green: 138/255, blue: 105/255)
+
+    /// Muted rose — card fill on banners that hurt you (a rival took
+    /// your shell). Distinct from coral so it reads as "bad news," not
+    /// just another action stamp.
+    static let bannerNegative = Color(red: 226/255, green: 165/255, blue: 165/255)
+    /// Deeper crimson accent for the negative banner stroke.
+    static let bannerNegativeAccent = Color(red: 162/255, green: 65/255, blue: 65/255)
 }
 
 // MARK: - Typography (Avenir Next, single-family)

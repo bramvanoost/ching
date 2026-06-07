@@ -2,24 +2,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "CHINGEngine",
+    name: "ShellYesEngine",
     platforms: [
         .iOS(.v17),
         .macOS(.v14),
     ],
     products: [
-        .library(name: "CHINGEngine", targets: ["CHINGEngine"]),
-        .executable(name: "ching-parity", targets: ["CHINGParityCLI"]),
+        .library(name: "ShellYesEngine", targets: ["ShellYesEngine"]),
+        .executable(name: "shellyes-parity", targets: ["ShellYesParityCLI"]),
     ],
     targets: [
-        .target(name: "CHINGEngine"),
+        .target(name: "ShellYesEngine"),
         .executableTarget(
-            name: "CHINGParityCLI",
-            dependencies: ["CHINGEngine"]
+            name: "ShellYesParityCLI",
+            dependencies: ["ShellYesEngine"]
         ),
         .testTarget(
-            name: "CHINGEngineTests",
-            dependencies: ["CHINGEngine"]
+            name: "ShellYesEngineTests",
+            dependencies: ["ShellYesEngine"]
         ),
     ]
 )

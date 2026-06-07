@@ -1,13 +1,13 @@
 //
-//  CHINGUITestsLaunchTests.swift
-//  CHINGUITests
+//  ShellYesUITestsLaunchTests.swift
+//  ShellYesUITests
 //
 //  Created by Bram Van Oost on 05/06/2026.
 //
 
 import XCTest
 
-final class CHINGUITestsLaunchTests: XCTestCase {
+final class ShellYesUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

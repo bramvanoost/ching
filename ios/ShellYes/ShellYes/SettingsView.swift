@@ -34,6 +34,17 @@ struct SettingsView: View {
                                 )
                                 .frame(maxWidth: 220)
                             }
+                            SettingsRow(title: "Pace") {
+                                StampSegmented(
+                                    selection: Binding(
+                                        get: { settings.gameSpeed },
+                                        set: { settings.gameSpeed = $0 }
+                                    ),
+                                    options: GameSpeed.allCases,
+                                    labelFor: { $0.rawValue.capitalized }
+                                )
+                                .frame(maxWidth: 220)
+                            }
                             Button {
                                 showRestartConfirm = true
                             } label: {
@@ -119,7 +130,7 @@ struct SettingsView: View {
 
                     Spacer(minLength: 40)
 
-                    Text("v0.5 · ching by fastronaut")
+                    Text("v0.5 · shell yes by fastronaut")
                         .font(.avenir(10, weight: .medium, italic: true))
                         .tracking(1.5)
                         .foregroundStyle(Color.dimInk.opacity(0.7))
@@ -231,7 +242,7 @@ private struct AboutSheet: View {
                 .tracking(4)
                 .foregroundStyle(Color.ink)
 
-                Text("A push-your-luck dice game.\nv0.5 — ching by Fastronaut.")
+                Text("A push-your-luck dice game.\nv0.5 — Shell Yes by Fastronaut.")
                     .font(.avenir(15, weight: .medium, italic: true))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.dimInk)

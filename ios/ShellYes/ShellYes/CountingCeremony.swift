@@ -1,5 +1,5 @@
 import SwiftUI
-import CHINGEngine
+import ShellYesEngine
 
 struct CountingCeremony: View {
     let players: [Player]

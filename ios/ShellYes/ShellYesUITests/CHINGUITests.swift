@@ -1,13 +1,13 @@
 //
-//  CHINGUITests.swift
-//  CHINGUITests
+//  ShellYesUITests.swift
+//  ShellYesUITests
 //
 //  Created by Bram Van Oost on 05/06/2026.
 //
 
 import XCTest
 
-final class CHINGUITests: XCTestCase {
+final class ShellYesUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

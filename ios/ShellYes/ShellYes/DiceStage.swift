@@ -1,5 +1,5 @@
 import SwiftUI
-import CHINGEngine
+import ShellYesEngine
 
 struct DiceStage: View {
     let phaseHint: String
@@ -15,8 +15,10 @@ struct DiceStage: View {
     // resting on Roll never accidentally banks the turn.
     var canBank: Bool = false
     var bankPreview: String = ""
+    var isSteal: Bool = false
     var onBank: () -> Void = {}
     var reduceMotion: Bool = false
+    var speedFactor: Double = 1.0
 
     // Source of truth for what the dice slot renders. Updated by the roll
     // animation in steps so the player never sees the final `rolled` values
@@ -25,6 +27,8 @@ struct DiceStage: View {
     @SwiftUI.State private var rollAnimationTask: Task<Void, Never>?
     @SwiftUI.State private var isAnimating: Bool = false
     @SwiftUI.State private var pickSparkleTrigger: Int = 0
+    @SwiftUI.State private var bankSparkleTrigger: Int = 0
+    @SwiftUI.State private var bankPending: Bool = false
     @SwiftUI.State private var lastSum: Int = -1
     @SwiftUI.State private var pickingFace: Face?
 
@@ -40,6 +44,7 @@ struct DiceStage: View {
                 .font(.avenir(14, weight: .medium, italic: true))
                 .foregroundStyle(Color.ink.opacity(0.78))
                 .frame(height: 18)
+                .padding(.bottom, 10)
 
             // Hero number — the running sum. When canBank is true, the
             // whole thing wraps in a stamped card: thin coral border, hard
@@ -47,20 +52,33 @@ struct DiceStage: View {
             // a button at a glance even before you spot the wink.
             ZStack {
                 Button {
-                    guard canBank else { return }
-                    onBank()
+                    guard canBank, !bankPending else { return }
+                    bankPending = true
+                    bankSparkleTrigger += 1
+                    let trigger = bankSparkleTrigger
+                    Task { @MainActor in
+                        // Hold the bank action until the sparkles play out
+                        // around the still-visible Keep card. If we fire
+                        // onBank() immediately the card flips to the bare
+                        // hero number and the sparkles look like they're
+                        // bursting from a smaller imaginary box.
+                        try? await Task.sleep(nanoseconds: 800_000_000)
+                        if bankSparkleTrigger == trigger { bankSparkleTrigger = 0 }
+                        bankPending = false
+                        onBank()
+                    }
                 } label: {
                     if canBank {
                         // Compact two-tone receipt: cream half holds the
                         // value, coral half is the action footer with the
-                        // BANK label in cream stamp text. Width capped so it
+                        // KEEP label in cream stamp text. Width capped so it
                         // doesn't bleed past the app's horizontal rhythm and
                         // sits like a card you can tap, not a banner.
                         VStack(spacing: 0) {
                             Text("\(setAsideSum)")
-                                .font(.avenir(56, weight: .demiBold, italic: true))
-                                .foregroundStyle(Color.ink)
-                                    .shadow(color: Color.ink.opacity(0.22), radius: 0, x: 2, y: 3)
+                                .font(.avenir(56, weight: .demiBold))
+                                .foregroundStyle(Color.treasureInk)
+                                .shadow(color: Color.treasureInk.opacity(0.22), radius: 0, x: 2, y: 3)
                                 .padding(.horizontal, 22)
                                 .padding(.top, 6)
                                 .padding(.bottom, 4)
@@ -71,33 +89,48 @@ struct DiceStage: View {
                                 Text(bankPreview.uppercased())
                                     .font(.avenir(11, weight: .demiBold))
                                     .tracking(2.5)
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 10, weight: .bold))
+                                Image(systemName: isSteal ? "hand.point.up.fill" : "arrow.right")
+                                    .font(.system(size: 12, weight: .bold))
                             }
                             .foregroundStyle(Color.stampText)
-                            .padding(.vertical, 7)
+                            .padding(.vertical, isSteal ? 11 : 7)
                             .padding(.horizontal, 14)
                             .frame(maxWidth: .infinity)
                             .background(
+                                // Match the Roll On button — warm gold into
+                                // coral so the bank/steal action reads as an
+                                // inviting primary, same family as the dice
+                                // button at the bottom of the screen.
                                 LinearGradient(
-                                    colors: [Color.coralLight, Color.coral, Color.coralDark],
+                                    colors: [Color.coinGoldLight, Color.coralLight, Color.coral, Color.coralDark],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
                             )
                         }
-                        .frame(maxWidth: 200)
+                        .frame(maxWidth: isSteal ? 280 : 200)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color.coralDark.opacity(0.5), lineWidth: 1)
+                                .strokeBorder(isSteal ? Color.coralDark : Color.coralDark.opacity(0.5), lineWidth: isSteal ? 1.5 : 1)
                         )
-                        .shadow(color: Color.coralDark.opacity(0.25), radius: 12, x: 0, y: 6)
+                        // Same SparkleField the dice-pick uses, just with
+                        // parameters scaled for the bigger card. Radial
+                        // burst from center, particles cross every edge
+                        // on their way out — the proven look.
+                        .overlay {
+                            if bankSparkleTrigger > 0 {
+                                SparkleField(count: 60, startRadius: 35, spread: 100, duration: 1.0)
+                                    .id(bankSparkleTrigger)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .shadow(color: Color.coralDark.opacity(isSteal ? 0.45 : 0.25), radius: isSteal ? 16 : 12, x: 0, y: 6)
                         .contentShape(Rectangle())
                     } else {
                         // Bare hero number — same treatment we've always had.
                         Text("\(setAsideSum)")
-                            .font(.avenir(70, weight: .demiBold, italic: true))
+                            .font(.avenir(70, weight: .demiBold))
                             .foregroundStyle(Color.ink)
                             .shadow(color: Color.ink.opacity(0.28), radius: 0, x: 2, y: 3)
                             .shadow(color: Color.ink.opacity(0.12), radius: 10, x: 0, y: 0)
@@ -111,6 +144,7 @@ struct DiceStage: View {
                         .frame(width: 220, height: 160)
                         .id(pickSparkleTrigger)
                 }
+
             }
             // Always reserve room for the stamped card so the layout doesn't
             // reflow when canBank flips on/off mid-turn.
@@ -150,11 +184,12 @@ struct DiceStage: View {
                     lockedDie(face: face)
                 }
             }
-            .frame(height: 28)
+            .frame(height: 22)
+            .padding(.top, 8)
             .opacity(locked.isEmpty ? 0 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.vertical, 6)
+        .padding(.vertical, 0)
         .onChange(of: rolled, initial: true) { oldValue, newValue in
             let isFreshRoll = oldValue.isEmpty && !newValue.isEmpty
             rollAnimationTask?.cancel()
@@ -166,15 +201,24 @@ struct DiceStage: View {
                         rollAnimationTask = nil
                     }
                     let pool: [Face] = [.one, .two, .three, .four, .five, .coin]
-                    let frames = 5
-                    let frameNs: UInt64 = 80_000_000
-                    for _ in 0..<frames {
+                    // Frame schedule. Fast mode keeps a uniform tick. Slow
+                    // mode opens with two snappy flips, then the dice clearly
+                    // lose momentum — flat start, gradual ramp, long settle.
+                    // Slow-mode curve: four quick rattles to read as
+                    // "spinning," then a gentle ramp (~1.25×) into a
+                    // steady ~1.75× decay so the slowdown unfolds rather
+                    // than landing all at once.
+                    let frameNs: [UInt64] = speedFactor > 1.0
+                        ? [30_000_000, 34_000_000, 40_000_000, 50_000_000, 75_000_000, 130_000_000, 230_000_000, 410_000_000]
+                        : Array(repeating: 80_000_000, count: 5)
+                    for i in 0..<frameNs.count {
                         if Task.isCancelled { return }
                         if isHumanTurn { GameSFX.shared.playRoll() }
                         displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
-                        try? await Task.sleep(nanoseconds: frameNs)
+                        try? await Task.sleep(nanoseconds: frameNs[i])
                     }
                     if !Task.isCancelled {
+                        if isHumanTurn { GameSFX.shared.playRoll() }
                         displayedRolled = newValue
                     }
                 }
@@ -272,7 +316,7 @@ struct DiceStage: View {
         }
         pickingFace = face
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(1_000_000_000 * speedFactor))
             onPick(face)
             pickingFace = nil
         }
@@ -308,7 +352,6 @@ struct DiceStage: View {
             }
         }
         .frame(width: 26, height: 26)
-        .opacity(0.75)
     }
 
     @ViewBuilder

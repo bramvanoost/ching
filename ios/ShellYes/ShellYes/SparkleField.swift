@@ -134,7 +134,7 @@ private struct EdgeSparkle: View {
     }
 
     private var glyphSize: CGFloat {
-        3 + CGFloat((seed * 7) % 4)
+        4 + CGFloat((seed * 7) % 5)
     }
 
     private var delay: Double {
@@ -170,17 +170,34 @@ private struct EdgeSparkle: View {
 
     var body: some View {
         let edge = walkEdge()
-        let endX = edge.point.x + edge.normal.dx * spread
-        let endY = edge.point.y + edge.normal.dy * spread
+        // Translate the perimeter point into an offset from the parent
+        // ZStack's center. `.offset` is what SparkleField uses (and that
+        // one renders cleanly past the host's bounds — see dice-pick).
+        // `.position` was getting clipped inside overlays, which is why
+        // earlier attempts looked like sparkles bursting from a smaller
+        // inner box instead of the actual card edges.
+        let centerX = size.width / 2
+        let centerY = size.height / 2
+        let startOffset = CGSize(
+            width: edge.point.x - centerX,
+            height: edge.point.y - centerY
+        )
+        let endOffset = CGSize(
+            width: startOffset.width + edge.normal.dx * spread,
+            height: startOffset.height + edge.normal.dy * spread
+        )
         Image(systemName: "sparkle")
             .font(.system(size: glyphSize, weight: .bold))
             .foregroundStyle(Color.coinGoldLight)
             .shadow(color: Color.moonCenter.opacity(0.9), radius: 1.5, x: 0, y: 0)
             .shadow(color: Color.gold.opacity(0.6), radius: 3, x: 0, y: 0)
             .rotationEffect(.degrees(rotation))
-            .position(x: go ? endX : edge.point.x, y: go ? endY : edge.point.y)
+            .offset(go ? endOffset : startOffset)
             .opacity(go ? 0 : 1)
-            .scaleEffect(go ? 0.4 : 1.2)
+            // Big-into-small burst, like SparkleField — the proven pattern
+            // for "shoot outward then fade." Starting big means the edge
+            // start is visible; shrinking trails the motion outward.
+            .scaleEffect(go ? 0.4 : 1.3)
             .animation(.easeOut(duration: duration).delay(delay), value: go)
     }
 }

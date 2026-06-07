@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CHINGApp: App {
+struct ShellYesApp: App {
     @SwiftUI.State private var settings: SettingsStore
     @SwiftUI.State private var store: GameStore
 

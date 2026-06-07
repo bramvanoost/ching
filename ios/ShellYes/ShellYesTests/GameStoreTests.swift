@@ -1,6 +1,6 @@
 import XCTest
-import CHINGEngine
-@testable import CHING
+import ShellYesEngine
+@testable import ShellYes
 
 @MainActor
 final class GameStoreTests: XCTestCase {
@@ -77,7 +77,7 @@ final class GameStoreTests: XCTestCase {
         let store = makeStore(seed: 1)
         var safetyLimit = 5000
         while !store.isOver && safetyLimit > 0 {
-            let action = decide(state: store.state, ai: CHINGEngine.Difficulty(discipline: 0.5))
+            let action = decide(state: store.state, ai: ShellYesEngine.Difficulty(discipline: 0.5))
             store.apply(action)
             safetyLimit -= 1
         }

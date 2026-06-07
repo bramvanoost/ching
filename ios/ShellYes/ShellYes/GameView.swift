@@ -1,5 +1,5 @@
 import SwiftUI
-import CHINGEngine
+import ShellYesEngine
 
 struct GameView: View {
     let store: GameStore
@@ -9,14 +9,28 @@ struct GameView: View {
     @SwiftUI.State private var bustReason: BustReason = .rolled
     @SwiftUI.State private var burnedTile: Int? = nil
     @SwiftUI.State private var stolenFromIdx: Int? = nil
+    @SwiftUI.State private var bustProgress: CGFloat = 1.0
+    @SwiftUI.State private var bustGeneration: Int = 0
+    /// Fake roll values used to fill the dice slot for ~1s after a roll
+    /// that produced a bust. Without this the bust banner punches in
+    /// instantly — the engine clears `state.rolled` when the turn ends,
+    /// so there's nothing for DiceStage to animate. Overriding the
+    /// `rolled` prop with these values lets the player at least feel
+    /// the dice land before "Oh, shell no" arrives.
+    @SwiftUI.State private var bustAnimatedRoll: [Face]? = nil
+    private let bustHoldSeconds: Double = 8.0
+    /// How long the fake post-bust roll stays on screen before the
+    /// flash takes over. Matches the dice animation duration roughly.
+    private let rollBustVisualDelayNs: UInt64 = 1_000_000_000
 
     enum BustReason {
-        case greedy  // tried to bank without a coin
-        case rolled  // roll produced no new pickable face
+        case greedy   // tried to bank without a coin
+        case rolled   // roll produced no new pickable face
+        case stranded // picked the last die without a pearl: no dice left, no bank possible
     }
     @SwiftUI.State private var revealChrome: Bool = false
     @SwiftUI.State private var revealScoreboard: Bool = false
-    @SwiftUI.State private var revealSafes: Bool = false
+    @SwiftUI.State private var revealShells: Bool = false
     @SwiftUI.State private var revealStage: Bool = false
     @SwiftUI.State private var revealAction: Bool = false
 
@@ -29,15 +43,39 @@ struct GameView: View {
         // the player's top tile (which returns to center on bust).
         let beforeCenter = store.state.centerTiles
         let beforeTopVaultTile = store.state.players[humanSeat].tiles.last
+        // Snapshot every player's stack so we can detect whose tile the
+        // human claimed (steal vs centre take) after apply.
+        let beforeTileCounts = store.state.players.map { $0.tiles.count }
+        let beforePlayerIds = store.state.players.map { $0.id }
+        // Snapshot for the post-roll-bust fake dice display.
+        let beforePickedFaces = store.state.pickedFaces
+        let beforeDiceInHand = store.state.diceInHand
 
         store.apply(action)
 
+        // Forced bust: after a pick the player has 0 dice left in hand AND
+        // no pearl in set-aside. No valid move that isn't a bust, so the
+        // engine takes the .stop for them. Reason is tagged .stranded so
+        // the bust banner explains they were boxed in, not greedy.
+        var forcedStop = false
+        if wasHumanTurn && store.isHumanTurn && !store.isOver
+            && store.state.diceInHand == 0
+            && !store.state.setAside.isEmpty
+            && !store.state.setAside.contains(.coin) {
+            store.apply(.stop)
+            forcedStop = true
+        }
+
         // Detect end-of-turn outcomes for the human player — bust gets a flash;
         // bank/steal celebration is handled per-column (sparkles + steal pulse).
+        var didBank = false
+        var didBust = false
         if wasHumanTurn && !store.isHumanTurn && !store.isOver {
             let afterVault = store.state.players[humanSeat].tiles.count
             if afterVault <= beforeVault {
-                if case .stop = action, !hadCoinBefore {
+                if forcedStop {
+                    bustReason = .stranded
+                } else if case .stop = action, !hadCoinBefore {
                     bustReason = .greedy
                 } else {
                     bustReason = .rolled
@@ -48,15 +86,82 @@ struct GameView: View {
                     pool.append(returned)
                 }
                 burnedTile = pool.max()
-                triggerBustFlash()
+                didBust = true
+                // For "you rolled and the dice gave you nothing" busts,
+                // fake a one-second dice roll so the player sees the
+                // doomed faces land before the flash. Other bust reasons
+                // (greedy stop, stranded post-pick) skip straight to flash.
+                if case .roll = action, !forcedStop, !beforePickedFaces.isEmpty {
+                    bustAnimatedRoll = (0..<beforeDiceInHand).map { _ in
+                        beforePickedFaces.randomElement()!
+                    }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: rollBustVisualDelayNs)
+                        triggerBustFlash()
+                        bustAnimatedRoll = nil
+                    }
+                } else {
+                    triggerBustFlash()
+                }
             } else {
                 // Vault grew — successful bank or steal.
                 GameSFX.shared.playBank()
+                didBank = true
+                // Present a turn-note banner for the human's claim. Detect
+                // steal by checking if another seat lost a tile this apply.
+                if let claimed = store.state.players[humanSeat].tiles.last {
+                    var victim: String? = nil
+                    for i in beforeTileCounts.indices where i != humanSeat {
+                        if store.state.players[i].tiles.count < beforeTileCounts[i] {
+                            victim = beforePlayerIds[i].capitalized
+                            break
+                        }
+                    }
+                    if let victim {
+                        store.presentTurnEvent(.stole(actor: "You", victim: victim, shell: claimed))
+                    } else {
+                        store.presentTurnEvent(.took(actor: "You", shell: claimed))
+                    }
+                }
             }
         }
 
         let reduce = settings.reducedMotion || iosReduceMotion
-        Task { await store.runAIIfNeeded(reduceMotion: reduce) }
+        Task { @MainActor in
+            // After a human bust, the AI loop must wait until the Oh-shell-no
+            // banner is dismissed (tap or timer). Otherwise AI turns play out
+            // underneath and their event banners stack on top of the bust.
+            if didBust {
+                // Hold the AI loop while the fake roll plays AND while
+                // the flash is up. Combined into one poll so a brief
+                // race between "fake roll clears" and "flash appears"
+                // doesn't let the loop slip through.
+                while bustAnimatedRoll != nil || bustFlash {
+                    try? await Task.sleep(nanoseconds: 120_000_000)
+                }
+            }
+            // Same gate for the human's claim banner — wait until the
+            // "Nice, you claimed shell N!" note is tapped away before any
+            // AI seat picks up the dice.
+            while store.aiEvent != nil {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+            await store.runAIIfNeeded(reduceMotion: reduce)
+        }
+    }
+
+    /// Reset every transient UI flag, then ask the store for a fresh
+    /// game. Without this, a pending bust flash or turn-note banner
+    /// from the previous game leaks into the new one (the symptom: tap
+    /// "New Game" from the tie screen and land on a live board with a
+    /// stale modal still open).
+    private func startNewGame() {
+        bustFlash = false
+        bustAnimatedRoll = nil
+        burnedTile = nil
+        stolenFromIdx = nil
+        store.dismissAIEvent()
+        store.newGame()
     }
 
     private func detectSteal(oldCounts: [Int], newCounts: [Int]) {
@@ -83,7 +188,7 @@ struct GameView: View {
         if reduce {
             revealChrome = true
             revealScoreboard = true
-            revealSafes = true
+            revealShells = true
             revealStage = true
             revealAction = true
             return
@@ -92,7 +197,7 @@ struct GameView: View {
         try? await Task.sleep(nanoseconds: 150_000_000)
         withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) { revealScoreboard = true }
         try? await Task.sleep(nanoseconds: 350_000_000)
-        withAnimation(.easeOut(duration: 0.45)) { revealSafes = true }
+        withAnimation(.easeOut(duration: 0.45)) { revealShells = true }
         try? await Task.sleep(nanoseconds: 650_000_000)
         withAnimation(.easeOut(duration: 0.35)) { revealStage = true }
         try? await Task.sleep(nanoseconds: 180_000_000)
@@ -103,6 +208,7 @@ struct GameView: View {
         switch bustReason {
         case .greedy: return "you had no pearl in hand."
         case .rolled: return "the dice gave you nothing."
+        case .stranded: return "no dice left, no pearl in hand."
         }
     }
 
@@ -145,23 +251,40 @@ struct GameView: View {
     private func triggerBustFlash() {
         GameSFX.shared.playBust()
         guard !settings.reducedMotion, !iosReduceMotion else { return }
+        bustGeneration += 1
+        let thisGeneration = bustGeneration
         withAnimation(.easeOut(duration: 0.25)) {
             bustFlash = true
         }
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_400_000_000)
-            withAnimation(.easeIn(duration: 0.4)) {
-                bustFlash = false
+        // Reset countdown to full, then animate it down. The withAnimation
+        // wrappers must be on separate ticks so the start-value mutation
+        // isn't bundled into the long animation.
+        bustProgress = 1.0
+        DispatchQueue.main.async {
+            withAnimation(.linear(duration: bustHoldSeconds)) {
+                bustProgress = 0
             }
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(bustHoldSeconds * 1_000_000_000))
+            guard thisGeneration == bustGeneration else { return }
+            dismissBustFlash()
+        }
+    }
+
+    private func dismissBustFlash() {
+        guard bustFlash else { return }
+        withAnimation(.easeIn(duration: 0.35)) {
+            bustFlash = false
         }
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             Background()
 
             VStack(spacing: 0) {
-                ChromeBar(settings: settings, onNewGame: { store.newGame() })
+                ChromeBar(settings: settings, onNewGame: { startNewGame() })
                     .opacity(revealChrome ? 1 : 0)
                     .offset(y: revealChrome ? 0 : -16)
 
@@ -173,20 +296,20 @@ struct GameView: View {
                     stolenFrom: stolenFromIdx
                 )
 
-                Spacer().frame(height: 8)
+                Spacer().frame(height: 10)
 
-                SafesGrid(
-                    availableSafes: store.state.centerTiles,
+                ShellsGrid(
+                    availableShells: store.state.centerTiles,
                     remainingCount: store.state.centerTiles.count,
-                    revealed: revealSafes
+                    revealed: revealShells
                 )
 
-                Spacer().frame(height: 22)
+                Spacer().frame(height: 12)
 
                 DiceStage(
                     phaseHint: store.phaseHint,
                     setAsideSum: store.setAsideSum,
-                    rolled: store.state.rolled,
+                    rolled: bustAnimatedRoll ?? store.state.rolled,
                     locked: store.state.setAside,
                     diceInHand: store.state.diceInHand,
                     isHumanTurn: store.isHumanTurn,
@@ -194,27 +317,28 @@ struct GameView: View {
                     onPick: { act(.pick(face: $0)) },
                     canBank: store.canBank && store.isHumanTurn,
                     bankPreview: store.bankActionLabel,
+                    isSteal: store.isStealOpportunity,
                     onBank: { act(.stop) },
-                    reduceMotion: settings.reducedMotion || iosReduceMotion
+                    reduceMotion: settings.reducedMotion || iosReduceMotion,
+                    speedFactor: settings.gameSpeed.factor
                 )
                 .opacity(revealStage ? 1 : 0)
                 .offset(y: revealStage ? 0 : 12)
 
-                // Anchor the Roll button right under the dice stage instead
-                // of letting a flex Spacer float it to the screen bottom.
-                Spacer().frame(height: 8)
+                Spacer().frame(height: 4)
 
                 ActionBar(
                     canRoll: store.canRoll,
                     isHumanTurn: store.isHumanTurn,
                     isOver: store.isOver,
                     hasSetAside: !store.state.setAside.isEmpty,
+                    activePlayerName: store.state.players[store.state.current].id.capitalized,
                     onRoll: { act(.roll) }
                 )
                 .opacity(revealAction ? 1 : 0)
                 .offset(y: revealAction ? 0 : 30)
 
-                Spacer().frame(height: 32)
+                Spacer().frame(height: 14)
             }
             .task {
                 await runIntroAnimation()
@@ -246,13 +370,13 @@ struct GameView: View {
                     .blendMode(.softLight)
 
                     VStack(spacing: 20) {
-                        if bustReason == .greedy {
+                        if bustReason == .greedy || bustReason == .stranded {
                             bustPearl(size: 84)
                         }
                         // Stamped headline — the inverse of the "shell yes"
                         // wordmark moment. Italic for the narrative tone.
-                        Text("Shell no,")
-                            .font(.avenir(64, weight: .demiBold, italic: true))
+                        Text("Oh, shell no.")
+                            .font(.avenir(52, weight: .demiBold, italic: true))
                             .tracking(3)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Color.stampText)
@@ -265,11 +389,12 @@ struct GameView: View {
                             .frame(width: 64, height: 1.5)
 
                         Text(bustSubline)
-                            .font(.avenir(14, weight: .medium, italic: true))
+                            .font(.avenir(18, weight: .medium, italic: true))
                             .tracking(2.5)
                             .textCase(.lowercase)
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(Color.stampText.opacity(0.92))
+                            .foregroundStyle(Color.stampText)
+                            .shadow(color: Color.coralDark.opacity(0.6), radius: 0, x: 1, y: 1)
                             .padding(.horizontal, 30)
 
                         // The tile the bank just burned — show it so the player
@@ -277,24 +402,49 @@ struct GameView: View {
                         if let burned = burnedTile {
                             VStack(spacing: 8) {
                                 Text("A shell drifts away.")
-                                    .font(.avenir(10, weight: .medium, italic: true))
+                                    .font(.avenir(13, weight: .medium, italic: true))
                                     .tracking(2.5)
-                                    .foregroundStyle(Color.stampText.opacity(0.7))
+                                    .foregroundStyle(Color.stampText.opacity(0.95))
                                 burnedTileChip(value: burned)
                             }
                             .padding(.top, 4)
                         }
+
+                        // Countdown bar + "tap to continue" — anchored to the
+                        // burned-shell stack so they read as part of the same
+                        // composition rather than orphaned at the bottom.
+                        VStack(spacing: 8) {
+                            Capsule()
+                                .fill(Color.stampText.opacity(0.7))
+                                .frame(width: 180 * bustProgress, height: 2)
+                                .frame(width: 180, alignment: .leading)
+                            Text("tap to continue")
+                                .font(.avenir(12, weight: .demiBold, italic: true))
+                                .tracking(2)
+                                .textCase(.lowercase)
+                                .foregroundStyle(Color.stampText.opacity(0.9))
+                        }
+                        .padding(.top, 12)
                     }
                 }
-                .allowsHitTesting(false)
+                .contentShape(Rectangle())
+                .onTapGesture { dismissBustFlash() }
                 .transition(.opacity)
+            }
+        }
+        .overlay {
+            if let event = store.aiEvent {
+                AIEventBanner(event: event) {
+                    store.dismissAIEvent()
+                }
+                .animation(.easeOut(duration: 0.2), value: store.aiEvent)
             }
         }
         .fullScreenCover(isPresented: .constant(store.isOver)) {
             CountingCeremony(
                 players: store.state.players,
                 scores: store.scores,
-                onNewGame: { store.newGame() }
+                onNewGame: { startNewGame() }
             )
         }
         .navigationBarHidden(true)
@@ -342,7 +492,10 @@ struct ActionBar: View {
     let isHumanTurn: Bool
     let isOver: Bool
     let hasSetAside: Bool
+    let activePlayerName: String
     let onRoll: () -> Void
+
+    @SwiftUI.State private var pulse: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -355,13 +508,37 @@ struct ActionBar: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else if !isHumanTurn {
-                Text("waiting…")
-                    .font(.avenir(14, weight: .medium, italic: true))
-                    .tracking(2)
-                    .textCase(.lowercase)
-                    .foregroundStyle(Color.dimInk)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
+                HStack {
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("\(activePlayerName) is playing")
+                            .font(.avenir(15, weight: .medium, italic: true))
+                            .foregroundStyle(Color.ink.opacity(0.55))
+                        Text("…")
+                            .font(.avenir(15, weight: .demiBold))
+                            .foregroundStyle(Color.ink.opacity(pulse ? 0.85 : 0.3))
+                    }
+                    .padding(.vertical, 14)
+                    .padding(.horizontal, 22)
+                    .frame(maxWidth: 280, minHeight: 50)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.4))
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.ink.opacity(0.2), lineWidth: 1)
+                    )
+                    Spacer()
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+                .padding(.bottom, 4)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                        pulse.toggle()
+                    }
+                }
             } else {
                 // Single position-stable Roll button — never moves between
                 // turns or phases. Bank is anchored to the running sum

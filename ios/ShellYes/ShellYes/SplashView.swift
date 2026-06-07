@@ -43,10 +43,9 @@ struct SplashView: View {
                 .opacity(logoVisible ? 1 : 0)
                 .scaleEffect(logoVisible ? 1 : 0.92)
 
-                Text("soft maths, golden light.")
+                Text("A beachy soft think slow game.")
                     .font(.avenir(13, weight: .medium, italic: true))
                     .tracking(1.5)
-                    .textCase(.lowercase)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.ink.opacity(0.6))
                     .padding(.top, 8)
@@ -97,7 +96,10 @@ struct SplashView: View {
                     .tracking(0.5)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.ink.opacity(0.42))
-                    .tint(Color.coral.opacity(0.85))
+                    // Match link colour to the surrounding text so the
+                    // attribution reads as one quiet line, not a row of
+                    // highlighted hyperlinks.
+                    .tint(Color.ink.opacity(0.42))
                     .padding(.horizontal, 24)
                     .padding(.bottom, 18)
                     .opacity(creditVisible ? 1 : 0)

@@ -1,5 +1,5 @@
 import SwiftUI
-import CHINGEngine
+import ShellYesEngine
 
 struct VaultStack: View {
     let safes: [Int]
@@ -8,7 +8,7 @@ struct VaultStack: View {
     @SwiftUI.State private var addSparkleTrigger: Int = 0
 
     private let safeWidth: CGFloat = 38
-    private let safeHeight: CGFloat = 34
+    private let safeHeight: CGFloat = 38
     private let layerOffset: CGFloat = 5
 
     private var stackHeight: CGFloat {

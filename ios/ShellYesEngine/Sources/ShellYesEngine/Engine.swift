@@ -15,7 +15,7 @@ public func score(_ state: State) -> [Int] {
     state.players.map { $0.tiles.reduce(0) { $0 + tileCoins($1) } }
 }
 
-public func step<R: CHINGRandom>(state: State, action: Action, rng: inout R) -> State {
+public func step<R: ShellYesRandom>(state: State, action: Action, rng: inout R) -> State {
     if state.phase == .over { return state }
     switch action {
     case .roll:
@@ -68,13 +68,13 @@ func tryBank(_ state: State) -> State {
     return endTurn(next)
 }
 
-func rollDie<R: CHINGRandom>(rng: inout R) -> Face {
+func rollDie<R: ShellYesRandom>(rng: inout R) -> Face {
     let n = Int(rng.next() * 6) + 1
     let clamped = max(1, min(6, n))
     return Face(rawValue: clamped)!
 }
 
-func applyRoll<R: CHINGRandom>(_ state: State, rng: inout R) -> State {
+func applyRoll<R: ShellYesRandom>(_ state: State, rng: inout R) -> State {
     guard state.phase == .roll, state.diceInHand > 0 else { return state }
     let rolled = (0..<state.diceInHand).map { _ in rollDie(rng: &rng) }
     let hasNewFace = rolled.contains { !state.pickedFaces.contains($0) }

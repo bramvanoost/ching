@@ -1,5 +1,5 @@
 import XCTest
-@testable import CHINGEngine
+@testable import ShellYesEngine
 
 final class RngTests: XCTestCase {
 

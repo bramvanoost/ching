@@ -1,11 +1,11 @@
 import SwiftUI
 
-struct SafesGrid: View {
-    let availableSafes: [Int]
+struct ShellsGrid: View {
+    let availableShells: [Int]
     let remainingCount: Int
     var revealed: Bool = true
 
-    private let allSafes: [Int] = Array(21...36)
+    private let allShells: [Int] = Array(21...36)
 
     var body: some View {
         VStack(spacing: 12) {
@@ -25,8 +25,8 @@ struct SafesGrid: View {
                 columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 8),
                 spacing: 5
             ) {
-                ForEach(Array(allSafes.enumerated()), id: \.offset) { idx, safe in
-                    safeCell(value: safe, available: availableSafes.contains(safe))
+                ForEach(Array(allShells.enumerated()), id: \.offset) { idx, shell in
+                    shellCell(value: shell, available: availableShells.contains(shell))
                         .opacity(revealed ? 1 : 0)
                         .scaleEffect(revealed ? 1 : 0.5)
                         .animation(
@@ -50,7 +50,7 @@ struct SafesGrid: View {
     }
 
     @ViewBuilder
-    private func safeCell(value: Int, available: Bool) -> some View {
+    private func shellCell(value: Int, available: Bool) -> some View {
         ZStack {
             // Base layer — dim unavailable styling, always rendered
             cellLayer(value: value, available: false)
@@ -112,10 +112,10 @@ struct SafesGrid: View {
         .opacity(available ? 1.0 : 0.6)
     }
 
-    private func tileCoinsForView(_ safe: Int) -> Int {
-        if safe <= 24 { return 1 }
-        if safe <= 28 { return 2 }
-        if safe <= 32 { return 3 }
+    private func tileCoinsForView(_ shell: Int) -> Int {
+        if shell <= 24 { return 1 }
+        if shell <= 28 { return 2 }
+        if shell <= 32 { return 3 }
         return 4
     }
 }

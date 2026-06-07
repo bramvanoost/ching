@@ -1,5 +1,5 @@
 import XCTest
-@testable import CHING
+@testable import ShellYes
 
 @MainActor
 final class SettingsStoreTests: XCTestCase {

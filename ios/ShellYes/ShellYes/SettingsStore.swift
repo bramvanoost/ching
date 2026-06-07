@@ -20,6 +20,20 @@ enum SoundMode: String, Codable, CaseIterable {
     case muted    // silent everywhere
 }
 
+enum GameSpeed: String, Codable, CaseIterable {
+    case slow
+    case fast
+
+    /// Multiplier on per-action delays. fast = 1.0 (current pace), slow
+    /// stretches dice rolls + AI moves + pick confirmations.
+    var factor: Double {
+        switch self {
+        case .slow: return 1.7
+        case .fast: return 1.0
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class SettingsStore {
@@ -27,6 +41,7 @@ final class SettingsStore {
     private static let colorModeKey = "ching.colorMode"
     private static let reducedMotionKey = "ching.reducedMotion"
     private static let soundModeKey = "ching.soundMode"
+    private static let gameSpeedKey = "ching.gameSpeed"
 
     var difficulty: Difficulty {
         didSet {
@@ -53,6 +68,12 @@ final class SettingsStore {
         }
     }
 
+    var gameSpeed: GameSpeed {
+        didSet {
+            UserDefaults.standard.set(gameSpeed.rawValue, forKey: Self.gameSpeedKey)
+        }
+    }
+
     init() {
         let rawDiff = UserDefaults.standard.string(forKey: Self.difficultyKey) ?? ""
         self.difficulty = Difficulty(rawValue: rawDiff) ?? .normal
@@ -64,6 +85,9 @@ final class SettingsStore {
 
         let rawSound = UserDefaults.standard.string(forKey: Self.soundModeKey) ?? ""
         self.soundMode = SoundMode(rawValue: rawSound) ?? .all
+
+        let rawSpeed = UserDefaults.standard.string(forKey: Self.gameSpeedKey) ?? ""
+        self.gameSpeed = GameSpeed(rawValue: rawSpeed) ?? .slow
 
         AudioPolicy.shared.applySoundMode(soundMode)
     }
