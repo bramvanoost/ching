@@ -30,7 +30,7 @@ struct Scoreboard: View {
     private func column(playerIndex i: Int) -> some View {
         let isActive = i == current
         let isStolen = stolenFrom == i
-        let safeCount = players[i].tiles.count
+        let pearlCount = scores[i]
         VStack(spacing: 8) {
             Text(players[i].id.capitalized)
                 .font(.avenir(14, weight: isActive ? .demiBold : .medium))
@@ -46,10 +46,17 @@ struct Scoreboard: View {
             }
             .frame(height: 54, alignment: .top)
 
-            Text("\(safeCount) \(safeCount == 1 ? "tile" : "tiles")")
-                .font(.avenir(10, weight: .medium, italic: true))
-                .tracking(1)
-                .foregroundStyle(Color.ink.opacity(0.55))
+            if players[i].tiles.isEmpty {
+                Text("0 shells")
+                    .font(.avenir(10, weight: .medium, italic: true))
+                    .tracking(1)
+                    .foregroundStyle(Color.ink.opacity(0.55))
+            } else {
+                Text("\(pearlCount) pearls")
+                    .font(.avenir(10, weight: .medium, italic: true))
+                    .tracking(1)
+                    .foregroundStyle(Color.ink.opacity(0.55))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 12)
@@ -80,7 +87,7 @@ struct Scoreboard: View {
         .scaleEffect(isStolen ? 1.04 : 1.0)
         .overlay(alignment: .top) {
             if isStolen {
-                Text("stolen!")
+                Text("taken.")
                     .font(.avenir(13, weight: .demiBold, italic: true))
                     .tracking(2)
                     .textCase(.lowercase)
@@ -95,7 +102,7 @@ struct Scoreboard: View {
 
     @ViewBuilder
     private func safePlaceholder() -> some View {
-        RoundedRectangle(cornerRadius: 5)
+        ShellCardShape()
             .strokeBorder(
                 Color.treasureInk.opacity(0.4),
                 style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])

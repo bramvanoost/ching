@@ -43,7 +43,7 @@ struct SplashView: View {
                 .opacity(logoVisible ? 1 : 0)
                 .scaleEffect(logoVisible ? 1 : 0.92)
 
-                Text("they have shells. they could be your shells. score the shore.")
+                Text("soft maths, golden light.")
                     .font(.avenir(13, weight: .medium, italic: true))
                     .tracking(1.5)
                     .textCase(.lowercase)

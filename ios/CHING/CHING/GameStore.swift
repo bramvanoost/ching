@@ -54,28 +54,28 @@ final class GameStore {
     }
 
     var bankActionLabel: String {
-        guard canBank else { return "Bank" }
+        guard canBank else { return "Keep" }
         for i in state.players.indices where i != state.current {
             if let top = state.players[i].tiles.last, top == setAsideSum {
                 let name = state.players[i].id.capitalized
-                return "Steal \(name)'s tile"
+                return "Take \(name)'s shell"
             }
         }
-        return "Bank"
+        return "Keep"
     }
 
     var phaseHint: String {
         if !isHumanTurn && !isOver {
-            return "\(state.players[state.current].id.capitalized) is thinking…"
+            return "\(state.players[state.current].id.capitalized) reads the tide…"
         }
-        if isOver { return "Game over." }
+        if isOver { return "the tide rolls back." }
         switch state.phase {
         case .roll:
-            return state.setAside.isEmpty ? "You're up. Roll the dice." : "Roll again, or bank."
+            return state.setAside.isEmpty ? "no rush. read the tide." : "roll on, or keep."
         case .pick:
-            return "Choose wisely."
+            return "pick what you'll keep."
         case .over:
-            return "Game over."
+            return "the tide rolls back."
         }
     }
 

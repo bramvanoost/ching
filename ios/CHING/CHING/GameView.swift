@@ -101,8 +101,8 @@ struct GameView: View {
 
     private var bustSubline: String {
         switch bustReason {
-        case .greedy: return "you had no coins and got greedy"
-        case .rolled: return "the roll gave you nothing"
+        case .greedy: return "you had no pearl in hand."
+        case .rolled: return "the dice gave you nothing."
         }
     }
 
@@ -110,7 +110,7 @@ struct GameView: View {
     private func burnedTileChip(value: Int) -> some View {
         let coins = GameStore.safeCoins(value)
         ZStack {
-            RoundedRectangle(cornerRadius: 8)
+            ShellCardShape()
                 .fill(
                     LinearGradient(
                         colors: [Color.safePeachLight, Color.safePeachDark],
@@ -118,7 +118,7 @@ struct GameView: View {
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    ShellCardShape()
                         .strokeBorder(Color.stampText.opacity(0.95), lineWidth: 2)
                 )
                 .shadow(color: Color.coralDark.opacity(0.6), radius: 0, x: 0, y: 5)
@@ -127,43 +127,19 @@ struct GameView: View {
                 Text("\(value)")
                     .font(.avenir(28, weight: .demiBold))
                     .foregroundStyle(Color.treasureInk)
-                CoinPips(count: coins, diameter: 7, spacing: 3)
+                PearlRow(count: coins, diameter: 7, spacing: 3)
             }
         }
         .frame(width: 64, height: 80)
     }
 
-    /// A "cold coin" — a coin shape rendered in cream against the coral bust
-    /// wash so it stays legible. The empty interior reinforces "no coin".
+    /// Large pearl rendered on the coral bust wash — the prize that almost
+    /// was. Cream halo carries contrast, hard offset shadow gives stamp depth.
     @ViewBuilder
-    private func redCoinGlyph(size: CGFloat) -> some View {
-        ZStack {
-            // Outer disc — cream so it pops on the coral background.
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.stampText, Color.stampText.opacity(0.85)],
-                        center: UnitPoint(x: 0.35, y: 0.3),
-                        startRadius: 0,
-                        endRadius: size / 2
-                    )
-                )
-                .overlay(
-                    Circle().strokeBorder(Color.coralDark, lineWidth: 3)
-                )
-                .shadow(color: Color.coralDark.opacity(0.5), radius: 0, x: 0, y: 4)
-
-            // Inner ring — echoes the live coin glyph elsewhere.
-            Circle()
-                .strokeBorder(Color.coralDark.opacity(0.55), lineWidth: 1.5)
-                .padding(size * 0.13)
-
-            // A coral "C" — visibly the right shape, visibly the wrong color.
-            Text("C")
-                .font(.avenir(size * 0.45, weight: .demiBold, italic: true))
-                .foregroundStyle(Color.coralDark)
-        }
-        .frame(width: size, height: size)
+    private func bustPearl(size: CGFloat) -> some View {
+        Pearl(diameter: size)
+            .shadow(color: Color.stampText.opacity(0.55), radius: 24, x: 0, y: 0)
+            .shadow(color: Color.coralDark, radius: 0, x: 0, y: 6)
     }
 
     private func triggerBustFlash() {
@@ -271,17 +247,16 @@ struct GameView: View {
 
                     VStack(spacing: 20) {
                         if bustReason == .greedy {
-                            redCoinGlyph(size: 84)
-                                .shadow(color: Color.stampText.opacity(0.35), radius: 22, x: 0, y: 0)
-                                .shadow(color: Color.coralDark, radius: 0, x: 0, y: 6)
+                            bustPearl(size: 84)
                         }
-                        // "bust." as a stamped headline — hard offset shadow
-                        // for stamp character, cream against the coral wash.
-                        Text("bust.")
-                            .font(.avenir(96, weight: .demiBold, italic: true))
-                            .tracking(4)
+                        // Stamped headline — the inverse of the "shell yes"
+                        // wordmark moment. Italic for the narrative tone.
+                        Text("Shell no,")
+                            .font(.avenir(64, weight: .demiBold, italic: true))
+                            .tracking(3)
+                            .multilineTextAlignment(.center)
                             .foregroundStyle(Color.stampText)
-                            .shadow(color: Color.coralDark, radius: 0, x: 3, y: 4)
+                            .shadow(color: Color.coralDark, radius: 0, x: 2, y: 3)
                             .shadow(color: Color.stampText.opacity(0.25), radius: 26, x: 0, y: 0)
 
                         // Hairline rule beneath the headline — a printer's mark.
@@ -301,10 +276,9 @@ struct GameView: View {
                         // knows exactly what the supply lost.
                         if let burned = burnedTile {
                             VStack(spacing: 8) {
-                                Text("tile burned")
+                                Text("A shell drifts away.")
                                     .font(.avenir(10, weight: .medium, italic: true))
                                     .tracking(2.5)
-                                    .textCase(.lowercase)
                                     .foregroundStyle(Color.stampText.opacity(0.7))
                                 burnedTileChip(value: burned)
                             }
@@ -399,7 +373,7 @@ struct ActionBar: View {
                 // button at any opacity.
                 HStack {
                     Spacer()
-                    Button(hasSetAside ? "Roll Again" : "Roll") { onRoll() }
+                    Button("Roll On") { onRoll() }
                         .stampButton(primary: true, invite: false)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)

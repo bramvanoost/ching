@@ -13,7 +13,7 @@ struct SafesGrid: View {
                 Text("\(remainingCount)")
                     .font(.avenir(18, weight: .demiBold))
                     .foregroundStyle(Color.ink)
-                Text("tiles left to steal")
+                Text("shells on the sand")
                     .font(.avenir(18, weight: .medium, italic: true))
                     .foregroundStyle(Color.ink.opacity(0.75))
             }
@@ -78,7 +78,7 @@ struct SafesGrid: View {
         let coins = tileCoinsForView(value)
 
         ZStack {
-            RoundedRectangle(cornerRadius: 6)
+            ShellCardShape()
                 .fill(
                     available
                         ? LinearGradient(
@@ -93,7 +93,7 @@ struct SafesGrid: View {
                           )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6)
+                    ShellCardShape()
                         .strokeBorder(
                             available ? Color.treasureInk : Color.treasureInk.opacity(0.35),
                             lineWidth: 1.5
@@ -105,7 +105,7 @@ struct SafesGrid: View {
                 Text("\(value)")
                     .font(.avenir(18, weight: .demiBold))
                     .foregroundStyle(available ? Color.treasureInk : Color.treasureInk.opacity(0.45))
-                CoinPips(count: coins, diameter: 6, spacing: 3)
+                PearlRow(count: coins, diameter: 6, spacing: 3)
                     .opacity(available ? 1.0 : 0.3)
             }
         }

@@ -236,7 +236,7 @@ struct DiceStage: View {
                     .shadow(color: isPicked ? Color.gold.opacity(0.7) : .clear, radius: 14, x: 0, y: 0)
 
                 if face == .coin {
-                    ShellMedallion(size: 36)
+                    Pearl(diameter: 32)
                 } else {
                     Text(faceText(face))
                         .font(.avenir(22, weight: .demiBold))
@@ -300,7 +300,7 @@ struct DiceStage: View {
                         .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                 )
             if face == .coin {
-                ShellMedallion(size: 22)
+                Pearl(diameter: 18)
             } else {
                 Text(faceText(face))
                     .font(.avenir(14, weight: .demiBold))

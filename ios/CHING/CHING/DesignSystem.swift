@@ -36,6 +36,17 @@ extension Color {
     /// Gold pip — coin value markers on safes.
     static let gold = Color(red: 201/255, green: 140/255, blue: 74/255)
 
+    // MARK: - Pearl (golden, pearlescent — not metallic)
+
+    /// Center cream highlight inside the pearl. Bright, diffuse — never a hot spot.
+    static let pearlHighlight = Color(red: 254/255, green: 240/255, blue: 200/255)
+    /// Mid amber, the pearl's body color.
+    static let pearlCore = Color(red: 232/255, green: 192/255, blue: 130/255)
+    /// Deeper amber on the pearl's rim.
+    static let pearlEdge = Color(red: 196/255, green: 148/255, blue: 88/255)
+    /// Outer halo — a soft golden-hour glow surrounding the pearl.
+    static let pearlGlow = Color(red: 250/255, green: 220/255, blue: 170/255)
+
     /// Constant deep plum for text + borders on the peach treasure assets
     /// (safes, dice, vault chips). Doesn't invert in dark mode — these
     /// are physical objects, not chrome.
@@ -140,9 +151,13 @@ extension Font {
     static func bodoniItalic(_ size: CGFloat) -> Font { .avenir(size, weight: .demiBold, italic: true) }
 }
 
-// MARK: - CoinPips
+// MARK: - PearlRow
+//
+// A row of golden pearls (the points-token sitting on a shell). Pearlescent,
+// not metallic: warm amber body, diffuse cream highlight, soft outer halo. The
+// glow is what carries the reward feeling, so the surface stays calm.
 
-struct CoinPips: View {
+struct PearlRow: View {
     let count: Int
     var diameter: CGFloat = 5
     var spacing: CGFloat = 2
@@ -150,11 +165,106 @@ struct CoinPips: View {
     var body: some View {
         HStack(spacing: spacing) {
             ForEach(0..<max(0, count), id: \.self) { _ in
-                Circle()
-                    .fill(Color.gold)
-                    .frame(width: diameter, height: diameter)
+                Pearl(diameter: diameter)
             }
         }
+    }
+}
+
+struct Pearl: View {
+    var diameter: CGFloat = 5
+
+    var body: some View {
+        ZStack {
+            // Soft outer halo — golden-hour glow, never sharp.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.pearlGlow.opacity(0.55), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: diameter
+                    )
+                )
+                .frame(width: diameter * 1.9, height: diameter * 1.9)
+                .blendMode(.plusLighter)
+
+            // Pearl body — cream center diffusing into deeper amber on the rim.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.pearlHighlight, Color.pearlCore, Color.pearlEdge],
+                        center: UnitPoint(x: 0.35, y: 0.32),
+                        startRadius: 0,
+                        endRadius: diameter / 2
+                    )
+                )
+                .frame(width: diameter, height: diameter)
+        }
+        .frame(width: diameter, height: diameter)
+    }
+}
+
+// MARK: - ShellCardShape
+//
+// The claimed-shell silhouette: scalloped crown across the top, straight
+// parallel sides (REQUIRED for clean vertical stacking — see CLAUDE.md), and
+// a small centered umbo nub at the bottom edge.
+
+struct ShellCardShape: InsettableShape {
+    var crownWaves: Int = 3
+    var crownRatio: CGFloat = 0.07
+    var bellyRatio: CGFloat = 0.09
+    var insetAmount: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        var p = Path()
+        let crownH = r.height * crownRatio
+        let bellyH = r.height * bellyRatio
+        let bodyTop = r.minY + crownH
+        let bodyBottom = r.maxY - bellyH
+
+        p.move(to: CGPoint(x: r.minX, y: bodyTop))
+
+        // Crown: N soft sinusoidal waves. Cubic bezier with horizontally-
+        // spread symmetric controls gives rounded peaks (not parabolic
+        // points), and a control y pushed slightly past minY lands the
+        // visible apex right at the frame top.
+        let waveW = r.width / CGFloat(crownWaves)
+        let controlApexY = r.minY - crownH * (1.0 / 0.75 - 1.0)
+        for i in 0..<crownWaves {
+            let x0 = r.minX + CGFloat(i) * waveW
+            let x1 = r.minX + CGFloat(i + 1) * waveW
+            let c1 = CGPoint(x: x0 + waveW * 0.25, y: controlApexY)
+            let c2 = CGPoint(x: x0 + waveW * 0.75, y: controlApexY)
+            p.addCurve(
+                to: CGPoint(x: x1, y: bodyTop),
+                control1: c1,
+                control2: c2
+            )
+        }
+
+        // Right side: straight & parallel (REQUIRED for clean vertical
+        // stacking — see CLAUDE.md).
+        p.addLine(to: CGPoint(x: r.maxX, y: bodyBottom))
+
+        // Bottom: one gentle bulge across the whole width (no protruding
+        // nub). Quad control at 2× bellyH past bodyBottom so the apex
+        // touches the frame's bottom edge.
+        p.addQuadCurve(
+            to: CGPoint(x: r.minX, y: bodyBottom),
+            control: CGPoint(x: r.midX, y: bodyBottom + bellyH * 2)
+        )
+
+        p.closeSubpath()
+        return p
+    }
+
+    func inset(by amount: CGFloat) -> some InsettableShape {
+        var s = self
+        s.insetAmount += amount
+        return s
     }
 }
 

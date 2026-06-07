@@ -23,9 +23,9 @@ struct GameOverSheet: View {
 
     private var headline: String {
         if leaderCount == 1 {
-            return "\(ranked.first!.id.capitalized) wins."
+            return "\(ranked.first!.id.capitalized.lowercased()) wins."
         }
-        return "tie at the top."
+        return "a tie."
     }
 
     var body: some View {
@@ -36,7 +36,7 @@ struct GameOverSheet: View {
                 Spacer()
                     .frame(height: 40)
 
-                Text("game over.")
+                Text("the tide rolls back.")
                     .font(.avenir(34, weight: .ultraLight, italic: true))
                     .tracking(2)
                     .foregroundStyle(Color.ink)
@@ -108,7 +108,7 @@ struct GameOverSheet: View {
     @ViewBuilder
     private func miniSafe(value: Int) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 4)
+            ShellCardShape()
                 .fill(
                     LinearGradient(
                         colors: [Color.safePeachLight, Color.safePeachDark],
@@ -116,7 +116,7 @@ struct GameOverSheet: View {
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
+                    ShellCardShape()
                         .strokeBorder(Color.ink, lineWidth: 1)
                 )
 

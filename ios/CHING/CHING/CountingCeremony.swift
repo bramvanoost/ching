@@ -21,11 +21,11 @@ struct CountingCeremony: View {
         if winnerIndices.count == 1 {
             let idx = winnerIndices[0]
             if idx == GameStore.humanSeat {
-                return "You win."
+                return "you win."
             }
-            return "\(players[idx].id.capitalized) wins."
+            return "\(players[idx].id.capitalized.lowercased()) wins."
         }
-        return "It's a tie!"
+        return "a tie."
     }
 
     var body: some View {
@@ -96,7 +96,7 @@ struct CountingCeremony: View {
             // Tile row — each tile shows its number + the coins it's worth.
             ZStack {
                 if players[i].tiles.isEmpty {
-                    Text("no safes claimed")
+                    Text("0 shells")
                         .font(.avenir(11, weight: .medium, italic: true))
                         .tracking(1.5)
                         .textCase(.lowercase)
@@ -119,8 +119,8 @@ struct CountingCeremony: View {
                     .font(.avenir(48, weight: .demiBold))
                     .foregroundStyle(Color.ink)
                     .monospacedDigit()
-                coinGlyph(size: 48)
-                    .shadow(color: Color.treasureInk.opacity(0.2), radius: 0, x: 0, y: 2)
+                pearlGlyph(size: 48)
+                    .shadow(color: Color.pearlEdge.opacity(0.35), radius: 0, x: 0, y: 2)
                     .offset(y: -2)
             }
             .opacity(isRevealed ? 1.0 : 0.25)
@@ -154,7 +154,7 @@ struct CountingCeremony: View {
     @ViewBuilder
     private func tileChip(value: Int) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 5)
+            ShellCardShape()
                 .fill(
                     LinearGradient(
                         colors: [Color.safePeachLight, Color.safePeachDark],
@@ -162,14 +162,14 @@ struct CountingCeremony: View {
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5)
+                    ShellCardShape()
                         .strokeBorder(Color.treasureInk, lineWidth: 1.25)
                 )
             VStack(spacing: 2) {
                 Text("\(value)")
                     .font(.avenir(12, weight: .demiBold))
                     .foregroundStyle(Color.treasureInk)
-                CoinPips(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
+                PearlRow(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
             }
         }
         .frame(width: 30, height: 40)
@@ -177,25 +177,8 @@ struct CountingCeremony: View {
     }
 
     @ViewBuilder
-    private func coinGlyph(size: CGFloat) -> some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.coinGoldLight, Color.gold],
-                        center: UnitPoint(x: 0.35, y: 0.3),
-                        startRadius: 0,
-                        endRadius: size / 2
-                    )
-                )
-                .overlay(
-                    Circle().strokeBorder(Color.treasureInk, lineWidth: 2)
-                )
-            Circle()
-                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: 1.5)
-                .padding(size * 0.13)
-        }
-        .frame(width: size, height: size)
+    private func pearlGlyph(size: CGFloat) -> some View {
+        Pearl(diameter: size)
     }
 
     private func runCeremony() async {

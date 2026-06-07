@@ -64,7 +64,7 @@ struct VaultStack: View {
     @ViewBuilder
     private func safeView(value: Int, isTop: Bool) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 5)
+            ShellCardShape()
                 .fill(
                     LinearGradient(
                         colors: [Color.safePeachLight, Color.safePeachDark],
@@ -73,7 +73,7 @@ struct VaultStack: View {
                     )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5)
+                    ShellCardShape()
                         .strokeBorder(Color.treasureInk, lineWidth: 1.5)
                 )
                 .shadow(color: Color.treasureInk.opacity(0.15), radius: 0, x: 0, y: 2)
@@ -83,7 +83,7 @@ struct VaultStack: View {
                     Text("\(value)")
                         .font(.avenir(13, weight: .demiBold))
                         .foregroundStyle(Color.treasureInk)
-                    CoinPips(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
+                    PearlRow(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
                 }
             }
         }
