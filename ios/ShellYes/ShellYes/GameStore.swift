@@ -38,10 +38,24 @@ final class GameStore {
     private var rng: Mulberry32
     private let settings: SettingsStore
 
+    /// Pool the two AI seats draw from on each new game. Uppercase so
+    /// the existing `.capitalized` display calls (Scoreboard, banners)
+    /// render them as title-case. Mellow first names, mixed gender, no
+    /// gimmicks — fits the "soft maths, golden light" tone.
+    private static let aiNamePool = [
+        "KAI", "MARINA", "HAZEL", "REEF", "SASHA", "COCO",
+        "BAY", "SAGE", "JONAS", "SANDY", "WREN", "MARLOW",
+    ]
+
+    private static func freshPlayerIds() -> [String] {
+        let shuffled = aiNamePool.shuffled()
+        return ["YOU", shuffled[0], shuffled[1]]
+    }
+
     init(seed: UInt32, settings: SettingsStore) {
         self.rng = Mulberry32(seed: seed)
         self.settings = settings
-        self.state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
+        self.state = initialState(playerIds: Self.freshPlayerIds())
     }
 
     convenience init(settings: SettingsStore) {
@@ -193,7 +207,7 @@ final class GameStore {
 
     func newGame() {
         rng = Mulberry32(seed: UInt32.random(in: 1...UInt32.max))
-        state = initialState(playerIds: ["YOU", "JONES", "BOT 03"])
+        state = initialState(playerIds: Self.freshPlayerIds())
     }
 
     #if DEBUG

@@ -1,10 +1,23 @@
 import SwiftUI
+import ShellYesEngine
+
+/// Reads the version Aptabase reports (CFBundleShortVersionString) so
+/// the in-app footer / About screen can't drift out of sync with the
+/// dashboard. Bump MARKETING_VERSION in the Xcode project to change it.
+enum AppVersion {
+    static let short: String = {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }()
+}
 
 struct SettingsView: View {
     let settings: SettingsStore
+    let stats: StatsStore
     let onNewGame: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.goHome) private var goHome
     @SwiftUI.State private var showAbout = false
+    @SwiftUI.State private var showExplainer = false
     @SwiftUI.State private var showRestartConfirm = false
     @SwiftUI.State private var placeholderOff = false
 
@@ -49,13 +62,53 @@ struct SettingsView: View {
                                 showRestartConfirm = true
                             } label: {
                                 SettingsRow(title: "New game") {
-                                    Text("tap")
-                                        .font(.avenir(13, weight: .medium, italic: true))
-                                        .underline()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
                                         .foregroundStyle(Color.coral)
                                 }
                             }
                             .buttonStyle(.plain)
+                        }
+                    }
+
+                    glassCard {
+                        SettingsSection(title: "stats") {
+                            StatRow(label: "Games played", value: "\(stats.gamesPlayed)")
+                            StatRow(label: "Wins", value: winsValue)
+                            StatRow(label: "Win streak", value: streakValue)
+                            StatRow(label: "Best score", value: bestScoreValue)
+                            StatRow(label: "Biggest keep", value: biggestKeepValue)
+                            StatRow(label: "Steals", value: "\(stats.steals)")
+                            StatRow(label: "Busts", value: "\(stats.busts)")
+                            StatRow(label: "Hot face", value: hotFaceValue)
+                        }
+                    }
+
+                    glassCard {
+                        SettingsSection(title: "by difficulty") {
+                            ForEach(Difficulty.allCases, id: \.self) { d in
+                                StatRow(
+                                    label: d.rawValue.capitalized,
+                                    value: modeValue(
+                                        wins: stats.winsByDifficulty[d.rawValue] ?? 0,
+                                        games: stats.gamesByDifficulty[d.rawValue] ?? 0
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    glassCard {
+                        SettingsSection(title: "by pace") {
+                            ForEach(GameSpeed.allCases, id: \.self) { p in
+                                StatRow(
+                                    label: p.rawValue.capitalized,
+                                    value: modeValue(
+                                        wins: stats.winsByPace[p.rawValue] ?? 0,
+                                        games: stats.gamesByPace[p.rawValue] ?? 0
+                                    )
+                                )
+                            }
                         }
                     }
 
@@ -102,25 +155,37 @@ struct SettingsView: View {
 
                     glassCard {
                         SettingsSection(title: "other") {
-                            SettingsRow(title: "Replay tutorial", disabled: true) {
-                                Text("tap")
-                                    .font(.avenir(13, weight: .medium, italic: true))
-                                    .underline()
-                                    .foregroundStyle(Color.dimInk)
+                            Button {
+                                goHome()
+                            } label: {
+                                SettingsRow(title: "Home") {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.coral)
+                                }
                             }
+                            .buttonStyle(.plain)
+                            Button {
+                                showExplainer = true
+                            } label: {
+                                SettingsRow(title: "How to play") {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.coral)
+                                }
+                            }
+                            .buttonStyle(.plain)
                             SettingsRow(title: "Tip jar", disabled: true) {
-                                Text("tap")
-                                    .font(.avenir(13, weight: .medium, italic: true))
-                                    .underline()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(Color.dimInk)
                             }
                             Button {
                                 showAbout = true
                             } label: {
                                 SettingsRow(title: "About") {
-                                    Text("tap")
-                                        .font(.avenir(13, weight: .medium, italic: true))
-                                        .underline()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
                                         .foregroundStyle(Color.coral)
                                 }
                             }
@@ -130,10 +195,10 @@ struct SettingsView: View {
 
                     Spacer(minLength: 40)
 
-                    Text("v0.5 · shell yes by fastronaut")
-                        .font(.avenir(10, weight: .medium, italic: true))
-                        .tracking(1.5)
-                        .foregroundStyle(Color.dimInk.opacity(0.7))
+                    Text("v\(AppVersion.short) · shell yes by fastronaut")
+                        .font(.avenir(13, weight: .medium, italic: true))
+                        .tracking(1)
+                        .foregroundStyle(Color.ink.opacity(0.65))
                         .frame(maxWidth: .infinity)
                         .padding(.bottom, 30)
                 }
@@ -145,6 +210,9 @@ struct SettingsView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(isPresented: $showAbout) {
             AboutSheet()
+        }
+        .sheet(isPresented: $showExplainer) {
+            ExplainerView()
         }
         .alert("Start a new game?", isPresented: $showRestartConfirm) {
             Button("New game", role: .destructive) {
@@ -165,6 +233,44 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Stats formatting
+
+    private var winsValue: String {
+        if let rate = stats.winRate {
+            let pct = Int((rate * 100).rounded())
+            return "\(stats.wins) · \(pct)%"
+        }
+        return "\(stats.wins)"
+    }
+
+    private var streakValue: String {
+        if stats.bestStreak > stats.winStreak && stats.bestStreak > 0 {
+            return "\(stats.winStreak) · best \(stats.bestStreak)"
+        }
+        return "\(stats.winStreak)"
+    }
+
+    private var bestScoreValue: String {
+        stats.bestScore > 0 ? "\(stats.bestScore)" : "—"
+    }
+
+    private var biggestKeepValue: String {
+        stats.biggestKeep > 0 ? "\(stats.biggestKeep)" : "—"
+    }
+
+    private var hotFaceValue: String {
+        guard let face = stats.hotFace else { return "—" }
+        return face == .coin ? "$" : "\(face.rawValue)"
+    }
+
+    /// Per-mode breakdown formatted as `wins/games · pct%`, or an em-dash
+    /// when no games have been played in that mode yet.
+    private func modeValue(wins: Int, games: Int) -> String {
+        guard games > 0 else { return "—" }
+        let pct = Int((Double(wins) / Double(games) * 100).rounded())
+        return "\(wins)/\(games) · \(pct)%"
+    }
+
     @ViewBuilder
     private func glassCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -174,13 +280,32 @@ struct SettingsView: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.35))
+                .fill(Color.cardSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.ink.opacity(0.15), lineWidth: 1)
+                .strokeBorder(Color.ink.opacity(0.18), lineWidth: 1)
         )
         .padding(.bottom, 12)
+    }
+}
+
+private struct StatRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.avenir(15, weight: .medium))
+                .foregroundStyle(Color.ink)
+            Spacer()
+            Text(value)
+                .font(.avenir(15, weight: .demiBold))
+                .foregroundStyle(Color.ink.opacity(0.85))
+                .monospacedDigit()
+        }
+        .padding(.vertical, 8)
     }
 }
 
@@ -242,7 +367,7 @@ private struct AboutSheet: View {
                 .tracking(4)
                 .foregroundStyle(Color.ink)
 
-                Text("A push-your-luck dice game.\nv0.5 — Shell Yes by Fastronaut.")
+                Text("A push-your-luck dice game.\nv\(AppVersion.short) — Shell Yes by Fastronaut.")
                     .font(.avenir(15, weight: .medium, italic: true))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.dimInk)
@@ -285,7 +410,7 @@ struct StampSegmented<T: Hashable>: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white.opacity(0.4))
+                .fill(Color.insetSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -309,7 +434,7 @@ struct StampToggle: View {
                     .fill(
                         isOn
                             ? (disabled ? Color.dimInk.opacity(0.4) : Color.coral)
-                            : Color.white.opacity(0.4)
+                            : Color.insetSurface
                     )
                     .frame(width: 38, height: 22)
                     .overlay(

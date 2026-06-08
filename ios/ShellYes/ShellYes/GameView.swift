@@ -4,10 +4,16 @@ import ShellYesEngine
 struct GameView: View {
     let store: GameStore
     let settings: SettingsStore
+    let stats: StatsStore
     @Environment(\.accessibilityReduceMotion) private var iosReduceMotion
     @SwiftUI.State private var bustFlash: Bool = false
     @SwiftUI.State private var bustReason: BustReason = .rolled
     @SwiftUI.State private var burnedTile: Int? = nil
+    /// The human's own top shell that returned to the supply on this
+    /// bust. Distinct from `burnedTile` (which is the highest tile that
+    /// then disappeared from the supply): the player needs to see both
+    /// to understand a bust costs them a shell, not just the sand.
+    @SwiftUI.State private var bustReturnedTile: Int? = nil
     @SwiftUI.State private var stolenFromIdx: Int? = nil
     @SwiftUI.State private var bustProgress: CGFloat = 1.0
     @SwiftUI.State private var bustGeneration: Int = 0
@@ -18,6 +24,22 @@ struct GameView: View {
     /// `rolled` prop with these values lets the player at least feel
     /// the dice land before "Oh, shell no" arrives.
     @SwiftUI.State private var bustAnimatedRoll: [Face]? = nil
+    /// Snapshot of `centerTiles` from the moment before the bust-roll
+    /// apply, held so the ShellsGrid doesn't visibly drop / receive
+    /// shells during the fake-roll window. The state update plays out
+    /// underneath the bust flash and is settled by the time the user
+    /// dismisses it.
+    @SwiftUI.State private var bustFrozenCenterTiles: [Int]? = nil
+    /// During the fake roll window, freeze the seat index that the
+    /// scoreboard highlights + the bottom bar reads from. Without this,
+    /// the next player's column glows and "Wren is playing…" appears
+    /// before the bust banner does — the same spoiler as the tile
+    /// leaving the grid.
+    @SwiftUI.State private var bustFrozenCurrent: Int? = nil
+    /// Likewise freeze the phase-hint copy so DiceStage doesn't read
+    /// out "Wren reads the tide…" while the human's fake dice are
+    /// still settling.
+    @SwiftUI.State private var bustFrozenPhaseHint: String? = nil
     private let bustHoldSeconds: Double = 8.0
     /// How long the fake post-bust roll stays on screen before the
     /// flash takes over. Matches the dice animation duration roughly.
@@ -33,6 +55,28 @@ struct GameView: View {
     @SwiftUI.State private var revealShells: Bool = false
     @SwiftUI.State private var revealStage: Bool = false
     @SwiftUI.State private var revealAction: Bool = false
+
+    // Per-game counters, used as props on the `game_ended` telemetry
+    // event. Reset on each new game.
+    @SwiftUI.State private var gameStartTime: Date?
+    @SwiftUI.State private var bustsThisGame: Int = 0
+    @SwiftUI.State private var stealsThisGame: Int = 0
+    @SwiftUI.State private var biggestKeepThisGame: Int = 0
+    @SwiftUI.State private var gameEndedReported: Bool = false
+
+    /// Seat index used by every UI element that highlights "whose turn
+    /// is it". During the fake-roll bust window this stays pinned to
+    /// the human seat so the scoreboard / action bar don't spoil the
+    /// turn change ahead of the bust banner.
+    private var displayCurrent: Int {
+        bustFrozenCurrent ?? store.state.current
+    }
+    private var displayIsHumanTurn: Bool {
+        displayCurrent == GameStore.humanSeat
+    }
+    private var displayPhaseHint: String {
+        bustFrozenPhaseHint ?? store.phaseHint
+    }
 
     private func act(_ action: Action) {
         let humanSeat = GameStore.humanSeat
@@ -50,6 +94,13 @@ struct GameView: View {
         // Snapshot for the post-roll-bust fake dice display.
         let beforePickedFaces = store.state.pickedFaces
         let beforeDiceInHand = store.state.diceInHand
+        // Snapshot setAside count so we can compute how many dice of
+        // the picked face were moved (for stats).
+        let beforeSetAsideCount = store.state.setAside.count
+        // Pre-apply snapshots used to freeze the player-turn cues so
+        // they don't update ahead of the bust banner.
+        let beforeCurrent = store.state.current
+        let beforePhaseHint = store.phaseHint
 
         store.apply(action)
 
@@ -82,10 +133,12 @@ struct GameView: View {
                 }
                 // The burned tile is the highest in (centerTiles + returned top).
                 var pool = beforeCenter
-                if let returned = beforeTopVaultTile, afterVault < beforeVault {
+                let didReturnTopTile = beforeTopVaultTile != nil && afterVault < beforeVault
+                if didReturnTopTile, let returned = beforeTopVaultTile {
                     pool.append(returned)
                 }
                 burnedTile = pool.max()
+                bustReturnedTile = didReturnTopTile ? beforeTopVaultTile : nil
                 didBust = true
                 // For "you rolled and the dice gave you nothing" busts,
                 // fake a one-second dice roll so the player sees the
@@ -95,10 +148,16 @@ struct GameView: View {
                     bustAnimatedRoll = (0..<beforeDiceInHand).map { _ in
                         beforePickedFaces.randomElement()!
                     }
+                    bustFrozenCenterTiles = beforeCenter
+                    bustFrozenCurrent = beforeCurrent
+                    bustFrozenPhaseHint = beforePhaseHint
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: rollBustVisualDelayNs)
                         triggerBustFlash()
                         bustAnimatedRoll = nil
+                        bustFrozenCenterTiles = nil
+                        bustFrozenCurrent = nil
+                        bustFrozenPhaseHint = nil
                     }
                 } else {
                     triggerBustFlash()
@@ -122,7 +181,34 @@ struct GameView: View {
                     } else {
                         store.presentTurnEvent(.took(actor: "You", shell: claimed))
                     }
+                    // Banked sum is the tile value claimed (engine maps
+                    // setAside sum to the tile number).
+                    stats.recordBank(sum: claimed, stoleATile: victim != nil)
+                    if claimed > biggestKeepThisGame { biggestKeepThisGame = claimed }
+                    if victim != nil { stealsThisGame += 1 }
+                    Telemetry.shared.track("game_bank", props: [
+                        "tile_value": claimed,
+                        "stole_from_rival": victim != nil,
+                    ])
                 }
+            }
+            if didBust {
+                stats.recordBust()
+                bustsThisGame += 1
+                Telemetry.shared.track("game_bust", props: [
+                    "reason": String(describing: bustReason),
+                    "lost_tile": beforeTopVaultTile ?? 0,
+                    "burned_tile": burnedTile ?? 0,
+                ])
+            }
+        }
+
+        // Track every face the human picks so the "hot face" stat reflects
+        // their actual play.
+        if wasHumanTurn, case .pick(let face) = action {
+            let added = max(0, store.state.setAside.count - beforeSetAsideCount)
+            if added > 0 {
+                stats.recordPicks(Array(repeating: face, count: added))
             }
         }
 
@@ -158,8 +244,17 @@ struct GameView: View {
     private func startNewGame() {
         bustFlash = false
         bustAnimatedRoll = nil
+        bustFrozenCenterTiles = nil
+        bustFrozenCurrent = nil
+        bustFrozenPhaseHint = nil
         burnedTile = nil
+        bustReturnedTile = nil
         stolenFromIdx = nil
+        gameStartTime = Date()
+        bustsThisGame = 0
+        stealsThisGame = 0
+        biggestKeepThisGame = 0
+        gameEndedReported = false
         store.dismissAIEvent()
         store.newGame()
     }
@@ -168,15 +263,32 @@ struct GameView: View {
         guard oldCounts.count == newCounts.count else { return }
         for i in 0..<newCounts.count {
             if newCounts[i] < oldCounts[i] {
-                let someoneGained = (0..<newCounts.count).contains { j in
+                let actor = (0..<newCounts.count).first { j in
                     j != i && newCounts[j] > oldCounts[j]
                 }
-                if someoneGained {
+                if let actor {
                     stolenFromIdx = i
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 1_400_000_000)
                         if stolenFromIdx == i { stolenFromIdx = nil }
                     }
+                    // Canonical steal event — one per transfer, regardless
+                    // of which seat thieved. The existing game_bank event
+                    // still carries `stole_from_rival` for backward compat
+                    // on dashboards, but game_steal is the single source of
+                    // truth and covers the AI-steals-from-human case the
+                    // bank event couldn't see.
+                    let players = store.state.players
+                    let tileValue = players.indices.contains(actor)
+                        ? (players[actor].tiles.last ?? 0)
+                        : 0
+                    Telemetry.shared.track("game_steal", props: [
+                        "actor": players.indices.contains(actor) ? players[actor].id : "unknown",
+                        "victim": players.indices.contains(i) ? players[i].id : "unknown",
+                        "tile_value": tileValue,
+                        "actor_was_human": actor == GameStore.humanSeat,
+                        "victim_was_human": i == GameStore.humanSeat,
+                    ])
                 }
                 return
             }
@@ -239,6 +351,62 @@ struct GameView: View {
         .frame(width: 64, height: 80)
     }
 
+    /// What the bust just cost the player, made unambiguous: their top
+    /// shell goes back to the supply, AND the largest shell in the supply
+    /// burns. If those happen to be the same tile (returned shell was the
+    /// new pool max), it's collapsed to a single chip so we don't claim
+    /// two losses where there's one.
+    @ViewBuilder
+    private func bustLossSection() -> some View {
+        let returned = bustReturnedTile
+        let burned = burnedTile
+        let returnedIsBurned = returned != nil && returned == burned
+        let showSeparateBurn = burned != nil && !returnedIsBurned
+
+        if returned != nil || burned != nil {
+            VStack(spacing: 10) {
+                Text(returned != nil ? "You lose your top shell." : "A shell drifts away.")
+                    .font(.avenir(13, weight: .medium, italic: true))
+                    .tracking(2.5)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.stampText.opacity(0.95))
+
+                HStack(alignment: .top, spacing: 24) {
+                    if let returned {
+                        VStack(spacing: 6) {
+                            burnedTileChip(value: returned)
+                            Text("yours")
+                                .font(.avenir(10, weight: .demiBold, italic: true))
+                                .tracking(2)
+                                .textCase(.lowercase)
+                                .foregroundStyle(Color.stampText.opacity(0.85))
+                        }
+                    }
+                    if showSeparateBurn, let burned {
+                        VStack(spacing: 6) {
+                            burnedTileChip(value: burned)
+                            Text("sand")
+                                .font(.avenir(10, weight: .demiBold, italic: true))
+                                .tracking(2)
+                                .textCase(.lowercase)
+                                .foregroundStyle(Color.stampText.opacity(0.85))
+                        }
+                    }
+                }
+
+                if showSeparateBurn {
+                    Text("And the largest shell on the sand drifts away.")
+                        .font(.avenir(11, weight: .medium, italic: true))
+                        .tracking(1.5)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Color.stampText.opacity(0.85))
+                        .padding(.horizontal, 24)
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
     /// Large pearl rendered on the coral bust wash — the prize that almost
     /// was. Cream halo carries contrast, hard offset shadow gives stamp depth.
     @ViewBuilder
@@ -284,35 +452,35 @@ struct GameView: View {
             Background()
 
             VStack(spacing: 0) {
-                ChromeBar(settings: settings, onNewGame: { startNewGame() })
+                ChromeBar(settings: settings)
                     .opacity(revealChrome ? 1 : 0)
                     .offset(y: revealChrome ? 0 : -16)
 
                 Scoreboard(
                     players: store.state.players,
                     scores: store.scores,
-                    current: store.state.current,
+                    current: displayCurrent,
                     revealed: revealScoreboard,
                     stolenFrom: stolenFromIdx
                 )
 
-                Spacer().frame(height: 10)
+                Spacer().frame(height: 6)
 
                 ShellsGrid(
-                    availableShells: store.state.centerTiles,
-                    remainingCount: store.state.centerTiles.count,
+                    availableShells: bustFrozenCenterTiles ?? store.state.centerTiles,
+                    remainingCount: (bustFrozenCenterTiles ?? store.state.centerTiles).count,
                     revealed: revealShells
                 )
 
-                Spacer().frame(height: 12)
+                Spacer().frame(height: 10)
 
                 DiceStage(
-                    phaseHint: store.phaseHint,
+                    phaseHint: displayPhaseHint,
                     setAsideSum: store.setAsideSum,
                     rolled: bustAnimatedRoll ?? store.state.rolled,
                     locked: store.state.setAside,
                     diceInHand: store.state.diceInHand,
-                    isHumanTurn: store.isHumanTurn,
+                    isHumanTurn: displayIsHumanTurn,
                     canPick: { store.canPick($0) },
                     onPick: { act(.pick(face: $0)) },
                     canBank: store.canBank && store.isHumanTurn,
@@ -320,7 +488,8 @@ struct GameView: View {
                     isSteal: store.isStealOpportunity,
                     onBank: { act(.stop) },
                     reduceMotion: settings.reducedMotion || iosReduceMotion,
-                    speedFactor: settings.gameSpeed.factor
+                    speedFactor: settings.gameSpeed.factor,
+                    forceRollSound: bustAnimatedRoll != nil
                 )
                 .opacity(revealStage ? 1 : 0)
                 .offset(y: revealStage ? 0 : 12)
@@ -329,10 +498,10 @@ struct GameView: View {
 
                 ActionBar(
                     canRoll: store.canRoll,
-                    isHumanTurn: store.isHumanTurn,
+                    isHumanTurn: displayIsHumanTurn,
                     isOver: store.isOver,
                     hasSetAside: !store.state.setAside.isEmpty,
-                    activePlayerName: store.state.players[store.state.current].id.capitalized,
+                    activePlayerName: store.state.players[displayCurrent].id.capitalized,
                     onRoll: { act(.roll) }
                 )
                 .opacity(revealAction ? 1 : 0)
@@ -341,10 +510,36 @@ struct GameView: View {
                 Spacer().frame(height: 14)
             }
             .task {
+                if gameStartTime == nil { gameStartTime = Date() }
                 await runIntroAnimation()
             }
             .onChange(of: store.state.players.map { $0.tiles.count }) { oldCounts, newCounts in
                 detectSteal(oldCounts: oldCounts, newCounts: newCounts)
+            }
+            .onChange(of: store.isOver) { wasOver, isNowOver in
+                guard !wasOver, isNowOver, !gameEndedReported else { return }
+                gameEndedReported = true
+                let scores = store.scores
+                let humanScore = scores[GameStore.humanSeat]
+                let humanWon = humanScore == (scores.max() ?? 0)
+                stats.recordGameOver(
+                    humanWon: humanWon,
+                    humanScore: humanScore,
+                    difficulty: settings.difficulty.rawValue,
+                    pace: settings.gameSpeed.rawValue
+                )
+                let duration = gameStartTime.map { Int(Date().timeIntervalSince($0)) } ?? 0
+                Telemetry.shared.track("game_ended", props: [
+                    "won": humanWon,
+                    "my_score": humanScore,
+                    "opponent_count": store.state.players.count - 1,
+                    "busts": bustsThisGame,
+                    "steals": stealsThisGame,
+                    "biggest_keep": biggestKeepThisGame,
+                    "duration_seconds": duration,
+                    "difficulty": settings.difficulty.rawValue,
+                    "pace": settings.gameSpeed.rawValue,
+                ])
             }
         }
         .overlay {
@@ -377,7 +572,7 @@ struct GameView: View {
                         // wordmark moment. Italic for the narrative tone.
                         Text("Oh, shell no.")
                             .font(.avenir(52, weight: .demiBold, italic: true))
-                            .tracking(3)
+                            .tracking(1)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Color.stampText)
                             .shadow(color: Color.coralDark, radius: 0, x: 2, y: 3)
@@ -390,34 +585,34 @@ struct GameView: View {
 
                         Text(bustSubline)
                             .font(.avenir(18, weight: .medium, italic: true))
-                            .tracking(2.5)
+                            .tracking(1.5)
                             .textCase(.lowercase)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Color.stampText)
                             .shadow(color: Color.coralDark.opacity(0.6), radius: 0, x: 1, y: 1)
                             .padding(.horizontal, 30)
 
-                        // The tile the bank just burned — show it so the player
-                        // knows exactly what the supply lost.
-                        if let burned = burnedTile {
-                            VStack(spacing: 8) {
-                                Text("A shell drifts away.")
-                                    .font(.avenir(13, weight: .medium, italic: true))
-                                    .tracking(2.5)
-                                    .foregroundStyle(Color.stampText.opacity(0.95))
-                                burnedTileChip(value: burned)
-                            }
-                            .padding(.top, 4)
-                        }
+                        // Show the shells the bust just cost. The player's
+                        // returned top shell is the headline loss — without
+                        // this they might think the bust only burns from the
+                        // supply. When the returned shell IS the one that
+                        // burned (it was the new pool max), don't double up
+                        // the chip; one loss, label it clearly. When the
+                        // sand burn is a different tile, show both with
+                        // distinct labels so the player sees both losses.
+                        bustLossSection()
 
                         // Countdown bar + "tap to continue" — anchored to the
                         // burned-shell stack so they read as part of the same
                         // composition rather than orphaned at the bottom.
                         VStack(spacing: 8) {
-                            Capsule()
-                                .fill(Color.stampText.opacity(0.7))
-                                .frame(width: 180 * bustProgress, height: 2)
-                                .frame(width: 180, alignment: .leading)
+                            WaveLine(wavelength: 10, amplitude: 2)
+                                .stroke(Color.stampText.opacity(0.8), lineWidth: 1.4)
+                                .frame(width: 180, height: 8)
+                                .mask(
+                                    Rectangle()
+                                        .frame(width: 180 * bustProgress, height: 8)
+                                )
                             Text("tap to continue")
                                 .font(.avenir(12, weight: .demiBold, italic: true))
                                 .tracking(2)
@@ -453,28 +648,17 @@ struct GameView: View {
 
 struct ChromeBar: View {
     let settings: SettingsStore
-    let onNewGame: () -> Void
 
     var body: some View {
         HStack {
-            HStack(spacing: 0) {
-                Text("shell ")
-                    .foregroundStyle(Color.ink)
-                Text("y")
-                    .foregroundStyle(Color.coral)
-                    .font(.avenir(22, weight: .demiBold))
-                Text("es")
-                    .foregroundStyle(Color.ink)
-            }
-            .font(.avenir(22, weight: .ultraLight))
-            .tracking(2)
-            .textCase(.lowercase)
+            Text("Shell Yes")
+                .font(.custom("Optima", size: 22).weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(Color.ink)
 
             Spacer()
 
-            NavigationLink {
-                SettingsView(settings: settings, onNewGame: onNewGame)
-            } label: {
+            NavigationLink(value: Route.settings) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 22, weight: .light))
                     .foregroundStyle(Color.ink.opacity(0.55))
@@ -482,8 +666,8 @@ struct ChromeBar: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 28)
-        .padding(.bottom, 4)
+        .padding(.top, 16)
+        .padding(.bottom, 0)
     }
 }
 
@@ -518,15 +702,15 @@ struct ActionBar: View {
                             .font(.avenir(15, weight: .demiBold))
                             .foregroundStyle(Color.ink.opacity(pulse ? 0.85 : 0.3))
                     }
-                    .padding(.vertical, 14)
-                    .padding(.horizontal, 22)
-                    .frame(maxWidth: 280, minHeight: 50)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: 280)
                     .background(
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 14)
                             .fill(Color.white.opacity(0.4))
                     )
                     .overlay(
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 14)
                             .strokeBorder(Color.ink.opacity(0.2), lineWidth: 1)
                     )
                     Spacer()
@@ -544,14 +728,10 @@ struct ActionBar: View {
                 // turns or phases. Bank is anchored to the running sum
                 // inside DiceStage, so the bottom of the screen always
                 // means "throw the dice."
-                // No invite shine on the in-game Roll/Roll Again — once
-                // you're playing you don't need the come-hither animation,
-                // and the sweeping band reads as a stripe through the
-                // button at any opacity.
                 HStack {
                     Spacer()
                     Button("Roll On") { onRoll() }
-                        .stampButton(primary: true, invite: false)
+                        .stampButton(primary: true, invite: canRoll, inviteHalo: false)
                         .disabled(!canRoll)
                         .opacity(canRoll ? 1.0 : 0.4)
                         .frame(maxWidth: 280)
@@ -567,5 +747,5 @@ struct ActionBar: View {
 }
 
 #Preview {
-    GameView(store: GameStore(settings: SettingsStore()), settings: SettingsStore())
+    GameView(store: GameStore(settings: SettingsStore()), settings: SettingsStore(), stats: StatsStore())
 }

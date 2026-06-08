@@ -23,42 +23,52 @@ struct ShellGlyph: View {
         Canvas { ctx, canvasSize in
             let w = canvasSize.width
             let h = canvasSize.height
-            // Rim wraps from 145° (lower-left) up over the top and back
-            // down to 35° (lower-right). Sweep is ~250° — the silhouette
-            // reads as a circle with a small notch at the bottom where
-            // the hinge sits. Width:height ≈ 1.04:1.
-            let startDeg: Double = 145
-            let endDeg: Double = 395  // = 35°, taken CCW through 270°.
 
-            // cos(145°) = -0.819 → width = 2 * 0.819r = 1.638r.
-            // sin(145°) = 0.574  → rim points sit 0.574r below the hinge,
-            // so total shell height = r + 0.574r = 1.574r.
-            let r = min(w * 0.611, h * 0.635)
-            // Place the hinge so the shell's geometric center lands on the
-            // canvas mid-line.
-            let hinge = CGPoint(x: w / 2, y: h * 0.5 + r * 0.213)
+            // Seven lobes. Dome is a true half-circle (no stretching),
+            // and the "butt" at the bottom — a pronounced umbo flap —
+            // adds enough height to balance the overall silhouette.
+            let bumps = 7
+            let fluteAmp: Double = 0.07
+            let umboRatio: Double = 0.55  // umbo height as fraction of rx
 
-            let bumps = 9
-            let steps = bumps * 8
+            // Width: dome width = 2·rx·(1+fluteAmp).
+            // Height: dome (rx · (1+fluteAmp)) + umbo (rx · umboRatio).
+            let rxByW = (w - 4) / (2.0 * (1 + fluteAmp))
+            let rxByH = (h - 4) / ((1 + fluteAmp) + umboRatio)
+            let rx = min(rxByW, rxByH)
+            let ry = rx
+            let umboHalfWidth = rx * 0.28
+            let umboHeight = rx * umboRatio
 
-            // Outline: hinge → walk the fluted rim → hinge.
+            // Hinge sits near the bottom so the umbo tip lands a couple
+            // of points above the canvas edge.
+            let hinge = CGPoint(x: w / 2, y: h - umboHeight - 2)
+
+            let steps = bumps * 14
+
             let outline = Path { p in
-                p.move(to: hinge)
                 for s in 0...steps {
                     let t = Double(s) / Double(steps)
-                    let deg = startDeg + (endDeg - startDeg) * t
+                    let deg = 180.0 + 180.0 * t
                     let rad = deg * .pi / 180.0
-                    // Fluted wobble: positive on the rim peaks, negative in the troughs.
-                    let wobble = sin(t * Double(bumps) * .pi * 2) * Double(r) * 0.06
-                    let radius = Double(r) + wobble
-                    let x = Double(hinge.x) + cos(rad) * radius
-                    let y = Double(hinge.y) + sin(rad) * radius
-                    p.addLine(to: CGPoint(x: x, y: y))
+                    let wobble = sin(t * Double(bumps) * .pi * 2) * fluteAmp
+                    let rxFlute = Double(rx) * (1 + wobble)
+                    let ryFlute = Double(ry) * (1 + wobble)
+                    let x = Double(hinge.x) + cos(rad) * rxFlute
+                    let y = Double(hinge.y) + sin(rad) * ryFlute
+                    if s == 0 { p.move(to: CGPoint(x: x, y: y)) }
+                    else      { p.addLine(to: CGPoint(x: x, y: y)) }
                 }
+
+                // Bottom: flat in, umbo curve, flat back.
+                p.addLine(to: CGPoint(x: hinge.x + umboHalfWidth, y: hinge.y))
+                p.addQuadCurve(
+                    to: CGPoint(x: hinge.x - umboHalfWidth, y: hinge.y),
+                    control: CGPoint(x: hinge.x, y: hinge.y + umboHeight * 2)
+                )
                 p.closeSubpath()
             }
 
-            // Body fill — top-to-bottom warm gradient.
             let bbox = outline.boundingRect
             ctx.fill(
                 outline,
@@ -69,85 +79,118 @@ struct ShellGlyph: View {
                 )
             )
 
-            // Outline stroke
             ctx.stroke(outline, with: .color(stroke), lineWidth: ridgeWidth)
 
-            // Radial ridges, one per scallop, from just above the hinge
-            // out to the rim. Skip when the glyph is tiny (won't read).
             if showRidges && size >= 14 {
-                let inset = r * 0.18
-                let reach = r * 0.92
+                let insetX = rx * 0.14
+                let insetY = ry * 0.14
+                let reachX = rx * 0.88
+                let reachY = ry * 0.88
                 for i in 1..<bumps {
                     let t = Double(i) / Double(bumps)
-                    let deg = startDeg + (endDeg - startDeg) * t
+                    let deg = 180.0 + 180.0 * t
                     let rad = deg * .pi / 180.0
                     var line = Path()
                     line.move(to: CGPoint(
-                        x: Double(hinge.x) + cos(rad) * Double(inset),
-                        y: Double(hinge.y) + sin(rad) * Double(inset)
+                        x: Double(hinge.x) + cos(rad) * Double(insetX),
+                        y: Double(hinge.y) + sin(rad) * Double(insetY)
                     ))
                     line.addLine(to: CGPoint(
-                        x: Double(hinge.x) + cos(rad) * Double(reach),
-                        y: Double(hinge.y) + sin(rad) * Double(reach)
+                        x: Double(hinge.x) + cos(rad) * Double(reachX),
+                        y: Double(hinge.y) + sin(rad) * Double(reachY)
                     ))
-                    ctx.stroke(line, with: .color(stroke.opacity(0.5)), lineWidth: ridgeWidth * 0.7)
+                    ctx.stroke(line, with: .color(stroke.opacity(0.32)), lineWidth: ridgeWidth * 0.65)
                 }
             }
-
-            // Hinge dot
-            let dot = Path(ellipseIn: CGRect(
-                x: Double(hinge.x) - Double(ridgeWidth) * 1.4,
-                y: Double(hinge.y) - Double(ridgeWidth) * 1.4,
-                width: Double(ridgeWidth) * 2.8,
-                height: Double(ridgeWidth) * 2.8
-            ))
-            ctx.fill(dot, with: .color(stroke))
         }
-        .frame(width: size, height: size * 0.92)
+        .frame(width: size, height: size)
     }
 }
 
-/// A gold coin with a shell engraved on it. Used everywhere the original
-/// gold-disc coin lived — dice "coin" face, splash hero, ceremony totals.
-/// The shell is drawn with no body fill so the gold field shows through,
-/// and stroked in treasure ink so it reads like a mint stamp.
+/// The brand icon: scallop shell with three pearl cutouts and lobe
+/// detail, all baked into a single SVG ("ShellIcon"). Golden pearls
+/// sit behind the icon, peeking through the cutouts. A top-edge
+/// highlight and bottom-edge shadow give the shell rim dimension.
 struct ShellMedallion: View {
     var size: CGFloat
-    var shellScale: CGFloat = 0.80
+    var pearlHighlight: Color = .pearlHighlight
+    var pearlCore: Color = .pearlCore
+    var pearlEdge: Color = .pearlEdge
+    var pearlGlow: Color = .pearlGlow
+
+    // SVG pearl geometry (viewBox 800×800):
+    // centers y = 558.21 → 0.6978; x = 297.67 / 399.62 / 501.58 → 0.3721 / 0.4995 / 0.6270
+    // radius = 40 → 0.05 (diameter 0.10)
+    private let pearlCentersX: [CGFloat] = [0.3721, 0.4995, 0.6270]
+    private let pearlCenterY: CGFloat = 0.6978
+    private var pearlDiameter: CGFloat { size * 0.105 }
 
     var body: some View {
         ZStack {
-            // Coin body
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.coinGoldLight, Color.gold],
-                        center: UnitPoint(x: 0.35, y: 0.3),
-                        startRadius: 0,
-                        endRadius: size / 2
+            // Pearls behind, aligned to the SVG holes. Slightly oversized
+            // so the icon's rim covers any sub-pixel edge.
+            ForEach(pearlCentersX, id: \.self) { cx in
+                Pearl(
+                    diameter: pearlDiameter,
+                    highlight: pearlHighlight,
+                    core: pearlCore,
+                    edge: pearlEdge,
+                    glow: pearlGlow
+                )
+                    .offset(
+                        x: size * (cx - 0.5),
+                        y: size * (pearlCenterY - 0.5)
+                    )
+            }
+
+            // Shell silhouette with peach gradient.
+            Image("ShellIcon")
+                .resizable()
+                .renderingMode(.template)
+                .aspectRatio(contentMode: .fit)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.pearlHighlight, Color.safePeachDark],
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
                 )
+                // Top sheen + bottom depth, masked to the shell shape.
                 .overlay(
-                    Circle().strokeBorder(Color.treasureInk, lineWidth: max(1, size / 28))
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.45), location: 0.0),
+                            .init(color: .white.opacity(0.08), location: 0.18),
+                            .init(color: .clear, location: 0.42),
+                            .init(color: .clear, location: 0.62),
+                            .init(color: Color.treasureInk.opacity(0.18), location: 0.92),
+                            .init(color: Color.treasureInk.opacity(0.35), location: 1.0),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .mask(
+                        Image("ShellIcon")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    )
                 )
-
-            // Inner highlight ring
-            Circle()
-                .strokeBorder(Color.coinGoldLight.opacity(0.7), lineWidth: max(0.8, size / 40))
-                .padding(size * 0.1)
-
-            // Shell in relief — body fill brighter than the coin, plus a
-            // soft cast shadow so it reads as raised off the surface
-            // rather than carved into it. Ridges stay treasure-ink so
-            // they read as grooves between raised facets.
-            ShellGlyph(
-                size: size * shellScale,
-                fillTop: Color.shellHighlight,
-                fillBottom: Color.coinGoldLight,
-                stroke: Color.treasureInk.opacity(0.55),
-                showRidges: true
-            )
-            .shadow(color: Color.treasureInk.opacity(0.45), radius: max(1.5, size / 36), x: 0, y: max(1.5, size / 50))
+                // Soft inner highlight in the upper-left quadrant.
+                .overlay(
+                    RadialGradient(
+                        colors: [.white.opacity(0.35), .clear],
+                        center: UnitPoint(x: 0.38, y: 0.22),
+                        startRadius: 0,
+                        endRadius: size * 0.32
+                    )
+                    .mask(
+                        Image("ShellIcon")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    )
+                    .blendMode(.plusLighter)
+                )
+                .shadow(color: Color.treasureInk.opacity(0.35), radius: max(1, size / 40), x: 0, y: max(1, size / 60))
         }
         .frame(width: size, height: size)
     }

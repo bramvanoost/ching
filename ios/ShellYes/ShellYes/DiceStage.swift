@@ -19,6 +19,11 @@ struct DiceStage: View {
     var onBank: () -> Void = {}
     var reduceMotion: Bool = false
     var speedFactor: Double = 1.0
+    /// When true, roll SFX plays regardless of whose turn it technically
+    /// is. Used for the fake post-bust roll animation, where the engine
+    /// has already advanced the turn but the player still needs to hear
+    /// the dice land before the flash arrives.
+    var forceRollSound: Bool = false
 
     // Source of truth for what the dice slot renders. Updated by the roll
     // animation in steps so the player never sees the final `rolled` values
@@ -28,7 +33,6 @@ struct DiceStage: View {
     @SwiftUI.State private var isAnimating: Bool = false
     @SwiftUI.State private var pickSparkleTrigger: Int = 0
     @SwiftUI.State private var bankSparkleTrigger: Int = 0
-    @SwiftUI.State private var bankPending: Bool = false
     @SwiftUI.State private var lastSum: Int = -1
     @SwiftUI.State private var pickingFace: Face?
 
@@ -52,38 +56,28 @@ struct DiceStage: View {
             // a button at a glance even before you spot the wink.
             ZStack {
                 Button {
-                    guard canBank, !bankPending else { return }
-                    bankPending = true
+                    guard canBank else { return }
                     bankSparkleTrigger += 1
-                    let trigger = bankSparkleTrigger
-                    Task { @MainActor in
-                        // Hold the bank action until the sparkles play out
-                        // around the still-visible Keep card. If we fire
-                        // onBank() immediately the card flips to the bare
-                        // hero number and the sparkles look like they're
-                        // bursting from a smaller imaginary box.
-                        try? await Task.sleep(nanoseconds: 800_000_000)
-                        if bankSparkleTrigger == trigger { bankSparkleTrigger = 0 }
-                        bankPending = false
-                        onBank()
-                    }
+                    // Fire the bank synchronously so the success sound
+                    // and event banner land on the same frame as the
+                    // tap. The sparkles run in parallel; the modal
+                    // takes over the dice area immediately after.
+                    onBank()
                 } label: {
                     if canBank {
-                        // Compact two-tone receipt: cream half holds the
-                        // value, coral half is the action footer with the
-                        // KEEP label in cream stamp text. Width capped so it
-                        // doesn't bleed past the app's horizontal rhythm and
-                        // sits like a card you can tap, not a banner.
-                        VStack(spacing: 0) {
+                        // Receipt-style card: cream body holds the running
+                        // sum, with a rounded gradient button mounted into
+                        // it for the action. Gradient starts at coralLight
+                        // (no coinGoldLight at top) so the button edge is
+                        // distinct against the cream around it.
+                        VStack(spacing: 8) {
                             Text("\(setAsideSum)")
                                 .font(.avenir(56, weight: .demiBold))
                                 .foregroundStyle(Color.treasureInk)
                                 .shadow(color: Color.treasureInk.opacity(0.22), radius: 0, x: 2, y: 3)
                                 .padding(.horizontal, 22)
                                 .padding(.top, 6)
-                                .padding(.bottom, 4)
                                 .frame(maxWidth: .infinity)
-                                .background(Color.safePeachLight)
 
                             HStack(spacing: 6) {
                                 Text(bankPreview.uppercased())
@@ -97,19 +91,34 @@ struct DiceStage: View {
                             .padding(.horizontal, 14)
                             .frame(maxWidth: .infinity)
                             .background(
-                                // Match the Roll On button — warm gold into
-                                // coral so the bank/steal action reads as an
-                                // inviting primary, same family as the dice
-                                // button at the bottom of the screen.
-                                LinearGradient(
-                                    colors: [Color.coinGoldLight, Color.coralLight, Color.coral, Color.coralDark],
-                                    startPoint: .top,
-                                    endPoint: .bottom
+                                // Bottom corners match the card's 12pt
+                                // outer radius so the button sits flush;
+                                // top corners are the visible "button"
+                                // cue against the cream above it.
+                                UnevenRoundedRectangle(
+                                    topLeadingRadius: 10,
+                                    bottomLeadingRadius: 12,
+                                    bottomTrailingRadius: 12,
+                                    topTrailingRadius: 10
+                                )
+                                .fill(
+                                    // Warm gold at the top, settling into
+                                    // coral. No coralDark — the deep rose
+                                    // is what made the previous gradient
+                                    // feel harsh against the cream above.
+                                    LinearGradient(
+                                        colors: [Color.coinGoldLight, Color.coralLight, Color.coral],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
                                 )
                             )
                         }
                         .frame(maxWidth: isSteal ? 280 : 200)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.safePeachLight)
+                        )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(isSteal ? Color.coralDark : Color.coralDark.opacity(0.5), lineWidth: isSteal ? 1.5 : 1)
@@ -213,12 +222,12 @@ struct DiceStage: View {
                         : Array(repeating: 80_000_000, count: 5)
                     for i in 0..<frameNs.count {
                         if Task.isCancelled { return }
-                        if isHumanTurn { GameSFX.shared.playRoll() }
+                        if isHumanTurn || forceRollSound { GameSFX.shared.playRoll() }
                         displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
                         try? await Task.sleep(nanoseconds: frameNs[i])
                     }
                     if !Task.isCancelled {
-                        if isHumanTurn { GameSFX.shared.playRoll() }
+                        if isHumanTurn || forceRollSound { GameSFX.shared.playRoll() }
                         displayedRolled = newValue
                     }
                 }

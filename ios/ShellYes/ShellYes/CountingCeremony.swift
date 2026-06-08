@@ -11,6 +11,7 @@ struct CountingCeremony: View {
     @SwiftUI.State private var winnerRevealed: Bool = false
     @SwiftUI.State private var showNewGame: Bool = false
     @SwiftUI.State private var sparkleWave: Int = 0
+    @SwiftUI.State private var humanWinHeadlineSparkle: Int = 0
 
     private var winnerIndices: [Int] {
         guard let top = scores.max() else { return [] }
@@ -28,6 +29,10 @@ struct CountingCeremony: View {
         return "a tie."
     }
 
+    private var isHumanWin: Bool {
+        winnerIndices.count == 1 && winnerIndices[0] == GameStore.humanSeat
+    }
+
     var body: some View {
         ZStack {
             Background()
@@ -43,24 +48,26 @@ struct CountingCeremony: View {
                     .animation(.easeOut(duration: 0.4), value: winnerRevealed)
 
                 if winnerRevealed {
-                    Text(winnerHeadline)
-                        .font(.avenir(30, weight: .demiBold, italic: true))
-                        .tracking(2)
-                        .foregroundStyle(Color.gold)
-                        .shadow(color: Color.gold.opacity(0.6), radius: 14, x: 0, y: 0)
-                        .shadow(color: Color.ink.opacity(0.4), radius: 0, x: 0, y: 1)
+                    WinHeadline(text: winnerHeadline, festive: isHumanWin)
                         .padding(.top, -34)
-                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                        .overlay {
+                            if isHumanWin {
+                                SparkleField(count: 44, startRadius: 18, spread: 95, duration: 1.4)
+                                    .id(humanWinHeadlineSparkle)
+                            }
+                        }
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
                 }
 
-                Spacer().frame(height: 22)
+                Spacer().frame(height: winnerRevealed ? 30 : 22)
 
-                VStack(spacing: 14) {
+                VStack(spacing: winnerRevealed ? 28 : 14) {
                     ForEach(players.indices, id: \.self) { i in
                         playerCard(i)
                     }
                 }
                 .padding(.horizontal, 20)
+                .animation(.easeOut(duration: 0.5), value: winnerRevealed)
 
                 Spacer()
 
@@ -145,7 +152,16 @@ struct CountingCeremony: View {
         .animation(.easeOut(duration: 0.35), value: isWinner)
         .overlay {
             if isWinner {
-                EdgeSparkleField(count: 90, inset: 2, spread: 22, duration: 1.5)
+                // Cards get extra row spacing on winner-reveal (see VStack
+                // above), so the edge sparkles can actually fly outward
+                // without crashing into the neighbour rows. Spread is
+                // tuned to land inside that breathing room.
+                EdgeSparkleField(count: 130, inset: 0, spread: 80, duration: 1.1)
+                    .id(sparkleWave)
+                // Radial inner burst — fills the card body so the
+                // sparkles read as bursting FROM the card, not just
+                // ringing its border.
+                SparkleField(count: 36, startRadius: 14, spread: 60, duration: 1.3)
                     .id(sparkleWave)
             }
         }
@@ -219,9 +235,87 @@ struct CountingCeremony: View {
         }
 
         // Keep the winner card ringed in sparkles while the celebration is up.
+        // Headline sparkles run on a slightly offset cadence so the screen
+        // doesn't pulse in a single beat.
+        Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_100_000_000)
+                humanWinHeadlineSparkle += 1
+            }
+        }
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             sparkleWave += 1
+        }
+    }
+}
+
+/// Winner headline. For the human win we go bigger and animate each glyph
+/// in with a small bounce, then keep a gentle gold shimmer running so the
+/// line doesn't sit static while the player reads it.
+private struct WinHeadline: View {
+    let text: String
+    let festive: Bool
+
+    @SwiftUI.State private var entered: Bool = false
+    @SwiftUI.State private var shimmer: Bool = false
+    @SwiftUI.State private var lift: Bool = false
+
+    var body: some View {
+        if festive {
+            festiveBody
+        } else {
+            Text(text)
+                .font(.avenir(30, weight: .demiBold, italic: true))
+                .tracking(2)
+                .foregroundStyle(Color.gold)
+                .shadow(color: Color.gold.opacity(0.6), radius: 14, x: 0, y: 0)
+                .shadow(color: Color.ink.opacity(0.4), radius: 0, x: 0, y: 1)
+        }
+    }
+
+    private var festiveBody: some View {
+        let chars = Array(text)
+        return HStack(spacing: 0) {
+            ForEach(Array(chars.enumerated()), id: \.offset) { idx, ch in
+                Text(String(ch))
+                    .font(.avenir(40, weight: .bold, italic: true))
+                    .tracking(2)
+                    .foregroundStyle(Color.gold)
+                    .shadow(
+                        color: Color.coinGoldLight.opacity(shimmer ? 0.95 : 0.55),
+                        radius: shimmer ? 22 : 12,
+                        x: 0, y: 0
+                    )
+                    .shadow(color: Color.gold.opacity(0.55), radius: 4, x: 0, y: 0)
+                    .shadow(color: Color.ink.opacity(0.45), radius: 0, x: 0, y: 1)
+                    .scaleEffect(entered ? 1 : 0.25)
+                    .opacity(entered ? 1 : 0)
+                    .offset(y: entered ? (lift ? -2 : 0) : 22)
+                    .rotationEffect(.degrees(entered ? 0 : -8))
+                    .animation(
+                        .spring(response: 0.55, dampingFraction: 0.5)
+                            .delay(0.05 * Double(idx)),
+                        value: entered
+                    )
+                    .animation(
+                        .easeInOut(duration: 1.4).repeatForever(autoreverses: true)
+                            .delay(0.08 * Double(idx)),
+                        value: lift
+                    )
+            }
+        }
+        .onAppear {
+            entered = true
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                shimmer = true
+            }
+            // Stagger the breath so each letter rides a slightly different
+            // wave — reads as continuous celebration, not a metronome.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                lift = true
+            }
         }
     }
 }

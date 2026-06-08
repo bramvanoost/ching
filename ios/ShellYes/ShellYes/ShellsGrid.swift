@@ -82,7 +82,11 @@ struct ShellsGrid: View {
                 .fill(
                     available
                         ? LinearGradient(
-                            colors: [Color.safePeachLight, Color.safePeachDark],
+                            // Lighter pearl-cream top settling into the
+                            // peach the shells used before, so the supply
+                            // reads as fresh / unclaimed against the
+                            // translucent container around it.
+                            colors: [Color.pearlHighlight, Color.safePeachLight],
                             startPoint: .top,
                             endPoint: .bottom
                           )

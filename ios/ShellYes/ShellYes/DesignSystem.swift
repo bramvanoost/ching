@@ -25,6 +25,26 @@ extension Color {
             : UIColor(red: 122/255, green: 95/255, blue: 132/255, alpha: 1)
     })
 
+    /// Translucent card surface that adapts to mode. Light mode keeps
+    /// the existing white-tinted glass; dark mode goes deep plum so
+    /// cream `ink` text has real contrast against the card body
+    /// instead of fading into a pale lavender wash.
+    static let cardSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 32/255, green: 22/255, blue: 44/255, alpha: 0.78)
+            : UIColor(white: 1, alpha: 0.7)
+    })
+
+    /// Secondary translucent surface for inset controls (segmented
+    /// pickers, toggle tracks). Same adaptation principle as
+    /// `cardSurface` but a touch lighter so the inset reads as
+    /// "inside" the card rather than the same plane.
+    static let insetSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 58/255, green: 42/255, blue: 76/255, alpha: 0.78)
+            : UIColor(white: 1, alpha: 0.4)
+    })
+
     /// Coral accent — active seat, action stamp.
     static let coral = Color(red: 210/255, green: 116/255, blue: 116/255)
     /// Brighter coral for highlight on the stamp button (top of the gradient).
@@ -188,6 +208,10 @@ struct PearlRow: View {
 
 struct Pearl: View {
     var diameter: CGFloat = 5
+    var highlight: Color = .pearlHighlight
+    var core: Color = .pearlCore
+    var edge: Color = .pearlEdge
+    var glow: Color = .pearlGlow
 
     var body: some View {
         ZStack {
@@ -195,7 +219,7 @@ struct Pearl: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color.pearlGlow.opacity(0.55), .clear],
+                        colors: [glow.opacity(0.55), .clear],
                         center: .center,
                         startRadius: 0,
                         endRadius: diameter
@@ -208,7 +232,7 @@ struct Pearl: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color.pearlHighlight, Color.pearlCore, Color.pearlEdge],
+                        colors: [highlight, core, edge],
                         center: UnitPoint(x: 0.35, y: 0.32),
                         startRadius: 0,
                         endRadius: diameter / 2
@@ -225,6 +249,35 @@ struct Pearl: View {
 // The claimed-shell silhouette: scalloped crown across the top, straight
 // parallel sides (REQUIRED for clean vertical stacking — see CLAUDE.md), and
 // a small centered umbo nub at the bottom edge.
+
+// MARK: - Wave line (countdown indicator on bust screen)
+
+/// A continuous sine wave drawn across the host's width. Wavelength is
+/// fixed (12pt by default), so as the host frame shrinks during a
+/// countdown the visible wave count decreases — the same "draining"
+/// read as a capsule, but feels like the tide pulling back.
+struct WaveLine: Shape {
+    var wavelength: CGFloat = 12
+    var amplitude: CGFloat = 2.5
+    var phase: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        guard rect.width > 0 else { return path }
+        let midY = rect.midY
+        let steps = max(2, Int(rect.width))
+        for i in 0...steps {
+            let x = rect.width * CGFloat(i) / CGFloat(steps)
+            let y = midY + amplitude * sin(2 * .pi * x / wavelength + phase)
+            if i == 0 {
+                path.move(to: CGPoint(x: x, y: y))
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        return path
+    }
+}
 
 struct ShellCardShape: InsettableShape {
     var crownWaves: Int = 3
@@ -288,7 +341,12 @@ struct ShellCardShape: InsettableShape {
 struct StampButtonStyle: ButtonStyle {
     var primary: Bool = true
     var invite: Bool = false
+    /// When false the breathing halo is suppressed; only the shine band
+    /// drifts across the face. Used on the in-game Roll On so the
+    /// button has a quiet "you're up" cue without the come-hither halo.
+    var inviteHalo: Bool = true
 
+    @SwiftUI.State private var glowPulse: Bool = false
     @SwiftUI.State private var shineSwept: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
@@ -317,51 +375,40 @@ struct StampButtonStyle: ButtonStyle {
                                   )
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .strokeBorder(
-                                    primary ? Color.coralDark.opacity(0.7) : Color.coral,
-                                    lineWidth: primary ? 1 : 1.5
+                            // Secondary buttons still get the coral
+                            // outline since their face is cream and they
+                            // need a clear edge. Primary buttons are
+                            // border-less — the gradient itself defines
+                            // the shape, no top "bar" effect.
+                            primary
+                                ? AnyView(EmptyView())
+                                : AnyView(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .strokeBorder(Color.coral, lineWidth: 1.5)
                                 )
                         )
-                        .overlay(
-                            // Top-edge inner highlight to read as a lit surface
-                            RoundedRectangle(cornerRadius: 13)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(primary ? 0.55 : 0.0),
-                                            Color.white.opacity(0.0)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .center
-                                    ),
-                                    lineWidth: 1.2
-                                )
-                                .padding(1)
-                        )
-                        // Animated shine — soft, wide warm-light wash that
-                        // drifts across the face, like the sun passing.
+                        // Soft white shine — a faint warm-light sweep that
+                        // drifts across the face when invite is on. Half
+                        // the opacity of the original so it reads as light,
+                        // not as a stripe. Masked to the rounded corners.
                         .overlay {
                             if invite {
-                                // Soft warm-light pass that drifts across the
-                                // button. Wide + faint so it reads as a glint
-                                // sweeping by, never as a visible stripe.
                                 GeometryReader { geo in
-                                    let bandWidth: CGFloat = 220
+                                    let bandWidth: CGFloat = 280
                                     Rectangle()
                                         .fill(
                                             LinearGradient(
                                                 colors: [
                                                     .clear,
-                                                    Color.coinGoldLight.opacity(0.16),
+                                                    Color.white.opacity(0.18),
                                                     .clear
                                                 ],
                                                 startPoint: .leading,
                                                 endPoint: .trailing
                                             )
                                         )
-                                        .frame(width: bandWidth, height: geo.size.height * 1.4)
-                                        .rotationEffect(.degrees(8))
+                                        .frame(width: bandWidth, height: geo.size.height * 1.5)
+                                        .rotationEffect(.degrees(10))
                                         .offset(x: shineSwept
                                                 ? geo.size.width / 2 + bandWidth
                                                 : -geo.size.width / 2 - bandWidth)
@@ -377,27 +424,46 @@ struct StampButtonStyle: ButtonStyle {
                 .shadow(color: Color.coralDark.opacity(0.45), radius: 0, x: 0, y: 3)
                 // Soft drop
                 .shadow(color: Color.coralDark.opacity(0.3), radius: 10, x: 0, y: 7)
+                // Invite halo — a warm gold glow that breathes when the
+                // button is the come-hither moment (New Game on splash,
+                // Play Again at the end of a game). Replaces the previous
+                // shine-stripe animation, which read as a "bar" passing
+                // across the face. The halo never crosses the face, so
+                // there's no stripe artifact.
+                .shadow(
+                    color: (invite && inviteHalo) ? Color.coinGoldLight.opacity(glowPulse ? 0.88 : 0.22) : .clear,
+                    radius: 28,
+                    x: 0, y: 0
+                )
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.94 : 1.0)
             .task(id: invite) {
                 guard invite else { return }
-                // Loop: slow drift across (2.4s), invisibly snap back, wait 2.6s.
+                // Kick the first beat off without any easing-in pause —
+                // halo and shine both start animating on frame zero so
+                // the button feels alive the instant it appears.
                 while !Task.isCancelled {
-                    withAnimation(.easeInOut(duration: 2.4)) {
+                    withAnimation(.easeInOut(duration: 1.1)) {
+                        glowPulse = true
+                    }
+                    withAnimation(.easeInOut(duration: 2.0)) {
                         shineSwept = true
                     }
-                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    try? await Task.sleep(nanoseconds: 1_800_000_000)
+                    withAnimation(.easeInOut(duration: 1.1)) {
+                        glowPulse = false
+                    }
                     shineSwept = false
-                    try? await Task.sleep(nanoseconds: 2_600_000_000)
+                    try? await Task.sleep(nanoseconds: 800_000_000)
                 }
             }
     }
 }
 
 extension View {
-    func stampButton(primary: Bool = true, invite: Bool = false) -> some View {
-        self.buttonStyle(StampButtonStyle(primary: primary, invite: invite))
+    func stampButton(primary: Bool = true, invite: Bool = false, inviteHalo: Bool = true) -> some View {
+        self.buttonStyle(StampButtonStyle(primary: primary, invite: invite, inviteHalo: inviteHalo))
     }
 }
 

@@ -65,26 +65,23 @@ struct Scoreboard: View {
             }
             .frame(height: 54, alignment: .top)
 
-            if players[i].tiles.isEmpty {
-                Text("0 shells")
-                    .font(.avenir(10, weight: .medium, italic: true))
-                    .tracking(1)
-                    .foregroundStyle(Color.ink.opacity(0.55))
-            } else {
-                Text("\(pearlCount) pearls")
-                    .font(.avenir(10, weight: .medium, italic: true))
-                    .tracking(1)
-                    .foregroundStyle(Color.ink.opacity(0.55))
-            }
+            Text(players[i].tiles.isEmpty ? "0 shells" : "\(players[i].tiles.count) shell\(players[i].tiles.count == 1 ? "" : "s")")
+                .font(.avenir(10, weight: .medium, italic: true))
+                .tracking(1)
+                .foregroundStyle(Color.ink.opacity(0.55))
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 12)
         .padding(.horizontal, 6)
+        // The active card is gently lit: warm gold fill, softer gold
+        // border, modest scale + lift below. Shadow alone got eaten by
+        // the light pastel sky, but breathing reads as anxious — kept
+        // steady so it's a quiet "you're up" rather than a heartbeat.
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(
                     isStolen ? Color.coral.opacity(0.45) :
-                    isActive ? Color.white.opacity(0.45) :
+                    isActive ? Color.coinGoldLight.opacity(0.40) :
                     Color.white.opacity(0.18)
                 )
         )
@@ -92,15 +89,33 @@ struct Scoreboard: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(
                     isStolen ? Color.coral :
-                    isActive ? Color.coral.opacity(0.4) :
+                    isActive ? Color.gold.opacity(0.7) :
                     Color.ink.opacity(0.15),
                     lineWidth: isStolen ? 2.5 : (isActive ? 1.5 : 1)
                 )
         )
+        // Active player's card gets a layered warm-gold breathing halo.
+        // Two shadows: the outer amber gives the active cue contrast
+        // against the light pastel sky (coinGoldLight alone got washed
+        // out), the inner cream gives it a hot core so it reads as lit,
+        // not just shadowed. Coral stays reserved for the steal flash so
+        // the two cues never collide.
         .shadow(
-            color: isStolen ? Color.coral.opacity(0.75) :
-                   isActive ? Color.coral.opacity(0.25) : .clear,
-            radius: isStolen ? 18 : 12,
+            color: {
+                if isStolen { return Color.coral.opacity(0.75) }
+                if isActive { return Color.gold.opacity(0.45) }
+                return .clear
+            }(),
+            radius: {
+                if isStolen { return 18 }
+                if isActive { return 22 }
+                return 12
+            }(),
+            x: 0, y: 0
+        )
+        .shadow(
+            color: isActive ? Color.coinGoldLight.opacity(0.55) : .clear,
+            radius: isActive ? 8 : 0,
             x: 0, y: 0
         )
         .overlay {
@@ -110,7 +125,8 @@ struct Scoreboard: View {
                     .allowsHitTesting(false)
             }
         }
-        .scaleEffect(isStolen ? 1.04 : 1.0)
+        .scaleEffect(isStolen ? 1.04 : (isActive ? 1.03 : 1.0))
+        .offset(y: isActive && !isStolen ? -2 : 0)
         .overlay(alignment: .top) {
             if isStolen {
                 Text("taken.")
@@ -123,7 +139,9 @@ struct Scoreboard: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
+        .zIndex(isActive || isStolen ? 1 : 0)
         .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isStolen)
+        .animation(.spring(response: 0.45, dampingFraction: 0.75), value: isActive)
     }
 
     @ViewBuilder

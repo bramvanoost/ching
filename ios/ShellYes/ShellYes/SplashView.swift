@@ -7,9 +7,15 @@ struct SplashView: View {
     @SwiftUI.State private var logoVisible: Bool = false
     @SwiftUI.State private var actionsVisible: Bool = false
     @SwiftUI.State private var creditVisible: Bool = false
+    @SwiftUI.State private var showExplainer: Bool = false
 
     private var creditAttributed: AttributedString {
         let raw = "Background music by [Alfarran Basalim](https://pixabay.com/users/farran_ez-45967570/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148) from [Pixabay](https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=456148)."
+        return (try? AttributedString(markdown: raw)) ?? AttributedString(raw)
+    }
+
+    private var sfxCreditAttributed: AttributedString {
+        let raw = "UI sounds by [cadecomposer](https://github.com/cadecomposer)."
         return (try? AttributedString(markdown: raw)) ?? AttributedString(raw)
     }
 
@@ -28,22 +34,17 @@ struct SplashView: View {
                     .scaleEffect(logoVisible ? 1 : 0.85)
                     .padding(.bottom, 18)
 
-                // Big lowercase logo — the "y" in yes is the punchline letter.
-                HStack(spacing: 0) {
-                    Text("shell ")
-                        .foregroundStyle(Color.ink)
-                    Text("y")
-                        .foregroundStyle(Color.coral)
-                        .font(.avenir(78, weight: .demiBold))
-                    Text("es")
-                        .foregroundStyle(Color.ink)
-                }
-                .font(.avenir(78, weight: .ultraLight))
-                .tracking(5)
-                .opacity(logoVisible ? 1 : 0)
-                .scaleEffect(logoVisible ? 1 : 0.92)
+                // Wordmark — Optima at semibold for a humanist, beachy feel.
+                // Uniform ink, no accent letter; tracking is light so the
+                // two words read as one wordmark.
+                Text("Shell Yes")
+                    .font(.custom("Optima", size: 64).weight(.semibold))
+                    .tracking(1)
+                    .foregroundStyle(Color.ink)
+                    .opacity(logoVisible ? 1 : 0)
+                    .scaleEffect(logoVisible ? 1 : 0.92)
 
-                Text("A beachy soft think slow game.")
+                Text("A beachy soft slow thinky game.")
                     .font(.avenir(13, weight: .medium, italic: true))
                     .tracking(1.5)
                     .multilineTextAlignment(.center)
@@ -53,24 +54,32 @@ struct SplashView: View {
                     .opacity(logoVisible ? 1 : 0)
 
                 VStack(spacing: 18) {
-                    NavigationLink {
-                        GameView(store: store, settings: settings)
-                            .onAppear {
-                                store.newGame()
-                                AudioPolicy.shared.setInGame(true)
-                            }
-                            .onDisappear {
-                                AudioPolicy.shared.setInGame(false)
-                            }
-                    } label: {
+                    NavigationLink(value: Route.game) {
                         Text("New Game")
                     }
                     .stampButton(primary: true, invite: true)
                     .frame(maxWidth: 280)
 
-                    NavigationLink {
-                        SettingsView(settings: settings, onNewGame: { store.newGame() })
+                    Button {
+                        showExplainer = true
                     } label: {
+                        Text("How to Play")
+                            .font(.avenir(16, weight: .demiBold))
+                            .textCase(.uppercase)
+                            .tracking(3)
+                            .foregroundStyle(Color.ink.opacity(0.75))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(Color.ink.opacity(0.45), lineWidth: 1.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: 280)
+
+                    NavigationLink(value: Route.settings) {
                         HStack(spacing: 6) {
                             Image(systemName: "gearshape")
                                 .font(.system(size: 12, weight: .light))
@@ -90,24 +99,45 @@ struct SplashView: View {
 
                 Spacer()
 
-                // Pixabay attribution per their license terms.
-                Text(creditAttributed)
-                    .font(.avenir(10, weight: .medium, italic: true))
-                    .tracking(0.5)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(Color.ink.opacity(0.42))
-                    // Match link colour to the surrounding text so the
-                    // attribution reads as one quiet line, not a row of
-                    // highlighted hyperlinks.
-                    .tint(Color.ink.opacity(0.42))
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 18)
-                    .opacity(creditVisible ? 1 : 0)
+                VStack(spacing: 6) {
+                    Text("Anti-doom-scrolling soft gaming by @ort.")
+                        .font(.avenir(11, weight: .medium, italic: true))
+                        .tracking(0.5)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Color.ink.opacity(0.6))
+
+                    // Pixabay attribution per their license terms.
+                    Text(creditAttributed)
+                        .font(.avenir(10, weight: .medium, italic: true))
+                        .tracking(0.5)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Color.ink.opacity(0.42))
+                        // Match link colour to the surrounding text so the
+                        // attribution reads as one quiet line, not a row of
+                        // highlighted hyperlinks.
+                        .tint(Color.ink.opacity(0.42))
+
+                    Text(sfxCreditAttributed)
+                        .font(.avenir(10, weight: .medium, italic: true))
+                        .tracking(0.5)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Color.ink.opacity(0.42))
+                        .tint(Color.ink.opacity(0.42))
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 18)
+                .opacity(creditVisible ? 1 : 0)
             }
             .padding(.horizontal, 24)
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showExplainer) {
+            ExplainerView()
+        }
         .task {
+            #if DEBUG
+            IconExporter.exportIfNeeded()
+            #endif
             AudioPolicy.shared.setInGame(false)
             withAnimation(.easeOut(duration: 0.7)) {
                 logoVisible = true

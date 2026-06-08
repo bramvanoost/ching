@@ -1,0 +1,15 @@
+{
+  "originHash" : "ff19a717f66cc994efa871b8d49c1ff041a65a5e90ba20d7513bd238ead79e46",
+  "pins" : [
+    {
+      "identity" : "aptabase-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aptabase/aptabase-swift",
+      "state" : {
+        "revision" : "cfd67fac2a228d448d9d2ac92ffc71589cc3ef00",
+        "version" : "0.3.11"
+      }
+    }
+  ],
+  "version" : 3
+}

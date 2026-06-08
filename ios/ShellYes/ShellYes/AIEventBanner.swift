@@ -22,7 +22,7 @@ struct AIEventBanner: View {
                         .tracking(2)
                         .textCase(.lowercase)
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(Color.ink.opacity(0.7))
+                        .foregroundStyle(subtitleColor)
                         .padding(.horizontal, 24)
                 }
 
@@ -43,16 +43,13 @@ struct AIEventBanner: View {
                     .font(.avenir(11, weight: .demiBold, italic: true))
                     .tracking(2)
                     .textCase(.lowercase)
-                    .foregroundStyle(Color.ink.opacity(0.45))
+                    .foregroundStyle(tapHintColor)
                     .padding(.top, 6)
             }
             .padding(.vertical, 28)
             .padding(.horizontal, 24)
             .frame(maxWidth: 320)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(cardFill)
-            )
+            .background(cardBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
                     .strokeBorder(cardStroke, lineWidth: tone == .negative ? 1.5 : 1)
@@ -86,7 +83,15 @@ struct AIEventBanner: View {
     }
 
     private var titleColor: Color {
-        return Color.ink
+        return tone == .negative ? Color.stampText : Color.ink
+    }
+
+    private var subtitleColor: Color {
+        return tone == .negative ? Color.stampText.opacity(0.85) : Color.ink.opacity(0.7)
+    }
+
+    private var tapHintColor: Color {
+        return tone == .negative ? Color.stampText.opacity(0.7) : Color.ink.opacity(0.45)
     }
 
     private enum Tone { case positive, negative, neutral }
@@ -107,13 +112,23 @@ struct AIEventBanner: View {
         }
     }
 
-    private var cardFill: Color {
-        // Positive and neutral both sit on the default paper card. Only
-        // negative-for-you events (a rival took your shell) get the rose
-        // wash — green clashed with the warm palette, so it was reverted.
+    @ViewBuilder
+    private var cardBackground: some View {
         switch tone {
-        case .negative: return Color.bannerNegative
-        case .positive, .neutral: return Color.paper
+        case .negative:
+            // Deeper coral-to-crimson gradient — cream text reads cleanly
+            // against this where it didn't against the lighter rose.
+            RoundedRectangle(cornerRadius: 18)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.coralDark, Color.bannerNegativeAccent],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        case .positive, .neutral:
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.paper)
         }
     }
 
@@ -153,31 +168,28 @@ struct AIEventBanner: View {
         ZStack {
             ShellCardShape()
                 .fill(
-                    drifting
-                        ? LinearGradient(
-                            colors: [Color.ink.opacity(0.12), Color.ink.opacity(0.18)],
-                            startPoint: .top, endPoint: .bottom
-                          )
-                        : LinearGradient(
-                            colors: [Color.safePeachLight, Color.safePeachDark],
-                            startPoint: .top, endPoint: .bottom
-                          )
+                    LinearGradient(
+                        colors: [Color.safePeachLight, Color.safePeachDark],
+                        startPoint: .top, endPoint: .bottom
+                    )
                 )
                 .overlay(
                     ShellCardShape()
                         .strokeBorder(
-                            drifting ? Color.treasureInk.opacity(0.45) : Color.treasureInk,
+                            // Dashed stroke is the only "drifting away" cue
+                            // we lean on now — the fill stays peach so the
+                            // shell still reads as readable.
+                            drifting ? Color.treasureInk.opacity(0.8) : Color.treasureInk,
                             style: StrokeStyle(lineWidth: 2, dash: drifting ? [3, 3] : [])
                         )
                 )
-                .shadow(color: Color.treasureInk.opacity(drifting ? 0 : 0.25), radius: 0, x: 0, y: 4)
-                .shadow(color: Color.coralDark.opacity(drifting ? 0.35 : 0.2), radius: 14, x: 0, y: 0)
+                .shadow(color: Color.treasureInk.opacity(drifting ? 0.15 : 0.25), radius: 0, x: 0, y: 4)
+                .shadow(color: Color.coralDark.opacity(0.2), radius: 14, x: 0, y: 0)
             VStack(spacing: 4) {
                 Text("\(value)")
                     .font(.avenir(28, weight: .demiBold))
-                    .foregroundStyle(Color.treasureInk.opacity(drifting ? 0.55 : 1.0))
+                    .foregroundStyle(Color.treasureInk)
                 PearlRow(count: coins, diameter: 7, spacing: 3)
-                    .opacity(drifting ? 0.35 : 1.0)
             }
         }
         .frame(width: 68, height: 84)

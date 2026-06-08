@@ -10,15 +10,23 @@ struct VaultStack: View {
     private let safeWidth: CGFloat = 38
     private let safeHeight: CGFloat = 38
     private let layerOffset: CGFloat = 5
+    /// Hard cap on visible shells. Above this, the stack would overflow
+    /// the scoreboard column. Older shells beyond the cap are kept in
+    /// state but hidden — the textual count below the stack tells the
+    /// player how many they actually hold.
+    private let maxVisible: Int = 4
+
+    private var visibleCount: Int { min(safes.count, maxVisible) }
 
     private var stackHeight: CGFloat {
         if safes.isEmpty { return 36 }
-        return safeHeight + CGFloat(max(0, safes.count - 1)) * layerOffset
+        return safeHeight + CGFloat(max(0, visibleCount - 1)) * layerOffset
     }
 
-    /// Newest first (top of pile). Engine stores newest at end of `tiles`.
+    /// Newest first, capped at `maxVisible`. Engine stores newest at end
+    /// of `tiles`, so reverse and take the prefix.
     private var stackedNewestFirst: [Int] {
-        safes.reversed()
+        Array(safes.reversed().prefix(maxVisible))
     }
 
     var body: some View {
