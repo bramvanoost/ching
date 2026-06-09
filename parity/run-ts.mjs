@@ -17,6 +17,7 @@ function actionFromDto(dto) {
   if (dto.type === 'ROLL') return { type: 'ROLL' };
   if (dto.type === 'STOP') return { type: 'STOP' };
   if (dto.type === 'PICK') return { type: 'PICK', face: dto.face };
+  if (dto.type === 'BANK') return { type: 'BANK', target: dto.target };
   throw new Error(`unknown action type ${dto.type}`);
 }
 

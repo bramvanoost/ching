@@ -52,7 +52,7 @@ import {
   type SeatView,
 } from './net/protocol.js';
 import { lobbyFooter, viewOptsFor } from './clientcore.js';
-import { COIN, type Action, type Face, type State } from './engine.js';
+import { COIN, bankOptions, type Action, type Face, type State } from './engine.js';
 
 export const DEFAULT_SOCK = '/tmp/ching.sock';
 export const DEFAULT_TCP_PORT = 4321;
@@ -355,6 +355,27 @@ function promptText(state: State): string {
       fg(P_LIME) + '> pick a face [' + keys + fg(P_LIME) + ']  ' +
       fg(DIM_TEXT) + '(Q to quit) ' + RESET
     );
+  }
+  if (state.phase === 'chooseBank') {
+    const opts = bankOptions(state);
+    const parts: string[] = [];
+    let i = 1;
+    for (const o of opts) {
+      const key = String(i++);
+      if (o.kind === 'steal') {
+        const name = state.players[o.playerIndex].id;
+        parts.push(
+          fg(P_LIME) + '[' + fg(A_GLINT) + BOLD + key + RESET + fg(P_LIME) +
+            '] steal ' + name + "'s " + o.tile + RESET,
+        );
+      } else {
+        parts.push(
+          fg(P_LIME) + '[' + fg(P_LIME2) + BOLD + key + RESET + fg(P_LIME) +
+            '] take ' + o.tile + ' from the center' + RESET,
+        );
+      }
+    }
+    return fg(P_LIME) + '> ' + parts.join('  ') + ' ' + RESET;
   }
   const canStop = state.setAside.length > 0;
   const choices = [fg(P_LIME) + '[' + fg(P_LIME2) + BOLD + 'R' + RESET + fg(P_LIME) + ']oll' + RESET];
@@ -772,6 +793,14 @@ function parseGameKey(k: string, state: State): Action | 'quit' | null {
       if (state.rolled.includes(f) && !state.pickedFaces.includes(f)) {
         return { type: 'PICK', face: f };
       }
+    }
+    return null;
+  }
+  if (state.phase === 'chooseBank') {
+    const opts = bankOptions(state);
+    const n = Number(k);
+    if (Number.isInteger(n) && n >= 1 && n <= opts.length) {
+      return { type: 'BANK', target: opts[n - 1] };
     }
     return null;
   }

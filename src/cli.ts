@@ -3,9 +3,11 @@
 
 import {
   COIN,
+  bankOptions,
   initialState,
   step,
   type Action,
+  type BankOption,
   type Face,
   type Rng,
   type State,
@@ -94,6 +96,27 @@ function promptText(state: State): string {
       fg(DIM_TEXT) + '(Q to quit) ' + RESET
     );
   }
+  if (state.phase === 'chooseBank') {
+    const opts = bankOptions(state);
+    const parts: string[] = [];
+    let i = 1;
+    for (const o of opts) {
+      const key = String(i++);
+      if (o.kind === 'steal') {
+        const name = state.players[o.playerIndex].id;
+        parts.push(
+          fg(P_LIME) + '[' + fg(A_GLINT) + BOLD + key + RESET + fg(P_LIME) +
+            '] steal ' + name + "'s " + o.tile + RESET,
+        );
+      } else {
+        parts.push(
+          fg(P_LIME) + '[' + fg(P_LIME2) + BOLD + key + RESET + fg(P_LIME) +
+            '] take ' + o.tile + ' from the center' + RESET,
+        );
+      }
+    }
+    return fg(P_LIME) + '> ' + parts.join('  ') + ' ' + RESET;
+  }
   const canStop = state.setAside.length > 0;
   const choices = [fg(P_LIME) + '[' + fg(P_LIME2) + BOLD + 'R' + RESET + fg(P_LIME) + ']oll' + RESET];
   if (canStop) {
@@ -114,6 +137,16 @@ async function promptHuman(state: State): Promise<Action | 'QUIT'> {
     if (k === 'q') return 'QUIT';
     const face: Face = k === 'c' || k === '$' ? COIN : (Number(k) as Face);
     return { type: 'PICK', face };
+  }
+  if (state.phase === 'chooseBank') {
+    const opts = bankOptions(state);
+    const k = await readKeyMatching((k) => {
+      const n = Number(k);
+      return Number.isInteger(n) && n >= 1 && n <= opts.length;
+    });
+    if (k === 'q') return 'QUIT';
+    const target: BankOption = opts[Number(k) - 1];
+    return { type: 'BANK', target };
   }
   const canStop = state.setAside.length > 0;
   const k = await readKeyMatching((k) => k === 'r' || (canStop && k === 's'));

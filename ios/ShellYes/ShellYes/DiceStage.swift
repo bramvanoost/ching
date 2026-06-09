@@ -17,6 +17,15 @@ struct DiceStage: View {
     var bankPreview: String = ""
     var isSteal: Bool = false
     var onBank: () -> Void = {}
+    /// Player labels indexed by seat — used to name the steal target in
+    /// the chooseBank UI ("Steal Marina's 26"). Empty array means the
+    /// caller hasn't wired it; the chooser falls back to "rival N".
+    var playerNames: [String] = []
+    /// When non-empty, the dice slot is replaced by a two-button chooser
+    /// driving `onChoose`. Engine is in `.chooseBank` phase: the player
+    /// must pick a target before the turn advances.
+    var bankChoices: [BankOption] = []
+    var onChoose: (BankOption) -> Void = { _ in }
     var reduceMotion: Bool = false
     var speedFactor: Double = 1.0
     /// When true, roll SFX plays regardless of whose turn it technically
@@ -162,7 +171,10 @@ struct DiceStage: View {
             // Dice slot — fixed height holds either the 4-col grid (max 2 rows)
             // or a centered status line. Swapping inside doesn't reflow.
             ZStack {
-                if !displayRolled.isEmpty {
+                if !bankChoices.isEmpty {
+                    bankChooser()
+                        .padding(.horizontal, 18)
+                } else if !displayRolled.isEmpty {
                     LazyVGrid(
                         columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
                         spacing: 8
@@ -389,5 +401,115 @@ struct DiceStage: View {
 
     private func faceText(_ f: Face) -> String {
         f == .coin ? "C" : "\(f.rawValue)"
+    }
+
+    // MARK: - Bank chooser (engine phase .chooseBank)
+
+    @ViewBuilder
+    private func bankChooser() -> some View {
+        // Two side-by-side cards, one per legal target. Layout mirrors
+        // the event-banner shell chip vocabulary so the prize on offer
+        // reads as a real shell, not a label.
+        HStack(spacing: 12) {
+            ForEach(Array(bankChoices.enumerated()), id: \.offset) { _, option in
+                bankChoiceCard(option: option)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 158)
+    }
+
+    @ViewBuilder
+    private func bankChoiceCard(option: BankOption) -> some View {
+        let isSteal: Bool = {
+            if case .steal = option { return true }
+            return false
+        }()
+        Button {
+            GameSFX.shared.playConfirm()
+            onChoose(option)
+        } label: {
+            VStack(spacing: 8) {
+                // Two-line header: action verb on top, source below
+                // (rival name for steal, "the sand" for centre take).
+                VStack(spacing: 0) {
+                    Text(isSteal ? "STEAL FROM" : "TAKE FROM")
+                        .font(.avenir(11, weight: .demiBold))
+                        .tracking(3)
+                        .foregroundStyle(isSteal ? Color.stampText : Color.treasureInk.opacity(0.7))
+                    Text(bankChoiceSource(option))
+                        .font(.avenir(15, weight: .demiBold, italic: true))
+                        .foregroundStyle(isSteal ? Color.stampText : Color.treasureInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .padding(.top, 2)
+
+                bankChoiceShell(value: option.tile)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        isSteal
+                            ? LinearGradient(
+                                colors: [Color.coralLight, Color.coral, Color.coralDark],
+                                startPoint: .top,
+                                endPoint: .bottom
+                              )
+                            : LinearGradient(
+                                colors: [Color.safePeachLight, Color.safePeachDark],
+                                startPoint: .top,
+                                endPoint: .bottom
+                              )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(isSteal ? Color.coralDark : Color.treasureInk.opacity(0.55), lineWidth: 1.5)
+            )
+            .shadow(color: Color.coralDark.opacity(isSteal ? 0.5 : 0.18), radius: isSteal ? 16 : 8, x: 0, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Embedded shell-chip preview of the prize. Same silhouette and
+    /// detailing as the event-banner ShellChip, sized down to fit a
+    /// choice card next to header copy.
+    @ViewBuilder
+    private func bankChoiceShell(value: Int) -> some View {
+        let coins = GameStore.safeCoins(value)
+        ZStack {
+            ShellCardShape()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.safePeachLight, Color.safePeachDark],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    ShellCardShape()
+                        .strokeBorder(Color.treasureInk, lineWidth: 2)
+                )
+                .shadow(color: Color.treasureInk.opacity(0.25), radius: 0, x: 0, y: 4)
+            VStack(spacing: 2) {
+                Text("\(value)")
+                    .font(.avenir(22, weight: .demiBold))
+                    .foregroundStyle(Color.treasureInk)
+                PearlRow(count: coins, diameter: 5, spacing: 2)
+            }
+        }
+        .frame(width: 52, height: 66)
+    }
+
+    private func bankChoiceSource(_ option: BankOption) -> String {
+        switch option {
+        case .steal(let i, _):
+            return i < playerNames.count ? playerNames[i] : "Rival \(i + 1)"
+        case .center:
+            return "the sand"
+        }
     }
 }

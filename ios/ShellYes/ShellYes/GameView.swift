@@ -144,9 +144,13 @@ struct GameView: View {
 
         // Detect end-of-turn outcomes for the human player — bust gets a flash;
         // bank/steal celebration is handled per-column (sparkles + steal pulse).
+        // The turn has ended whenever the engine advanced `current` OR flipped
+        // to `.over` (game-ending claim keeps current pinned to the human).
         var didBank = false
         var didBust = false
-        if wasHumanTurn && !store.isHumanTurn && !store.isOver {
+        let humanTurnEnded = wasHumanTurn
+            && (store.state.current != beforeCurrent || store.isOver)
+        if humanTurnEnded {
             let afterVault = store.state.players[humanSeat].tiles.count
             if afterVault <= beforeVault {
                 if forcedStop {
@@ -545,6 +549,14 @@ struct GameView: View {
                         }
                         #endif
                     },
+                    onDebugBankChoice: {
+                        #if DEBUG
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                            store.debugTriggerBankChoice()
+                        }
+                        #endif
+                    },
                     onDebugEndGame: {
                         #if DEBUG
                         Task { @MainActor in
@@ -588,6 +600,9 @@ struct GameView: View {
                     bankPreview: store.bankActionLabel,
                     isSteal: store.isStealOpportunity,
                     onBank: { act(.stop) },
+                    playerNames: store.state.players.map { $0.id.capitalized },
+                    bankChoices: store.isHumanTurn ? store.bankChoices : [],
+                    onChoose: { act(.bank(target: $0)) },
                     reduceMotion: settings.reducedMotion || iosReduceMotion,
                     speedFactor: settings.gameSpeed.factor,
                     forceRollSound: bustAnimatedRoll != nil
@@ -742,7 +757,9 @@ struct GameView: View {
         // Without this gate, the fullScreenCover races the AIEventBanner
         // overlay and covers it the instant `state.phase` flips to .over,
         // so the player never gets to read "X claimed the last shell."
-        .fullScreenCover(isPresented: .constant(store.isOver && store.aiEvent == nil)) {
+        // `bustFlash` is gated too so a bust that burns the last supply
+        // tile gets its full "Oh, shell no" moment before the tally.
+        .fullScreenCover(isPresented: .constant(store.isOver && store.aiEvent == nil && !bustFlash)) {
             CountingCeremony(
                 players: store.state.players,
                 scores: store.scores,
@@ -757,6 +774,7 @@ struct ChromeBar: View {
     let settings: SettingsStore
     var onDebugSeedAI: (() -> Void)? = nil
     var onDebugSteal: (() -> Void)? = nil
+    var onDebugBankChoice: (() -> Void)? = nil
     var onDebugEndGame: (() -> Void)? = nil
 
     var body: some View {
@@ -775,6 +793,9 @@ struct ChromeBar: View {
                 }
                 if let onDebugSteal {
                     Button("Trigger steal", systemImage: "hand.raised.fill", action: onDebugSteal)
+                }
+                if let onDebugBankChoice {
+                    Button("Trigger bank choice", systemImage: "questionmark.diamond.fill", action: onDebugBankChoice)
                 }
                 if let onDebugEndGame {
                     Button("End game (tally screen)", systemImage: "flag.checkered", action: onDebugEndGame)

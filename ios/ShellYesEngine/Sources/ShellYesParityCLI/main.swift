@@ -2,9 +2,15 @@ import Foundation
 import ShellYesEngine
 
 struct ParityCase: Codable {
+    struct BankTargetDTO: Codable {
+        let kind: String
+        let tile: Int
+        let playerIndex: Int?
+    }
     struct ActionDTO: Codable {
         let type: String
         let face: Int?
+        let target: BankTargetDTO?
     }
     let seed: UInt32
     let playerIds: [String]
@@ -25,6 +31,24 @@ func actionFrom(_ dto: ParityCase.ActionDTO) -> Action {
             exit(1)
         }
         return .pick(face: face)
+    case "BANK":
+        guard let t = dto.target else {
+            FileHandle.standardError.write(Data("BANK missing target\n".utf8))
+            exit(1)
+        }
+        switch t.kind {
+        case "center":
+            return .bank(target: .center(tile: t.tile))
+        case "steal":
+            guard let idx = t.playerIndex else {
+                FileHandle.standardError.write(Data("BANK steal missing playerIndex\n".utf8))
+                exit(1)
+            }
+            return .bank(target: .steal(playerIndex: idx, tile: t.tile))
+        default:
+            FileHandle.standardError.write(Data("unknown BANK target kind \(t.kind)\n".utf8))
+            exit(1)
+        }
     default:
         FileHandle.standardError.write(Data("unknown action type \(dto.type)\n".utf8))
         exit(1)

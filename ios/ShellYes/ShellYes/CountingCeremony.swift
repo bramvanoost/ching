@@ -1,6 +1,19 @@
 import SwiftUI
 import ShellYesEngine
 
+/// Per-winner-card frame anchors, published from each winning card up to
+/// the VStack so the shared rays layer can position itself behind every
+/// winner. Hoisting the rays out of each card's `.background` is what
+/// prevents the second winner's rays from painting over the first
+/// winner's body in a tie — VStack siblings render later-on-top, so a
+/// per-card background lands ON TOP of any earlier sibling.
+private struct WinnerCardAnchorKey: PreferenceKey {
+    static var defaultValue: [Int: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [Int: Anchor<CGRect>], nextValue: () -> [Int: Anchor<CGRect>]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
 struct CountingCeremony: View {
     let players: [Player]
     let scores: [Int]
@@ -26,7 +39,7 @@ struct CountingCeremony: View {
             }
             return "\(players[idx].id.capitalized.lowercased()) wins."
         }
-        return "a tie."
+        return "it's a beach tie!"
     }
 
     private var isHumanWin: Bool {
@@ -65,6 +78,29 @@ struct CountingCeremony: View {
                     }
                 }
                 .padding(.horizontal, 20)
+                .backgroundPreferenceValue(WinnerCardAnchorKey.self) { anchors in
+                    // Rays sit behind the whole card stack — any portion
+                    // that extends into a sibling card's bounds is
+                    // covered by that card's body, so a tie no longer
+                    // shows card 2's rays bleeding onto card 1.
+                    GeometryReader { geo in
+                        ForEach(anchors.keys.sorted(), id: \.self) { idx in
+                            if let anchor = anchors[idx] {
+                                let rect = geo[anchor]
+                                LightRays(
+                                    rayCount: 14,
+                                    innerRadius: 10,
+                                    outerRadius: 150,
+                                    rayWidth: 24,
+                                    rotationDuration: 36,
+                                    maxOpacity: 0.5
+                                )
+                                .allowsHitTesting(false)
+                                .position(x: rect.midX, y: rect.midY)
+                            }
+                        }
+                    }
+                }
                 .animation(.easeOut(duration: 0.5), value: winnerRevealed)
 
                 Spacer()
@@ -146,23 +182,12 @@ struct CountingCeremony: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(winnerOrIdleFill(isWinner: isWinner))
         )
-        .background {
-            // Rays of light sit further back than the gold fill — only
-            // the portions that extend past the card's silhouette
-            // remain visible, reading as a sunburst behind the winner.
-            // Modest outer radius keeps the rays from bleeding up into
-            // the headline area above the card stack.
-            if isWinner {
-                LightRays(
-                    rayCount: 14,
-                    innerRadius: 10,
-                    outerRadius: 150,
-                    rayWidth: 24,
-                    rotationDuration: 36,
-                    maxOpacity: 0.5
-                )
-                .allowsHitTesting(false)
-            }
+        // Each winner card publishes its bounds; the VStack reads them
+        // via `backgroundPreferenceValue` and draws all rays in a single
+        // shared layer behind every card, so sibling cards always cover
+        // each other's bleed.
+        .anchorPreference(key: WinnerCardAnchorKey.self, value: .bounds) { anchor in
+            isWinner ? [i: anchor] : [:]
         }
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -186,9 +211,9 @@ struct CountingCeremony: View {
             return AnyShapeStyle(
                 LinearGradient(
                     colors: [
-                        Color.coinGoldLight.opacity(0.55),
-                        Color.gold.opacity(0.32),
-                        Color.gold.opacity(0.18)
+                        Color.coinGoldLight.opacity(0.95),
+                        Color.gold.opacity(0.78),
+                        Color.gold.opacity(0.58)
                     ],
                     startPoint: .top,
                     endPoint: .bottom

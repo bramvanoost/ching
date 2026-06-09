@@ -79,25 +79,38 @@ final class GameStore {
         state.phase == .roll && !state.setAside.isEmpty && isHumanTurn
     }
 
+    /// Non-empty only when the engine has parked in `.chooseBank`. The
+    /// player must pick one of these to advance the turn — there's no
+    /// auto-resolve from this state.
+    var bankChoices: [BankOption] {
+        state.phase == .chooseBank ? bankOptions(state) : []
+    }
+
     var bankActionLabel: String {
         guard canBank else { return "Keep" }
-        for i in state.players.indices where i != state.current {
-            if let top = state.players[i].tiles.last, top == setAsideSum {
-                let name = state.players[i].id.capitalized
-                return "Take \(name)'s shell"
-            }
+        // Peek at what STOP would offer. Single-option → label it concretely.
+        // Multi-option → "Choose…", because the engine will ask before
+        // committing.
+        let preview = bankOptions(state)
+        if preview.count > 1 { return "Choose…" }
+        if case .steal(let i, _) = preview.first {
+            let name = state.players[i].id.capitalized
+            return "Take \(name)'s shell"
         }
         return "Keep"
     }
 
+    /// True only when the imminent bank is unambiguously a steal — i.e.
+    /// stealing is the only legal option. Used to drive the steal-tinted
+    /// button treatment. When the player has both steal and center on
+    /// offer, the button stays neutral until they pick.
     var isStealOpportunity: Bool {
         guard canBank else { return false }
-        for i in state.players.indices where i != state.current {
-            if let top = state.players[i].tiles.last, top == setAsideSum {
-                return true
-            }
-        }
-        return false
+        let preview = bankOptions(state)
+        return preview.count == 1 && {
+            if case .steal = preview[0] { return true }
+            return false
+        }()
     }
 
     var phaseHint: String {
@@ -110,6 +123,8 @@ final class GameStore {
             return state.setAside.isEmpty ? "your turn. deep breath." : "roll on, or keep."
         case .pick:
             return "pick what you'll keep."
+        case .chooseBank:
+            return "steal, or claim the sand?"
         case .over:
             return "the tide rolls back."
         }
@@ -152,15 +167,24 @@ final class GameStore {
             let oldCurrent = oldState.current
             let action = decide(state: state, ai: ai)
             apply(action)
+            let turnEnded = state.current != oldCurrent || isOver
+            let event: AIEvent? = (!reduceMotion && turnEnded)
+                ? turnEndEvent(from: oldState, oldCurrent: oldCurrent)
+                : nil
+            // Last-shell claim: present the banner synchronously with the
+            // apply so the view never observes (isOver = true, aiEvent = nil).
+            // That race would let the tally fullScreenCover flash up
+            // between apply and the banner. Skip the pacing sleep too —
+            // there's no next AI turn to pace into.
+            if isOver {
+                if let event { await presentAIEvent(event) }
+                return
+            }
             if !reduceMotion {
                 try? await Task.sleep(nanoseconds: pace)
             }
-            // Turn passed — surface an event banner so the player sees what
-            // happened without scanning the board for differences.
-            if !reduceMotion, state.current != oldCurrent || (isOver && state.current == oldCurrent) {
-                if let event = turnEndEvent(from: oldState, oldCurrent: oldCurrent) {
-                    await presentAIEvent(event)
-                }
+            if let event {
+                await presentAIEvent(event)
             }
         }
     }
@@ -260,6 +284,29 @@ final class GameStore {
         state.pickedFaces = []
         state.diceInHand = 0
         state.phase = .over
+    }
+
+    /// Forces the engine into the `chooseBank` phase with both a steal
+    /// and a center take legal, so the human sees the two-card chooser
+    /// without having to dice their way into the scenario. The setup
+    /// mirrors Bram's reported bug: rival holds 26, sand holds 25 only,
+    /// dice locked sum to 26 — so picking the center actually ends the
+    /// game.
+    func debugTriggerBankChoice() {
+        state.current = Self.humanSeat
+        var rival: Int? = nil
+        for i in state.players.indices where i != Self.humanSeat {
+            rival = i; break
+        }
+        guard let r = rival else { return }
+        state.players[r].tiles = [26]
+        state.centerTiles = [25]
+        // Coin = 5, so 5*5 + 1 = 26 across six locked dice.
+        state.setAside = [.coin, .coin, .coin, .coin, .coin, .one]
+        state.pickedFaces = [.coin, .one]
+        state.rolled = []
+        state.diceInHand = 0
+        state.phase = .chooseBank
     }
 
     /// Moves the top tile from the first non-human seat with shells into

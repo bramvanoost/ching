@@ -25,7 +25,7 @@ struct GameOverSheet: View {
         if leaderCount == 1 {
             return "\(ranked.first!.id.capitalized.lowercased()) wins."
         }
-        return "a tie."
+        return "it's a beach tie!"
     }
 
     var body: some View {

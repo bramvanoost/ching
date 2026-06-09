@@ -40,6 +40,9 @@ Higher discipline = harder AI = stops earlier and banks any reachable tile. Lowe
 ### Bust burns the highest center tile (Heckmeck flip)
 "Return your top tile" alone caused 153/200 sim games to stalemate, tiles cycling in and out of the center forever. The burn rule is what makes the supply monotonically deplete. Do not remove it unless you add another depletion mechanism, and update CLAUDE.md if you do.
 
+### Banking with both steal and center available is a player choice
+When the active player's sum could either steal a rival's top tile OR take a tile from the supply, the engine parks in a new `chooseBank` phase and waits for a `BANK` action. This is the Heckmeck rule (stealing is always optional) and replaces the older "steal takes priority over center" behavior, which silently denied players game-ending plays (e.g. banking sum 26 with [25] on the beach and a rival holding 26: the old engine forced the steal and the game dragged on; the new engine lets the player end it). When only one option exists, the engine still auto-commits to keep the rhythm of the common case. AI policy: prefer a game-ending center pick (`centerTiles.count == 1`), otherwise prefer steal to keep the sim baseline close to the pre-change numbers.
+
 ### CLI must fit the terminal frame
 Renderer uses the alternate screen buffer (`\x1b[?1049h`/`l`) and writes a fixed 22-row frame: header(4) + center(6) + vaults(5) + turn(6) + footer(1). NEVER append after `render()` returns. Status/prompt/AI-thinking lines must go through `opts.footer` so they're part of the same cleared frame. The flash banner overwrites the footer row via `\r`, not new lines. Past 22 rows the screen scrolls and you see stale frames stacking.
 

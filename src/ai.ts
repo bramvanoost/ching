@@ -6,9 +6,11 @@
 import {
   COIN,
   FACES,
+  bankOptions,
   faceValue,
   tileCoins,
   type Action,
+  type BankOption,
   type Face,
   type State,
 } from './engine.js';
@@ -19,8 +21,27 @@ export function decide(state: State, ai: Difficulty): Action {
   if (state.phase === 'pick') {
     return { type: 'PICK', face: pickFace(state) };
   }
+  if (state.phase === 'chooseBank') {
+    return { type: 'BANK', target: chooseBankTarget(state) };
+  }
   if (state.setAside.length === 0) return { type: 'ROLL' };
   return continueOrStop(state, ai);
+}
+
+// AI policy when both steal and center are on the table:
+//   1. If a center pick would empty the supply, take it — ending the
+//      game on your turn is almost always the best move.
+//   2. Otherwise prefer stealing, which mirrors the engine's old forced
+//      behavior and keeps the 200-game sim's outcomes close to the
+//      pre-change baseline.
+function chooseBankTarget(state: State): BankOption {
+  const options = bankOptions(state);
+  const gameEndingCenter = options.find(
+    (o) => o.kind === 'center' && state.centerTiles.length === 1,
+  );
+  if (gameEndingCenter) return gameEndingCenter;
+  const steal = options.find((o) => o.kind === 'steal');
+  return steal ?? options[0];
 }
 
 function pickFace(state: State): Face {

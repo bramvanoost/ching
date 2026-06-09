@@ -24,7 +24,30 @@ public func step<R: ShellYesRandom>(state: State, action: Action, rng: inout R) 
         return applyPick(state, face: face)
     case .stop:
         return applyStop(state)
+    case .bank(let target):
+        return applyBank(state, target: target)
     }
+}
+
+// Enumerates every legal bank commitment from the current set-aside sum:
+// each rival whose top tile matches exactly, plus the highest supply tile
+// <= sum if one exists. Returns [] when banking would bust. Renderers
+// should call this in the `chooseBank` phase to present the player's
+// options.
+public func bankOptions(_ state: State) -> [BankOption] {
+    let sum = state.setAside.reduce(0) { $0 + $1.value }
+    guard state.setAside.contains(.coin) else { return [] }
+    var options: [BankOption] = []
+    for i in state.players.indices where i != state.current {
+        if let top = state.players[i].tiles.last, top == sum {
+            options.append(.steal(playerIndex: i, tile: sum))
+        }
+    }
+    let eligible = state.centerTiles.filter { $0 <= sum }
+    if let top = eligible.max() {
+        options.append(.center(tile: top))
+    }
+    return options
 }
 
 func applyPick(_ state: State, face: Face) -> State {
@@ -45,27 +68,37 @@ func applyPick(_ state: State, face: Face) -> State {
 }
 
 func tryBank(_ state: State) -> State {
-    let sum = state.setAside.reduce(0) { $0 + $1.value }
-    let hasCoin = state.setAside.contains(.coin)
-    guard hasCoin else { return bust(state) }
-
-    // Steal: exact match on a rival's top tile takes priority over the center.
-    for i in state.players.indices where i != state.current {
-        if let rivalTop = state.players[i].tiles.last, rivalTop == sum {
-            var next = state
-            next.players[i].tiles.removeLast()
-            next.players[state.current].tiles.append(sum)
-            return endTurn(next)
-        }
-    }
-
-    let available = state.centerTiles.filter { $0 <= sum }
-    guard !available.isEmpty else { return bust(state) }
-    let taken = available.max()!
+    guard state.setAside.contains(.coin) else { return bust(state) }
+    let options = bankOptions(state)
+    if options.isEmpty { return bust(state) }
+    // Single option = no choice to make. Multiple options park in
+    // `chooseBank` and wait for the player's .bank action. Heckmeck rule:
+    // stealing is always optional, never forced.
+    if options.count == 1 { return commitBank(state, target: options[0]) }
     var next = state
-    next.centerTiles.removeAll { $0 == taken }
-    next.players[state.current].tiles.append(taken)
-    return endTurn(next)
+    next.phase = .chooseBank
+    return next
+}
+
+func commitBank(_ state: State, target: BankOption) -> State {
+    switch target {
+    case .steal(let playerIndex, let tile):
+        var next = state
+        next.players[playerIndex].tiles.removeLast()
+        next.players[state.current].tiles.append(tile)
+        return endTurn(next)
+    case .center(let tile):
+        var next = state
+        next.centerTiles.removeAll { $0 == tile }
+        next.players[state.current].tiles.append(tile)
+        return endTurn(next)
+    }
+}
+
+func applyBank(_ state: State, target: BankOption) -> State {
+    guard state.phase == .chooseBank else { return state }
+    guard bankOptions(state).contains(target) else { return state }
+    return commitBank(state, target: target)
 }
 
 func rollDie<R: ShellYesRandom>(rng: inout R) -> Face {

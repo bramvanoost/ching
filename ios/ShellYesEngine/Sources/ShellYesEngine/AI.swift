@@ -11,10 +11,31 @@ public func decide(state: State, ai: Difficulty) -> Action {
     if state.phase == .pick {
         return .pick(face: pickFace(state))
     }
+    if state.phase == .chooseBank {
+        return .bank(target: chooseBankTarget(state))
+    }
     if state.setAside.isEmpty {
         return .roll
     }
     return continueOrStop(state, ai: ai)
+}
+
+// AI policy when both steal and center are on the table:
+//   1. If a center pick would empty the supply, take it — ending the
+//      game on your turn is almost always the best move.
+//   2. Otherwise prefer stealing, which mirrors the engine's old forced
+//      behavior and keeps simulation outcomes close to the pre-change
+//      baseline.
+func chooseBankTarget(_ state: State) -> BankOption {
+    let options = bankOptions(state)
+    if state.centerTiles.count == 1,
+       let gameEnding = options.first(where: { if case .center = $0 { return true } else { return false } }) {
+        return gameEnding
+    }
+    if let steal = options.first(where: { if case .steal = $0 { return true } else { return false } }) {
+        return steal
+    }
+    return options.first ?? .center(tile: state.centerTiles.last ?? 0)
 }
 
 func pickFace(_ state: State) -> Face {

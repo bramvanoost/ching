@@ -10,7 +10,7 @@ export type Player = {
   tiles: number[];
 };
 
-export type Phase = 'roll' | 'pick' | 'over';
+export type Phase = 'roll' | 'pick' | 'chooseBank' | 'over';
 
 export type State = {
   players: Player[];
@@ -23,10 +23,18 @@ export type State = {
   phase: Phase;
 };
 
+// At bank time the player picks one of these. `center` is the highest
+// supply tile <= sum (Heckmeck rule, no sub-choice within the supply).
+// `steal` is a rival's top tile whose value exactly equals sum.
+export type BankOption =
+  | { kind: 'center'; tile: number }
+  | { kind: 'steal'; playerIndex: number; tile: number };
+
 export type Action =
   | { type: 'ROLL' }
   | { type: 'PICK'; face: Face }
-  | { type: 'STOP' };
+  | { type: 'STOP' }
+  | { type: 'BANK'; target: BankOption };
 
 export type Rng = () => number;
 
@@ -69,7 +77,32 @@ export function step(state: State, action: Action, rng: Rng): State {
       return doPick(state, action.face);
     case 'STOP':
       return doStop(state);
+    case 'BANK':
+      return doBank(state, action.target);
   }
+}
+
+// Enumerates every legal bank commitment from the current set-aside sum:
+// each rival whose top tile matches exactly, plus the highest supply tile
+// <= sum if one exists. Returns [] when banking would bust (no coin or
+// no qualifying tile anywhere). Renderers should call this in the
+// `chooseBank` phase to present the player's options.
+export function bankOptions(state: State): BankOption[] {
+  const sum = state.setAside.reduce((acc, f) => acc + faceValue(f), 0);
+  if (!state.setAside.includes(COIN)) return [];
+  const options: BankOption[] = [];
+  for (let i = 0; i < state.players.length; i++) {
+    if (i === state.current) continue;
+    const tiles = state.players[i].tiles;
+    if (tiles.length > 0 && tiles[tiles.length - 1] === sum) {
+      options.push({ kind: 'steal', playerIndex: i, tile: sum });
+    }
+  }
+  const eligible = state.centerTiles.filter((t) => t <= sum);
+  if (eligible.length > 0) {
+    options.push({ kind: 'center', tile: Math.max(...eligible) });
+  }
+  return options;
 }
 
 function rollDie(rng: Rng): Face {
@@ -115,34 +148,42 @@ function doStop(state: State): State {
 }
 
 function tryBank(state: State): State {
-  const sum = state.setAside.reduce((acc, f) => acc + faceValue(f), 0);
-  const hasCoin = state.setAside.includes(COIN);
-  if (!hasCoin) return bust(state);
+  if (!state.setAside.includes(COIN)) return bust(state);
+  const options = bankOptions(state);
+  if (options.length === 0) return bust(state);
+  // Single option = no choice to make, commit immediately. Multiple options
+  // park in `chooseBank` and wait for the player's BANK action. This is
+  // the Heckmeck rule: stealing is always optional.
+  if (options.length === 1) return commitBank(state, options[0]);
+  return { ...state, phase: 'chooseBank' };
+}
 
-  // Steal: exact match on a rival's top tile.
-  for (let i = 0; i < state.players.length; i++) {
-    if (i === state.current) continue;
-    const tiles = state.players[i].tiles;
-    if (tiles.length === 0) continue;
-    if (tiles[tiles.length - 1] === sum) {
-      const players = state.players.map((p, idx) => {
-        if (idx === i) return { ...p, tiles: p.tiles.slice(0, -1) };
-        if (idx === state.current) return { ...p, tiles: [...p.tiles, sum] };
-        return p;
-      });
-      return endTurn({ ...state, players });
-    }
+function commitBank(state: State, target: BankOption): State {
+  if (target.kind === 'steal') {
+    const players = state.players.map((p, idx) => {
+      if (idx === target.playerIndex) return { ...p, tiles: p.tiles.slice(0, -1) };
+      if (idx === state.current) return { ...p, tiles: [...p.tiles, target.tile] };
+      return p;
+    });
+    return endTurn({ ...state, players });
   }
-
-  // Center: take the highest tile <= sum.
-  const available = state.centerTiles.filter((t) => t <= sum);
-  if (available.length === 0) return bust(state);
-  const taken = Math.max(...available);
-  const centerTiles = state.centerTiles.filter((t) => t !== taken);
+  const centerTiles = state.centerTiles.filter((t) => t !== target.tile);
   const players = state.players.map((p, i) =>
-    i === state.current ? { ...p, tiles: [...p.tiles, taken] } : p,
+    i === state.current ? { ...p, tiles: [...p.tiles, target.tile] } : p,
   );
   return endTurn({ ...state, players, centerTiles });
+}
+
+function doBank(state: State, target: BankOption): State {
+  if (state.phase !== 'chooseBank') return state;
+  const valid = bankOptions(state).find(
+    (o) =>
+      o.kind === target.kind &&
+      o.tile === target.tile &&
+      (o.kind === 'center' || o.playerIndex === (target as { playerIndex: number }).playerIndex),
+  );
+  if (!valid) return state;
+  return commitBank(state, valid);
 }
 
 function bust(state: State): State {

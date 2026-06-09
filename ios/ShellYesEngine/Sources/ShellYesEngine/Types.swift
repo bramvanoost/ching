@@ -7,7 +7,22 @@ public enum Face: Int, Codable, Sendable, CaseIterable, Equatable {
 }
 
 public enum Phase: String, Codable, Sendable, Equatable {
-    case roll, pick, over
+    case roll, pick, chooseBank, over
+}
+
+// At bank time the player picks one of these. `center` is the highest
+// supply tile <= sum (Heckmeck rule, no sub-choice within the supply).
+// `steal` is a rival's top tile whose value exactly equals sum.
+public enum BankOption: Codable, Sendable, Equatable {
+    case center(tile: Int)
+    case steal(playerIndex: Int, tile: Int)
+
+    public var tile: Int {
+        switch self {
+        case .center(let t): return t
+        case .steal(_, let t): return t
+        }
+    }
 }
 
 public struct Player: Codable, Sendable, Equatable {
@@ -55,6 +70,7 @@ public enum Action: Codable, Sendable, Equatable {
     case roll
     case pick(face: Face)
     case stop
+    case bank(target: BankOption)
 }
 
 public let TOTAL_DICE = 8
