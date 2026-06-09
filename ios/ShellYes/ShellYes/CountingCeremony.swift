@@ -50,13 +50,11 @@ struct CountingCeremony: View {
                 if winnerRevealed {
                     WinHeadline(text: winnerHeadline, festive: isHumanWin)
                         .padding(.top, -34)
-                        .overlay {
-                            if isHumanWin {
-                                SparkleField(count: 44, startRadius: 18, spread: 95, duration: 1.4)
-                                    .id(humanWinHeadlineSparkle)
-                            }
-                        }
                         .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                        // Sits above the cards' light-ray backgrounds so
+                        // the headline can never be visually swallowed
+                        // by rays that radiate up from the winner card.
+                        .zIndex(10)
                 }
 
                 Spacer().frame(height: winnerRevealed ? 30 : 22)
@@ -93,21 +91,30 @@ struct CountingCeremony: View {
         let isWinner = winnerRevealed && winnerIndices.contains(i)
         let displayedTotal = tickedTotals.indices.contains(i) ? tickedTotals[i] : 0
 
-        VStack(spacing: 12) {
-            // Name
+        // Two-column layout: name on the left as the row anchor, stats
+        // stacked on the right (shells top, score+pearl bottom). Reads
+        // as a leaderboard row rather than a centered poster, leaves
+        // more breathing room above the New Game button.
+        HStack(alignment: .center, spacing: 14) {
             Text(players[i].id.capitalized)
-                .font(.avenir(15, weight: isWinner ? .demiBold : .medium, italic: true))
+                .font(.avenir(22, weight: isWinner ? .demiBold : .medium, italic: true))
                 .foregroundStyle(Color.ink)
                 .tracking(1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
-            // Tile row — each tile shows its number + the coins it's worth.
-            ZStack {
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 8) {
+                // Shell row — empty state collapses to a quiet em-dash
+                // so the right column keeps a consistent baseline.
                 if players[i].tiles.isEmpty {
-                    Text("0 shells")
+                    Text("no shells")
                         .font(.avenir(11, weight: .medium, italic: true))
                         .tracking(1.5)
                         .textCase(.lowercase)
                         .foregroundStyle(Color.ink.opacity(0.45))
+                        .frame(height: 40)
                 } else {
                     HStack(spacing: -4) {
                         ForEach(players[i].tiles, id: \.self) { tile in
@@ -115,30 +122,48 @@ struct CountingCeremony: View {
                         }
                     }
                 }
-            }
-            .frame(height: 44)
 
-            // Big coin total + same-sized coin, side by side. The coin sits
-            // a bit higher than the geometric center so it lines up with the
-            // visible cap height of the italic digits.
-            HStack(alignment: .center, spacing: 10) {
-                Text("\(displayedTotal)")
-                    .font(.avenir(48, weight: .demiBold))
-                    .foregroundStyle(Color.ink)
-                    .monospacedDigit()
-                pearlGlyph(size: 48)
-                    .shadow(color: Color.pearlEdge.opacity(0.35), radius: 0, x: 0, y: 2)
-                    .offset(y: -2)
+                // Center-aligned with a small upward nudge: italic digits
+                // have their visual mass above center, so a true vertical
+                // center alignment makes the pearl sit too low. The -3pt
+                // nudge brings the pearl up to ride the digit's cap line.
+                HStack(alignment: .center, spacing: 6) {
+                    Text("\(displayedTotal)")
+                        .font(.avenir(34, weight: .demiBold))
+                        .foregroundStyle(Color.ink)
+                        .monospacedDigit()
+                    pearlGlyph(size: 24)
+                        .shadow(color: Color.pearlEdge.opacity(0.35), radius: 0, x: 0, y: 1)
+                        .offset(y: -3)
+                }
+                .opacity(isRevealed ? 1.0 : 0.25)
             }
-            .opacity(isRevealed ? 1.0 : 0.25)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(isWinner ? Color.gold.opacity(0.28) : Color.white.opacity(0.32))
+                .fill(winnerOrIdleFill(isWinner: isWinner))
         )
+        .background {
+            // Rays of light sit further back than the gold fill — only
+            // the portions that extend past the card's silhouette
+            // remain visible, reading as a sunburst behind the winner.
+            // Modest outer radius keeps the rays from bleeding up into
+            // the headline area above the card stack.
+            if isWinner {
+                LightRays(
+                    rayCount: 14,
+                    innerRadius: 10,
+                    outerRadius: 150,
+                    rayWidth: 24,
+                    rotationDuration: 36,
+                    maxOpacity: 0.5
+                )
+                .allowsHitTesting(false)
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(
@@ -150,21 +175,27 @@ struct CountingCeremony: View {
         .shadow(color: isWinner ? Color.gold.opacity(0.55) : .clear, radius: 22, x: 0, y: 0)
         .scaleEffect(isWinner ? 1.03 : 1.0)
         .animation(.easeOut(duration: 0.35), value: isWinner)
-        .overlay {
-            if isWinner {
-                // Cards get extra row spacing on winner-reveal (see VStack
-                // above), so the edge sparkles can actually fly outward
-                // without crashing into the neighbour rows. Spread is
-                // tuned to land inside that breathing room.
-                EdgeSparkleField(count: 130, inset: 0, spread: 80, duration: 1.1)
-                    .id(sparkleWave)
-                // Radial inner burst — fills the card body so the
-                // sparkles read as bursting FROM the card, not just
-                // ringing its border.
-                SparkleField(count: 36, startRadius: 14, spread: 60, duration: 1.3)
-                    .id(sparkleWave)
-            }
+    }
+
+    /// Winner fill is a gentle top-to-bottom gradient — warmer at the
+    /// top, falling off into the deeper gold — so the card reads as
+    /// catching light rather than being flatly tinted. Non-winners stay
+    /// on the calm translucent paper wash.
+    private func winnerOrIdleFill(isWinner: Bool) -> some ShapeStyle {
+        if isWinner {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [
+                        Color.coinGoldLight.opacity(0.55),
+                        Color.gold.opacity(0.32),
+                        Color.gold.opacity(0.18)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
+        return AnyShapeStyle(Color.white.opacity(0.32))
     }
 
     @ViewBuilder
