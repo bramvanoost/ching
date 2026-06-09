@@ -8,21 +8,6 @@ import UniformTypeIdentifiers
 /// gold-peach in the middle, coral at the horizon, with twelve light
 /// rays fanning out from the shell.
 struct AppIconView: View {
-    /// 12 evenly-spaced rays as an angular gradient. Bright/clear
-    /// stops alternate so the interpolation produces soft beams
-    /// rather than hard bars.
-    private var rayStops: [Gradient.Stop] {
-        let count = 24
-        return (0..<count).map { i in
-            let location = Double(i) / Double(count)
-            let bright = i.isMultiple(of: 2)
-            return Gradient.Stop(
-                color: bright ? Color.coinGoldLight.opacity(0.22) : .clear,
-                location: location
-            )
-        }
-    }
-
     var body: some View {
         ZStack {
             // Sundown sky: dusky plum at the top, pink coral through
@@ -40,29 +25,23 @@ struct AppIconView: View {
                 endPoint: .bottom
             )
 
-            // Sun rays — angular sweep around the centre, masked to a
-            // ring so they emerge from behind the shell and dissipate
-            // toward the icon edges. Rotated 7.5° so no ray points
-            // straight down through the medallion's axis.
-            AngularGradient(
-                gradient: Gradient(stops: rayStops),
-                center: .center,
-                angle: .degrees(7.5)
-            )
-            .blendMode(.softLight)
-            .mask(
-                RadialGradient(
-                    stops: [
-                        .init(color: .clear, location: 0.0),
-                        .init(color: .black.opacity(0.5), location: 0.35),
-                        .init(color: .black.opacity(0.35), location: 0.65),
-                        .init(color: .clear, location: 0.95),
-                    ],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: 620
-                )
-            )
+            // Subtle darkening wash over the sky. The dusk gradient
+            // alone reads as quite bright at icon size — a touch of
+            // plum-tinted shade gives the shell room to glow without
+            // washing the colour story out. Kept on the .multiply
+            // blend so it tints the existing palette rather than
+            // flattening it to grey.
+            Color(red: 30/255, green: 14/255, blue: 50/255)
+                .opacity(0.22)
+                .blendMode(.multiply)
+
+            // Sun rays — 8 discrete tapered capsules rotated around
+            // the centre, so no angular-gradient seam can appear.
+            // Each capsule has a linear-gradient fill that fades at
+            // both tips, reading as a beam of light rather than a
+            // solid spoke. .plusLighter blend brightens the dusk sky.
+            IconRays()
+                .blendMode(.plusLighter)
 
             // Soft warm bloom behind the shell — a quiet golden glow
             // that lifts the medallion off the sunset without
@@ -136,6 +115,80 @@ enum IconExporter {
         CGImageDestinationAddImage(dest, opaqueCG, nil)
         guard CGImageDestinationFinalize(dest) else { return }
         print("[IconExporter] wrote \(url.path)")
+    }
+}
+
+/// Static sunburst rays for the app icon. Eight tapered capsules
+/// rotated evenly around the centre. Each capsule is a linear-gradient
+/// fill that fades at both tips so the beams read as soft light rather
+/// than solid spokes. No animations — this view is rendered by
+/// `ImageRenderer` into a PNG at build time.
+private struct IconRays: View {
+    private let rayCount: Int = 10
+    private let innerRadius: CGFloat = 220
+    private let outerRadius: CGFloat = 640
+    private let baseWidth: CGFloat = 180
+    /// Inner end is 22% of the base width (was 8%) so each ray
+    /// already has some width where it emerges from behind the shell
+    /// instead of starting as a sharp point.
+    private let tipScale: CGFloat = 0.22
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<rayCount, id: \.self) { i in
+                TaperedRay(tipScale: tipScale)
+                    .fill(
+                        // Peak alpha dropped from 0.32 → 0.22 — softer
+                        // light overall, complemented by the wider
+                        // base + stronger blur.
+                        LinearGradient(
+                            stops: [
+                                .init(color: Color.coinGoldLight.opacity(0.0), location: 0.0),
+                                .init(color: Color.coinGoldLight.opacity(0.03), location: 0.15),
+                                .init(color: Color.coinGoldLight.opacity(0.12), location: 0.5),
+                                .init(color: Color.coinGoldLight.opacity(0.05), location: 0.85),
+                                .init(color: Color.coinGoldLight.opacity(0.0), location: 1.0),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: baseWidth, height: outerRadius - innerRadius)
+                    .blur(radius: 20)
+                    .offset(y: -(innerRadius + (outerRadius - innerRadius) / 2))
+                    // Half-step offset (= 360/rayCount/2) places rays
+                    // in mirrored pairs flanking the vertical AND
+                    // horizontal axes — full bilateral symmetry with
+                    // no single ray pointing straight through the
+                    // shell's central crown.
+                    .rotationEffect(.degrees(Double(i) / Double(rayCount) * 360 + 180.0 / Double(rayCount)))
+            }
+        }
+        .frame(width: outerRadius * 2, height: outerRadius * 2)
+    }
+}
+
+/// Tapered trapezoid, oriented so the narrow end sits nearer the
+/// icon centre (after the offset+rotation) and the wide end fans
+/// out at the outer edge. Reads as a beam of light spreading outward
+/// rather than the parallel-sided capsule.
+private struct TaperedRay: Shape {
+    /// Fraction of `rect.width` used at the narrow (centre) end.
+    /// 1.0 = parallel sides, 0 = sharp point at the centre.
+    var tipScale: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let baseHalf = rect.width / 2
+        let tipHalf = baseHalf * tipScale
+        var path = Path()
+        // Wide base at the top (outer end, away from centre after rotation)
+        path.move(to: CGPoint(x: rect.midX - baseHalf, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX + baseHalf, y: rect.minY))
+        // Narrow at the bottom (inner end, near centre)
+        path.addLine(to: CGPoint(x: rect.midX + tipHalf, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.midX - tipHalf, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 
