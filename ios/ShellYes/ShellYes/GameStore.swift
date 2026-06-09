@@ -117,16 +117,16 @@ final class GameStore {
         if !isHumanTurn && !isOver {
             return "\(state.players[state.current].id.capitalized) reads the tide…"
         }
-        if isOver { return "the tide rolls back." }
+        if isOver { return "The tide rolls back." }
         switch state.phase {
         case .roll:
-            return state.setAside.isEmpty ? "your turn. deep breath." : "roll on, or keep."
+            return state.setAside.isEmpty ? "Your turn. Deep breath." : "Roll on, or keep."
         case .pick:
-            return "pick what you'll keep."
+            return "Pick what you'll keep."
         case .chooseBank:
-            return "steal, or claim the sand?"
+            return "Steal, or claim the sand?"
         case .over:
-            return "the tide rolls back."
+            return "The tide rolls back."
         }
     }
 
@@ -158,11 +158,38 @@ final class GameStore {
     }
 
     private static let aiPaceNanoseconds: UInt64 = 300_000_000
+    /// Minimum time the QuietAICard stays on-screen for a single AI
+    /// seat's whole turn. Without this floor, the engine resolves a
+    /// turn in ~50ms and the card flashes 1-2 frames before the
+    /// banner. 2.0s is long enough to read "making waves" + watch a
+    /// wave cycle, short enough that two AI seats don't drag.
+    private static let quietTurnDwell: Duration = .milliseconds(2000)
 
     func runAIIfNeeded(reduceMotion: Bool) async {
         let factor = settings.gameSpeed.factor
         let pace = UInt64(Double(Self.aiPaceNanoseconds) * factor)
+        // Quiet mode holds each AI seat's *whole turn* at a fixed
+        // dwell BEFORE running the engine, so Tine-shaped players see
+        // the QuietAICard breathe with the right name pinned for the
+        // full 2s before the outcome banner punches in. Dwelling
+        // AFTER `apply()` would yield to MainActor with `state.current`
+        // already advanced, and the UI would flash the next seat (or
+        // the human's DiceStage) under the dwell. Reduce-motion still
+        // skips events entirely — without a banner to gate, the dwell
+        // would just be dead air.
+        let quiet = settings.quietAITurns && !reduceMotion
+        var dwelledForSeat: Int? = nil
+        var sfxStarted = false
+        defer { GameSFX.shared.stopAIPlayingPattern() }
         while !isOver, let ai = currentAIDifficulty {
+            if !sfxStarted {
+                sfxStarted = true
+                GameSFX.shared.startAIPlayingPattern()
+            }
+            if quiet, dwelledForSeat != state.current {
+                dwelledForSeat = state.current
+                try? await Task.sleep(for: Self.quietTurnDwell)
+            }
             let oldState = state
             let oldCurrent = oldState.current
             let action = decide(state: state, ai: ai)
@@ -177,13 +204,20 @@ final class GameStore {
             // between apply and the banner. Skip the pacing sleep too —
             // there's no next AI turn to pace into.
             if isOver {
+                GameSFX.shared.stopAIPlayingPattern()
+                sfxStarted = false
                 if let event { await presentAIEvent(event) }
                 return
             }
-            if !reduceMotion {
+            if !quiet && !reduceMotion {
                 try? await Task.sleep(nanoseconds: pace)
             }
             if let event {
+                // Ticks represent rolling/choosing — pause while the
+                // outcome banner is up, resume when the next AI seat
+                // takes the wheel on the following iteration.
+                GameSFX.shared.stopAIPlayingPattern()
+                sfxStarted = false
                 await presentAIEvent(event)
             }
         }

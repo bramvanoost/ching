@@ -245,15 +245,19 @@ struct DiceStage: View {
                     // there's no post-roll flip — Tine reported tapping
                     // a die she'd already seen settle, only for it to
                     // switch to a different face on the final settle.
+                    // Break out before the trailing sleep — otherwise
+                    // dice land on real values but stay untappable
+                    // (`canTap` keys off `isAnimating`) for one extra
+                    // frame interval (~410ms in slow mode).
                     let lastIdx = frameNs.count - 1
                     for i in 0..<frameNs.count {
                         if Task.isCancelled { return }
                         if isHumanTurn || forceRollSound { GameSFX.shared.playRoll() }
                         if i == lastIdx {
                             displayedRolled = newValue
-                        } else {
-                            displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
+                            break
                         }
+                        displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
                         try? await Task.sleep(nanoseconds: frameNs[i])
                     }
                 }

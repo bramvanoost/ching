@@ -42,6 +42,13 @@ final class SettingsStore {
     private static let reducedMotionKey = "ching.reducedMotion"
     private static let soundModeKey = "ching.soundMode"
     private static let gameSpeedKey = "ching.gameSpeed"
+    private static let quietAITurnsKey = "ching.quietAITurns"
+    /// Tracks whether the user has been opted-in to a default yet. New
+    /// installs land on quietAITurns = true (Tine-shaped audience).
+    /// Existing players upgrading keep quietAITurns = false so the
+    /// behavior they've been seeing doesn't silently change underneath
+    /// them — they can still flip the toggle on in Settings.
+    private static let quietAITurnsSeenKey = "ching.quietAITurnsSeen"
 
     var difficulty: Difficulty {
         didSet {
@@ -74,6 +81,12 @@ final class SettingsStore {
         }
     }
 
+    var quietAITurns: Bool {
+        didSet {
+            UserDefaults.standard.set(quietAITurns, forKey: Self.quietAITurnsKey)
+        }
+    }
+
     init() {
         let rawDiff = UserDefaults.standard.string(forKey: Self.difficultyKey) ?? ""
         self.difficulty = Difficulty(rawValue: rawDiff) ?? .normal
@@ -88,6 +101,20 @@ final class SettingsStore {
 
         let rawSpeed = UserDefaults.standard.string(forKey: Self.gameSpeedKey) ?? ""
         self.gameSpeed = GameSpeed(rawValue: rawSpeed) ?? .slow
+
+        // First-launch default for quiet AI turns: ON for fresh installs,
+        // OFF for anyone who already played the noisy version. The
+        // `seen` flag is what distinguishes them; once written, both
+        // populations track their own preference.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.quietAITurnsSeenKey) == nil {
+            let isFreshInstall = defaults.object(forKey: Self.difficultyKey) == nil
+                && defaults.object(forKey: Self.gameSpeedKey) == nil
+                && defaults.object(forKey: Self.soundModeKey) == nil
+            defaults.set(isFreshInstall, forKey: Self.quietAITurnsKey)
+            defaults.set(true, forKey: Self.quietAITurnsSeenKey)
+        }
+        self.quietAITurns = defaults.bool(forKey: Self.quietAITurnsKey)
 
         AudioPolicy.shared.applySoundMode(soundMode)
     }

@@ -35,11 +35,11 @@ struct CountingCeremony: View {
         if winnerIndices.count == 1 {
             let idx = winnerIndices[0]
             if idx == GameStore.humanSeat {
-                return "you win."
+                return "You win."
             }
-            return "\(players[idx].id.capitalized.lowercased()) wins."
+            return "\(players[idx].id.capitalized) wins."
         }
-        return "it's a beach tie!"
+        return "It's a beach tie!"
     }
 
     private var isHumanWin: Bool {
@@ -272,6 +272,7 @@ struct CountingCeremony: View {
                 let stepNs: UInt64 = UInt64(max(40_000_000, min(140_000_000, 1_200_000_000 / UInt64(max(1, target)))))
                 for v in 1...target {
                     tickedTotals[i] = v
+                    GameSFX.shared.playCountTick()
                     try? await Task.sleep(nanoseconds: stepNs)
                 }
                 try? await Task.sleep(nanoseconds: 350_000_000)
@@ -280,6 +281,11 @@ struct CountingCeremony: View {
 
         // All players counted — pause, then reveal winner.
         try? await Task.sleep(nanoseconds: 400_000_000)
+        if winnerIndices.contains(GameStore.humanSeat) {
+            GameSFX.shared.playWinFanfare()
+        } else {
+            GameSFX.shared.playRivalWin()
+        }
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
             winnerRevealed = true
         }

@@ -13,20 +13,27 @@ struct AIEventBanner: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 14) {
+                // zIndex bumps title + subtitle above the chip's drawing
+                // layer below. The chip's LightRays background extends
+                // ~90pt beyond the chip silhouette, including upward into
+                // the title's row — VStack draws top-to-bottom, so without
+                // an explicit zIndex the chip's later paint covers the
+                // title.
                 Text(titleLine)
                     .font(.avenir(24, weight: .demiBold))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(titleColor)
                     .padding(.horizontal, 18)
+                    .zIndex(1)
 
                 if let subtitle = subtitleLine {
                     Text(subtitle)
                         .font(.avenir(14, weight: .medium, italic: true))
                         .tracking(2)
-                        .textCase(.lowercase)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(subtitleColor)
                         .padding(.horizontal, 24)
+                        .zIndex(1)
                 }
 
                 if let shell = shellNumber {
@@ -171,12 +178,12 @@ struct AIEventBanner: View {
             // The final-shell banner closes the game and dissolves
             // into the tally — borrow the engine's game-over hint so
             // the language of the moment is consistent.
-            return isFinal ? "the tide rolls back." : nil
+            return isFinal ? "The tide rolls back." : nil
         case .bust(_, let burned):
             if let burned {
-                return "shell \(burned) drifts away."
+                return "Shell \(burned) drifts away."
             }
-            return "a shell drifts away."
+            return "A shell drifts away."
         }
     }
 

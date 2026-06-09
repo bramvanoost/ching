@@ -12,10 +12,24 @@ final class GameSFX {
     private var confirmPool: [AVAudioPlayer] = []
     private var bankPool: [AVAudioPlayer] = []
     private var bustPool: [AVAudioPlayer] = []
+    private var countPool: [AVAudioPlayer] = []
+    private var countTickPool: [AVAudioPlayer] = []
+    private var winnerPool: [AVAudioPlayer] = []
+    private var rivalWinPool: [AVAudioPlayer] = []
+    private var aiPlayingPool: [AVAudioPlayer] = []
     private var nextRollIdx = 0
     private var nextConfirmIdx = 0
     private var nextBankIdx = 0
     private var nextBustIdx = 0
+    private var nextCountIdx = 0
+    private var nextCountTickIdx = 0
+    private var nextAIPlayingIdx = 0
+    private var aiPlayingTask: Task<Void, Never>? = nil
+
+    /// Irregular cluster of inter-blip gaps (ms) for the AI-playing
+    /// pattern. Mix of short bursts and longer pauses so it reads as
+    /// "pondering", not a metronome. ~3.6s before the cycle repeats.
+    private static let aiClusterIntervalsMs: [UInt64] = [120, 580, 180, 540, 250, 460, 140, 620, 200, 510]
 
     private init() {
         // The roll tick fires on every animation frame (~12/s during a
@@ -25,6 +39,18 @@ final class GameSFX {
         load("dice_confirm", into: &confirmPool, copies: 2, volume: 0.7)
         load("outcome-success", into: &bankPool, copies: 2, volume: 0.7)
         load("outcome-failure", into: &bustPool, copies: 2, volume: 0.75)
+        // Counting ceremony: count plays once per player while their
+        // total ticks up; winner / otherwins fire on the final reveal.
+        load("count", into: &countPool, copies: 2, volume: 0.7)
+        // count_tick is a 150ms attack-only trim of count.m4a, fired
+        // per-pearl during the tally. Pool sized for overlap at the
+        // fastest tick spacing (~40ms).
+        load("count_tick", into: &countTickPool, copies: 4, volume: 0.55)
+        load("winner", into: &winnerPool, copies: 1, volume: 0.85)
+        load("otherwins", into: &rivalWinPool, copies: 1, volume: 0.75)
+        // AI-playing blip: ~480ms clip, cluster intervals as low as
+        // 120ms, so size the pool for several overlaps.
+        load("aiplaying", into: &aiPlayingPool, copies: 6, volume: 0.45)
     }
 
     private func load(_ name: String, into pool: inout [AVAudioPlayer], copies: Int, volume: Float) {
@@ -51,6 +77,50 @@ final class GameSFX {
 
     func playBust() {
         play(from: &bustPool, cursor: &nextBustIdx)
+    }
+
+    func playCount() {
+        play(from: &countPool, cursor: &nextCountIdx)
+    }
+
+    func playCountTick() {
+        play(from: &countTickPool, cursor: &nextCountTickIdx)
+    }
+
+    func playWinFanfare() {
+        playSingle(winnerPool.first)
+    }
+
+    func playRivalWin() {
+        playSingle(rivalWinPool.first)
+    }
+
+    /// Begins the irregular AI-playing blip pattern. Idempotent —
+    /// re-calling stops the prior task before starting a fresh one.
+    func startAIPlayingPattern() {
+        stopAIPlayingPattern()
+        guard AudioPolicy.shared.sfxEnabled else { return }
+        aiPlayingTask = Task { @MainActor [weak self] in
+            var step = 0
+            while !Task.isCancelled {
+                guard let self else { return }
+                self.play(from: &self.aiPlayingPool, cursor: &self.nextAIPlayingIdx)
+                let gapMs = Self.aiClusterIntervalsMs[step % Self.aiClusterIntervalsMs.count]
+                step += 1
+                try? await Task.sleep(nanoseconds: gapMs * 1_000_000)
+            }
+        }
+    }
+
+    func stopAIPlayingPattern() {
+        aiPlayingTask?.cancel()
+        aiPlayingTask = nil
+    }
+
+    private func playSingle(_ player: AVAudioPlayer?) {
+        guard AudioPolicy.shared.sfxEnabled, let player else { return }
+        player.currentTime = 0
+        player.play()
     }
 
     private func play(from pool: inout [AVAudioPlayer], cursor: inout Int) {

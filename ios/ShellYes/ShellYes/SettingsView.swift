@@ -58,6 +58,12 @@ struct SettingsView: View {
                                 )
                                 .frame(maxWidth: 220)
                             }
+                            SettingsRow(title: "Quiet AI turns") {
+                                StampToggle(isOn: Binding(
+                                    get: { settings.quietAITurns },
+                                    set: { settings.quietAITurns = $0 }
+                                ))
+                            }
                             Button {
                                 showRestartConfirm = true
                             } label: {

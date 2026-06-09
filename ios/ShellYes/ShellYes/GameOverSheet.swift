@@ -23,9 +23,9 @@ struct GameOverSheet: View {
 
     private var headline: String {
         if leaderCount == 1 {
-            return "\(ranked.first!.id.capitalized.lowercased()) wins."
+            return "\(ranked.first!.id.capitalized) wins."
         }
-        return "it's a beach tie!"
+        return "It's a beach tie!"
     }
 
     var body: some View {
@@ -36,7 +36,7 @@ struct GameOverSheet: View {
                 Spacer()
                     .frame(height: 40)
 
-                Text("the tide rolls back.")
+                Text("The tide rolls back.")
                     .font(.avenir(34, weight: .ultraLight, italic: true))
                     .tracking(2)
                     .foregroundStyle(Color.ink)

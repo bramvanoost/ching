@@ -32,7 +32,7 @@ struct GameView: View {
     /// Snapshot of `centerTiles` from the moment before the bust-roll
     /// apply, held so the ShellsGrid doesn't visibly drop / receive
     /// shells during the fake-roll window. The state update plays out
-    /// underneath the bust flash and is settled by the time the user
+    /// underneath the bust flash and is settled by the time the user	
     /// dismisses it.
     @SwiftUI.State private var bustFrozenCenterTiles: [Int]? = nil
     /// During the fake roll window, freeze the seat index that the
@@ -72,20 +72,55 @@ struct GameView: View {
     /// Seat index used by every UI element that highlights "whose turn
     /// is it". During the fake-roll bust window this stays pinned to
     /// the human seat so the scoreboard / action bar don't spoil the
-    /// turn change ahead of the bust banner.
+    /// turn change ahead of the bust banner. While an AI/turn-end
+    /// banner is up, the engine has already advanced `state.current`
+    /// to the next seat — pin the scoreboard to the banner's actor so
+    /// the active-seat highlight doesn't jump ahead of the modal.
     private var displayCurrent: Int {
         if let frozen = bustFrozenCurrent { return frozen }
         // While a stolen shell is staged, keep the receiver visually
         // active so the column's deactivation spring fires together
         // with the tile-arrival sparkle (one beat, not two).
         if let arrival = stealArrivalSeat { return arrival }
+        if let actorSeat = aiEventActorSeat { return actorSeat }
         return store.state.current
+    }
+
+    /// Maps the active banner's actor name back to a seat index by
+    /// matching against `players[].id.capitalized` (the same
+    /// transform the banner's title line uses). Returns nil when
+    /// there's no banner or the actor doesn't match a known seat —
+    /// either way the scoreboard falls back to `state.current`.
+    private var aiEventActorSeat: Int? {
+        guard let event = store.aiEvent else { return nil }
+        let actor: String
+        switch event {
+        case .took(let a, _, _): actor = a
+        case .stole(let a, _, _, _): actor = a
+        case .bust(let a, _): actor = a
+        }
+        return store.state.players.firstIndex { $0.id.capitalized == actor }
     }
     private var displayIsHumanTurn: Bool {
         displayCurrent == GameStore.humanSeat
     }
     private var displayPhaseHint: String {
         bustFrozenPhaseHint ?? store.phaseHint
+    }
+
+    /// Quiet-mode swap: hide the live DiceStage on AI turns when the
+    /// setting is on. Bust-flash freezes pin the human's seat, so the
+    /// frozen-current branch keeps the DiceStage visible during the
+    /// fake-roll bust window (otherwise the QuietAICard would punch in
+    /// the moment turn advances, ahead of the bust banner). Likewise,
+    /// while an event banner is up we hold off so the card's entrance
+    /// animation fires WHEN the banner dismisses, not invisibly
+    /// underneath it.
+    private var showQuietAICard: Bool {
+        guard settings.quietAITurns else { return false }
+        guard bustFrozenCurrent == nil else { return false }
+        guard store.aiEvent == nil else { return false }
+        return !store.isHumanTurn && !store.isOver
     }
 
     /// Players array with the steal-receiver's newest tile temporarily
@@ -587,26 +622,38 @@ struct GameView: View {
 
                 Spacer().frame(height: 10)
 
-                DiceStage(
-                    phaseHint: displayPhaseHint,
-                    setAsideSum: store.setAsideSum,
-                    rolled: bustAnimatedRoll ?? store.state.rolled,
-                    locked: store.state.setAside,
-                    diceInHand: store.state.diceInHand,
-                    isHumanTurn: displayIsHumanTurn,
-                    canPick: { store.canPick($0) },
-                    onPick: { act(.pick(face: $0)) },
-                    canBank: store.canBank && store.isHumanTurn,
-                    bankPreview: store.bankActionLabel,
-                    isSteal: store.isStealOpportunity,
-                    onBank: { act(.stop) },
-                    playerNames: store.state.players.map { $0.id.capitalized },
-                    bankChoices: store.isHumanTurn ? store.bankChoices : [],
-                    onChoose: { act(.bank(target: $0)) },
-                    reduceMotion: settings.reducedMotion || iosReduceMotion,
-                    speedFactor: settings.gameSpeed.factor,
-                    forceRollSound: bustAnimatedRoll != nil
-                )
+                // Quiet AI mode swaps the live dice stage for a calm
+                // placeholder during AI turns. Players who don't want
+                // to parse AI rolling get a quieter screen; the engine
+                // still runs underneath and the outcome banner fires
+                // (see `AIEventBanner`). The human's own turn always
+                // shows the full DiceStage so they can play.
+                Group {
+                    if showQuietAICard {
+                        QuietAICard(name: store.state.players[displayCurrent].id.capitalized)
+                    } else {
+                        DiceStage(
+                            phaseHint: displayPhaseHint,
+                            setAsideSum: store.setAsideSum,
+                            rolled: bustAnimatedRoll ?? store.state.rolled,
+                            locked: store.state.setAside,
+                            diceInHand: store.state.diceInHand,
+                            isHumanTurn: displayIsHumanTurn,
+                            canPick: { store.canPick($0) },
+                            onPick: { act(.pick(face: $0)) },
+                            canBank: store.canBank && store.isHumanTurn,
+                            bankPreview: store.bankActionLabel,
+                            isSteal: store.isStealOpportunity,
+                            onBank: { act(.stop) },
+                            playerNames: store.state.players.map { $0.id.capitalized },
+                            bankChoices: store.isHumanTurn ? store.bankChoices : [],
+                            onChoose: { act(.bank(target: $0)) },
+                            reduceMotion: settings.reducedMotion || iosReduceMotion,
+                            speedFactor: settings.gameSpeed.factor,
+                            forceRollSound: bustAnimatedRoll != nil
+                        )
+                    }
+                }
                 .opacity(revealStage ? 1 : 0)
                 .offset(y: revealStage ? 0 : 12)
 
@@ -655,6 +702,7 @@ struct GameView: View {
                     "duration_seconds": duration,
                     "difficulty": settings.difficulty.rawValue,
                     "pace": settings.gameSpeed.rawValue,
+                    "quiet_ai": settings.quietAITurns,
                 ]
                 Telemetry.shared.track("game_ended", props: endProps)
                 Telemetry.shared.track(humanWon ? "game_won" : "game_lost", props: endProps)
