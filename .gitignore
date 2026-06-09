@@ -3,3 +3,7 @@ node_modules
 .DS_Store
 dist
 .superpowers/
+
+# Internal session handoffs and brainstorms. Repo is public, these
+# stay local only.
+docs/superpowers/
