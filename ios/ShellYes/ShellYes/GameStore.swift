@@ -27,8 +27,12 @@ final class GameStore {
     ]
 
     enum AIEvent: Equatable {
-        case took(actor: String, shell: Int)
-        case stole(actor: String, victim: String, shell: Int)
+        // `isFinal` flags claims that emptied the supply — the very
+        // last shell of the tide. The banner uses it to swap copy
+        // ("X claimed the last shell.") and the game view uses it to
+        // gate the tally-screen presentation behind a banner tap.
+        case took(actor: String, shell: Int, isFinal: Bool)
+        case stole(actor: String, victim: String, shell: Int, isFinal: Bool)
         case bust(actor: String, burned: Int?)
     }
 
@@ -103,7 +107,7 @@ final class GameStore {
         if isOver { return "the tide rolls back." }
         switch state.phase {
         case .roll:
-            return state.setAside.isEmpty ? "no rush, smell the sea air" : "roll on, or keep."
+            return state.setAside.isEmpty ? "your turn. deep breath." : "roll on, or keep."
         case .pick:
             return "pick what you'll keep."
         case .over:
@@ -165,14 +169,15 @@ final class GameStore {
         let actorName = oldState.players[oldCurrent].id.capitalized
         let oldTiles = oldState.players[oldCurrent].tiles
         let newTiles = state.players[oldCurrent].tiles
+        let isFinal = state.phase == .over
         if newTiles.count > oldTiles.count, let newShell = newTiles.last {
             for i in oldState.players.indices where i != oldCurrent {
                 if state.players[i].tiles.count < oldState.players[i].tiles.count {
                     let victim = oldState.players[i].id.capitalized
-                    return .stole(actor: actorName, victim: victim, shell: newShell)
+                    return .stole(actor: actorName, victim: victim, shell: newShell, isFinal: isFinal)
                 }
             }
-            return .took(actor: actorName, shell: newShell)
+            return .took(actor: actorName, shell: newShell, isFinal: isFinal)
         }
         // Bust — find the burned shell by diffing total supply (center +
         // every player's stack). Tile numbers are unique 21-36, so the
@@ -213,6 +218,69 @@ final class GameStore {
     #if DEBUG
     func setStateForTesting(_ s: State) {
         self.state = s
+    }
+
+    /// Gives every non-human seat two random tiles drawn from the centre
+    /// pool. Lets you set up a board with stealable shells before tapping
+    /// the steal-trigger.
+    func debugSeedAIVaults() {
+        let aiSeats = state.players.indices.filter { $0 != Self.humanSeat }
+        for seat in aiSeats {
+            for _ in 0..<2 {
+                guard !state.centerTiles.isEmpty else { return }
+                let idx = Int.random(in: 0..<state.centerTiles.count)
+                let tile = state.centerTiles.remove(at: idx)
+                state.players[seat].tiles.append(tile)
+            }
+        }
+    }
+
+    /// Fast-forwards the game to its end state: every seat gets a small
+    /// fistful of shells (so the tally screen has something to count
+    /// and a clear winner), the supply is emptied, and the phase flips
+    /// to `.over`. Lets you verify the counting ceremony and winner
+    /// presentation without playing a full hand.
+    func debugForceGameOver() {
+        // Hand the human a slightly larger pile so there's a believable
+        // win to celebrate. AI seats get fewer / lower-value tiles.
+        let plan: [(seat: Int, count: Int)] = state.players.indices.map { seat in
+            (seat, seat == Self.humanSeat ? 4 : 2)
+        }
+        for (seat, count) in plan {
+            for _ in 0..<count {
+                guard !state.centerTiles.isEmpty else { break }
+                let idx = Int.random(in: 0..<state.centerTiles.count)
+                let tile = state.centerTiles.remove(at: idx)
+                state.players[seat].tiles.append(tile)
+            }
+        }
+        state.centerTiles.removeAll()
+        state.rolled = []
+        state.setAside = []
+        state.pickedFaces = []
+        state.diceInHand = 0
+        state.phase = .over
+    }
+
+    /// Moves the top tile from the first non-human seat with shells into
+    /// the human's vault. If no non-human seat has any, seeds one with a
+    /// mid-value tile first. Used to verify the steal animation without
+    /// playing through a full hand.
+    func debugTriggerSteal() {
+        var victim: Int? = nil
+        for i in state.players.indices where i != Self.humanSeat {
+            if !state.players[i].tiles.isEmpty { victim = i; break }
+        }
+        if victim == nil {
+            for i in state.players.indices where i != Self.humanSeat {
+                state.players[i].tiles.append(25)
+                victim = i
+                break
+            }
+        }
+        guard let v = victim, !state.players[v].tiles.isEmpty else { return }
+        let tile = state.players[v].tiles.removeLast()
+        state.players[Self.humanSeat].tiles.append(tile)
     }
     #endif
 }

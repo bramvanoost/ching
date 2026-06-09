@@ -183,19 +183,28 @@ struct DiceStage: View {
             }
             .frame(height: 158)
 
-            // Locked slot — always reserved, transparent when empty.
+            // Tally row — visualises the whole 8-die supply for this turn.
+            // Locked dice on the left show face values (committed). Small
+            // hollow circles on the right represent dice still in hand.
+            // Count is implicit but legible at a glance, and the row width
+            // is bounded because hollow dots are tiny — so an 8-die haul
+            // never overflows.
             HStack(spacing: 6) {
-                Text("locked")
-                    .font(.avenir(10, weight: .medium, italic: true))
-                    .tracking(2)
-                    .foregroundStyle(Color.ink.opacity(0.55))
                 ForEach(Array(locked.enumerated()), id: \.offset) { _, face in
                     lockedDie(face: face)
                 }
+                if !locked.isEmpty && diceInHand > 0 {
+                    Color.clear.frame(width: 4, height: 1)
+                }
+                ForEach(0..<diceInHand, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 2.5)
+                        .strokeBorder(Color.ink.opacity(0.45), lineWidth: 1.2)
+                        .frame(width: 10, height: 10)
+                }
             }
-            .frame(height: 22)
+            .frame(height: 26)
             .padding(.top, 8)
-            .opacity(locked.isEmpty ? 0 : 1)
+            .opacity(locked.isEmpty && diceInHand == 0 ? 0 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 0)

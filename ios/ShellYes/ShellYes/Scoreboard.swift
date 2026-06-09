@@ -14,6 +14,11 @@ struct Scoreboard: View {
     /// little firework over their tile instead of just a wordmark change.
     @SwiftUI.State private var activeSparkleTriggers: [Int: Int] = [:]
 
+    /// One trigger per seat. Increments when this seat just had a shell
+    /// stolen — a SmokePoof fires over their vault so the loss reads as
+    /// "*poof*, gone" rather than the top tile silently fading out.
+    @SwiftUI.State private var poofTriggers: [Int: Int] = [:]
+
     var body: some View {
         HStack(spacing: 6) {
             ForEach(players.indices, id: \.self) { i in
@@ -43,6 +48,17 @@ struct Scoreboard: View {
                 }
             }
         }
+        .onChange(of: stolenFrom) { _, newStolen in
+            guard let victim = newStolen else { return }
+            let t = (poofTriggers[victim] ?? 0) + 1
+            poofTriggers[victim] = t
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                if poofTriggers[victim] == t {
+                    poofTriggers[victim] = 0
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -55,12 +71,31 @@ struct Scoreboard: View {
                 .font(.avenir(14, weight: isActive ? .demiBold : .medium))
                 .foregroundStyle(Color.ink)
 
-            // Always reserve the vault area height so columns don't jump
-            ZStack {
-                if players[i].tiles.isEmpty {
-                    safePlaceholder()
-                } else {
-                    VaultStack(safes: players[i].tiles, activeSeat: isActive)
+            // Always reserve the vault area height so columns don't jump.
+            // `alignment: .top` on the ZStack anchors children at the top
+            // of the slot — without it, when VaultStack shrinks (losing a
+            // shell) SwiftUI re-centres the smaller frame and the stack
+            // appears to slide downward before settling.
+            //
+            // Placeholder + VaultStack are layered (not if/else swapped)
+            // so VaultStack's view identity persists across the empty →
+            // non-empty boundary; otherwise the first stolen tile lands
+            // in a freshly-created stack and skips both the scale-in
+            // transition and the addSparkle onChange.
+            ZStack(alignment: .top) {
+                safePlaceholder()
+                    .opacity(players[i].tiles.isEmpty ? 1 : 0)
+                    .animation(.easeOut(duration: 0.25), value: players[i].tiles.isEmpty)
+
+                VaultStack(safes: players[i].tiles, activeSeat: isActive)
+
+                // Steal poof — fires over the vault when this seat lost a
+                // shell. Sized to the shell footprint so the burst centres
+                // on the disappearing top tile rather than the column.
+                if let trigger = poofTriggers[i], trigger > 0 {
+                    SmokePoof()
+                        .frame(width: 40, height: 40)
+                        .id(trigger)
                 }
             }
             .frame(height: 54, alignment: .top)

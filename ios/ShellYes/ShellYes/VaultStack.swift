@@ -30,47 +30,61 @@ struct VaultStack: View {
     }
 
     var body: some View {
-        if safes.isEmpty {
-            EmptyView()
-        } else {
-            ZStack(alignment: .top) {
-                ForEach(Array(stackedNewestFirst.enumerated()), id: \.offset) { idx, safe in
-                    safeView(value: safe, isTop: idx == 0)
-                        .overlay {
-                            if idx == 0 && addSparkleTrigger > 0 {
-                                SparkleField(count: 42, startRadius: 22, spread: 70, duration: 1.1)
-                                    .frame(width: 90, height: 90)
-                                    .id(addSparkleTrigger)
-                            }
+        // Always render — keeps view identity (and `addSparkleTrigger`
+        // state) stable across the empty → non-empty boundary. If we
+        // swapped to EmptyView when empty, the first stolen tile would
+        // create a fresh VaultStack whose ForEach element is "initial"
+        // rather than "inserted", and onChange wouldn't fire — no
+        // sparkle, no scale-in.
+        ZStack(alignment: .top) {
+            // Key by tile value, not array offset. Tiles 21–36 are
+            // unique within a game, so each shell's view identity
+            // stays stable across count changes — the removed shell
+            // is the one that animates out, instead of every shell
+            // re-rendering with a shifted value (which flickered
+            // the strokes / pearls).
+            ForEach(Array(stackedNewestFirst.enumerated()), id: \.element) { idx, safe in
+                safeView(value: safe)
+                    .overlay {
+                        if idx == 0 && addSparkleTrigger > 0 {
+                            SparkleField(count: 42, startRadius: 22, spread: 70, duration: 1.1)
+                                .frame(width: 90, height: 90)
+                                .id(addSparkleTrigger)
                         }
-                        .offset(y: CGFloat(idx) * layerOffset)
-                        .zIndex(Double(stackedNewestFirst.count - idx))
-                        .transition(
-                            idx == 0
-                            ? .asymmetric(
-                                insertion: .scale(scale: 0.15).combined(with: .opacity),
-                                removal: .opacity
-                              )
-                            : .opacity
-                        )
-                }
+                    }
+                    .offset(y: CGFloat(idx) * layerOffset)
+                    .zIndex(Double(stackedNewestFirst.count - idx))
+                    .transition(
+                        idx == 0
+                        ? .asymmetric(
+                            insertion: .scale(scale: 0.15)
+                                .combined(with: .opacity)
+                                .animation(.spring(response: 0.55, dampingFraction: 0.6)),
+                            removal: .opacity.animation(.easeOut(duration: 0.28))
+                          )
+                        : .opacity
+                    )
             }
-            .frame(width: safeWidth, height: stackHeight, alignment: .top)
-            .animation(.spring(response: 0.55, dampingFraction: 0.55), value: safes.count)
-            .onChange(of: safes.count) { oldValue, newValue in
-                guard newValue > oldValue else { return }
-                addSparkleTrigger += 1
-                let trigger = addSparkleTrigger
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 1_200_000_000)
-                    if addSparkleTrigger == trigger { addSparkleTrigger = 0 }
-                }
+        }
+        .frame(width: safeWidth, height: stackHeight, alignment: .top)
+        // Layout (height) change uses a calm easeOut so removals
+        // don't overshoot — the springy "pop" is reserved for the
+        // insertion transition above, where it reads as celebration
+        // rather than the stack settling after a loss.
+        .animation(.easeOut(duration: 0.32), value: safes.count)
+        .onChange(of: safes.count) { oldValue, newValue in
+            guard newValue > oldValue else { return }
+            addSparkleTrigger += 1
+            let trigger = addSparkleTrigger
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                if addSparkleTrigger == trigger { addSparkleTrigger = 0 }
             }
         }
     }
 
     @ViewBuilder
-    private func safeView(value: Int, isTop: Bool) -> some View {
+    private func safeView(value: Int) -> some View {
         ZStack {
             ShellCardShape()
                 .fill(
@@ -86,13 +100,20 @@ struct VaultStack: View {
                 )
                 .shadow(color: Color.treasureInk.opacity(0.15), radius: 0, x: 0, y: 2)
 
-            if isTop {
-                VStack(spacing: 2) {
-                    Text("\(value)")
-                        .font(.avenir(13, weight: .demiBold))
-                        .foregroundStyle(Color.treasureInk)
-                    PearlRow(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
-                }
+            // Content renders unconditionally. Lower shells in the stack
+            // are already z-occluded by the top card (zIndex is set on
+            // the parent ForEach), so their text/pearls stay hidden
+            // without needing an opacity gate. Previously this used
+            // `.opacity(isTop ? 1 : 0)` to swap content cleanly on a
+            // steal, but that gate animated 0→1 on the new top after
+            // the old top was removed, reading as a pearl/stroke blink.
+            // With the opacity gate gone, the new top is just naturally
+            // revealed as the old top's removal transition fades it out.
+            VStack(spacing: 2) {
+                Text("\(value)")
+                    .font(.avenir(13, weight: .demiBold))
+                    .foregroundStyle(Color.treasureInk)
+                PearlRow(count: GameStore.safeCoins(value), diameter: 4, spacing: 1.5)
             }
         }
         .frame(width: safeWidth, height: safeHeight)

@@ -27,10 +27,10 @@ struct AIEventBanner: View {
                 }
 
                 if let shell = shellNumber {
-                    shellChip(value: shell, drifting: false)
+                    ShellChip(value: shell, drifting: false, celebrate: tone == .positive)
                         .padding(.top, 4)
                 } else if case .bust(_, let burned) = event, let burned {
-                    shellChip(value: burned, drifting: true)
+                    ShellChip(value: burned, drifting: true, celebrate: false)
                         .padding(.top, 4)
                 } else {
                     Image(systemName: "wind")
@@ -64,12 +64,27 @@ struct AIEventBanner: View {
 
     private var titleLine: String {
         switch event {
-        case .took(let actor, let shell):
+        case .took(let actor, let shell, let isFinal):
+            if isFinal {
+                if actor.lowercased() == "you" {
+                    return "You claimed the last shell."
+                }
+                return "\(actor) claimed the last shell."
+            }
             if actor.lowercased() == "you" {
                 return "Nice, you claimed shell \(shell)!"
             }
             return "\(actor) claimed a shell!"
-        case .stole(let actor, let victim, let shell):
+        case .stole(let actor, let victim, let shell, let isFinal):
+            if isFinal {
+                if actor.lowercased() == "you" {
+                    return "You took \(victim)'s last shell."
+                }
+                if victim.lowercased() == "you" {
+                    return "\(actor) took your last shell."
+                }
+                return "\(actor) took \(victim)'s last shell."
+            }
             if actor.lowercased() == "you" {
                 return "Nice, you took \(victim)'s shell \(shell)!"
             }
@@ -101,9 +116,9 @@ struct AIEventBanner: View {
     /// event doesn't directly involve you.
     private var tone: Tone {
         switch event {
-        case .took(let actor, _):
+        case .took(let actor, _, _):
             return actor.lowercased() == "you" ? .positive : .neutral
-        case .stole(let actor, let victim, _):
+        case .stole(let actor, let victim, _, _):
             if actor.lowercased() == "you" { return .positive }
             if victim.lowercased() == "you" { return .negative }
             return .neutral
@@ -141,10 +156,11 @@ struct AIEventBanner: View {
 
     private var subtitleLine: String? {
         switch event {
-        case .took:
-            return nil
-        case .stole:
-            return nil
+        case .took(_, _, let isFinal), .stole(_, _, _, let isFinal):
+            // The final-shell banner closes the game and dissolves
+            // into the tally — borrow the engine's game-over hint so
+            // the language of the moment is consistent.
+            return isFinal ? "the tide rolls back." : nil
         case .bust(_, let burned):
             if let burned {
                 return "shell \(burned) drifts away."
@@ -155,15 +171,26 @@ struct AIEventBanner: View {
 
     private var shellNumber: Int? {
         switch event {
-        case .took(_, let shell), .stole(_, _, let shell):
+        case .took(_, let shell, _), .stole(_, _, let shell, _):
             return shell
         case .bust:
             return nil
         }
     }
 
-    @ViewBuilder
-    private func shellChip(value: Int, drifting: Bool) -> some View {
+}
+
+/// Shell card chip shown inside the AI event banner. Owns its own pop
+/// state so the shell springs in when the modal appears, distinct from
+/// the modal's calmer fade-and-scale entrance.
+private struct ShellChip: View {
+    let value: Int
+    let drifting: Bool
+    let celebrate: Bool
+
+    @SwiftUI.State private var popScale: CGFloat = 0.4
+
+    var body: some View {
         let coins = GameStore.safeCoins(value)
         ZStack {
             ShellCardShape()
@@ -194,5 +221,27 @@ struct AIEventBanner: View {
         }
         .frame(width: 68, height: 84)
         .opacity(drifting ? 0.85 : 1.0)
+        // Rays of light render in `.background`, not as a sibling in
+        // the ZStack: a sibling with its own larger frame would force
+        // the ZStack — and ShellCardShape inside it — to that size.
+        // Background sits behind the chip, so the portions of the
+        // rays underneath the silhouette are hidden and only the
+        // outer rays radiate beyond the shell.
+        .background {
+            if celebrate {
+                LightRays()
+                    .allowsHitTesting(false)
+            }
+        }
+        .scaleEffect(popScale)
+        .onAppear {
+            // Snappier spring pop: short response so the chip arrives
+            // fast, low damping for a visible overshoot past 1.0 before
+            // settling. Starts at 0.4 so the growth itself is obvious.
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.5)) {
+                popScale = 1.0
+            }
+        }
     }
 }
+

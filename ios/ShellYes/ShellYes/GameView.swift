@@ -15,6 +15,11 @@ struct GameView: View {
     /// to understand a bust costs them a shell, not just the sand.
     @SwiftUI.State private var bustReturnedTile: Int? = nil
     @SwiftUI.State private var stolenFromIdx: Int? = nil
+    /// Seat that just gained a stolen shell. While non-nil, the
+    /// scoreboard is shown a copy of `players` with that seat's newest
+    /// tile trimmed off, so the receiver's sparkle / pop-in fires AFTER
+    /// the victim's smoke poof rather than at the same instant.
+    @SwiftUI.State private var stealArrivalSeat: Int? = nil
     @SwiftUI.State private var bustProgress: CGFloat = 1.0
     @SwiftUI.State private var bustGeneration: Int = 0
     /// Fake roll values used to fill the dice slot for ~1s after a roll
@@ -69,13 +74,33 @@ struct GameView: View {
     /// the human seat so the scoreboard / action bar don't spoil the
     /// turn change ahead of the bust banner.
     private var displayCurrent: Int {
-        bustFrozenCurrent ?? store.state.current
+        if let frozen = bustFrozenCurrent { return frozen }
+        // While a stolen shell is staged, keep the receiver visually
+        // active so the column's deactivation spring fires together
+        // with the tile-arrival sparkle (one beat, not two).
+        if let arrival = stealArrivalSeat { return arrival }
+        return store.state.current
     }
     private var displayIsHumanTurn: Bool {
         displayCurrent == GameStore.humanSeat
     }
     private var displayPhaseHint: String {
         bustFrozenPhaseHint ?? store.phaseHint
+    }
+
+    /// Players array with the steal-receiver's newest tile temporarily
+    /// hidden (during the ~450ms staging window). The Scoreboard /
+    /// VaultStack think the receiver hasn't gained yet, so their
+    /// sparkle + insertion transition fires when the staging clears,
+    /// after the victim's smoke poof has had time to land.
+    private var displayedPlayers: [Player] {
+        guard let seat = stealArrivalSeat else { return store.state.players }
+        var players = store.state.players
+        guard players.indices.contains(seat), !players[seat].tiles.isEmpty else {
+            return store.state.players
+        }
+        players[seat].tiles.removeLast()
+        return players
     }
 
     private func act(_ action: Action) {
@@ -176,10 +201,25 @@ struct GameView: View {
                             break
                         }
                     }
+                    // If this claim emptied the supply, the engine
+                    // has already flipped `phase = .over`. Flag the
+                    // banner as final so the copy switches to "you
+                    // claimed the last shell." and the tally screen
+                    // waits for the player to dismiss.
+                    let isFinal = store.isOver
                     if let victim {
-                        store.presentTurnEvent(.stole(actor: "You", victim: victim, shell: claimed))
+                        // Stage the receiver hold synchronously so the
+                        // human column doesn't flicker active → inactive
+                        // in the frame between engine state change and
+                        // the onChange-driven detectSteal.
+                        stealArrivalSeat = humanSeat
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 450_000_000)
+                            if stealArrivalSeat == humanSeat { stealArrivalSeat = nil }
+                        }
+                        store.presentTurnEvent(.stole(actor: "You", victim: victim, shell: claimed, isFinal: isFinal))
                     } else {
-                        store.presentTurnEvent(.took(actor: "You", shell: claimed))
+                        store.presentTurnEvent(.took(actor: "You", shell: claimed, isFinal: isFinal))
                     }
                     // Banked sum is the tile value claimed (engine maps
                     // setAside sum to the tile number).
@@ -272,6 +312,14 @@ struct GameView: View {
                         try? await Task.sleep(nanoseconds: 1_400_000_000)
                         if stolenFromIdx == i { stolenFromIdx = nil }
                     }
+                    // Hold the receiver's new tile back for ~450ms so the
+                    // victim's poof + collapse plays solo first, then the
+                    // sparkle + scale-in lands on the thief's stack.
+                    stealArrivalSeat = actor
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 450_000_000)
+                        if stealArrivalSeat == actor { stealArrivalSeat = nil }
+                    }
                     // Canonical steal event — one per transfer, regardless
                     // of which seat thieved. The existing game_bank event
                     // still carries `stole_from_rival` for backward compat
@@ -336,11 +384,17 @@ struct GameView: View {
                     )
                 )
                 .overlay(
+                    // Dashed stroke marks the shell as drifting away —
+                    // same visual language as the bust banner's ghost
+                    // chip in AIEventBanner.shellChip(drifting: true).
                     ShellCardShape()
-                        .strokeBorder(Color.stampText.opacity(0.95), lineWidth: 2)
+                        .strokeBorder(
+                            Color.stampText.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 2, dash: [3, 3])
+                        )
                 )
-                .shadow(color: Color.coralDark.opacity(0.6), radius: 0, x: 0, y: 5)
-                .shadow(color: Color.coralDark.opacity(0.3), radius: 14, x: 0, y: 0)
+                .shadow(color: Color.coralDark.opacity(0.45), radius: 0, x: 0, y: 5)
+                .shadow(color: Color.coralDark.opacity(0.25), radius: 14, x: 0, y: 0)
             VStack(spacing: 4) {
                 Text("\(value)")
                     .font(.avenir(28, weight: .demiBold))
@@ -349,6 +403,7 @@ struct GameView: View {
             }
         }
         .frame(width: 64, height: 80)
+        .opacity(0.85)
     }
 
     /// What the bust just cost the player, made unambiguous: their top
@@ -361,28 +416,49 @@ struct GameView: View {
         let returned = bustReturnedTile
         let burned = burnedTile
         let returnedIsBurned = returned != nil && returned == burned
-        let showSeparateBurn = burned != nil && !returnedIsBurned
+        // Two distinct losses: the player's own shell came back AND a
+        // different sand shell burned. Only in that case do we want
+        // the side-by-side chips with yours/sand labels and the
+        // trailing "And the largest..." line. Without this guard, a
+        // solo sand burn renders as one chip labeled "sand" plus the
+        // trailing line — both describing the same single shell.
+        let twoLosses = returned != nil && burned != nil && !returnedIsBurned
+
+        let headline: String = {
+            if twoLosses {
+                return "You lose your top shell, and the largest shell on the sand drifts away."
+            }
+            if returned != nil {
+                return "You lose your top shell."
+            }
+            return "A shell drifts away."
+        }()
 
         if returned != nil || burned != nil {
             VStack(spacing: 10) {
-                Text(returned != nil ? "You lose your top shell." : "A shell drifts away.")
+                Text(headline)
                     .font(.avenir(13, weight: .medium, italic: true))
                     .tracking(2.5)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.stampText.opacity(0.95))
+                    .padding(.horizontal, 24)
 
                 HStack(alignment: .top, spacing: 24) {
                     if let returned {
                         VStack(spacing: 6) {
                             burnedTileChip(value: returned)
-                            Text("yours")
-                                .font(.avenir(10, weight: .demiBold, italic: true))
-                                .tracking(2)
-                                .textCase(.lowercase)
-                                .foregroundStyle(Color.stampText.opacity(0.85))
+                            if twoLosses {
+                                Text("yours")
+                                    .font(.avenir(10, weight: .demiBold, italic: true))
+                                    .tracking(2)
+                                    .textCase(.lowercase)
+                                    .foregroundStyle(Color.stampText.opacity(0.85))
+                            }
                         }
+                    } else if let burned {
+                        burnedTileChip(value: burned)
                     }
-                    if showSeparateBurn, let burned {
+                    if twoLosses, let burned {
                         VStack(spacing: 6) {
                             burnedTileChip(value: burned)
                             Text("sand")
@@ -392,15 +468,6 @@ struct GameView: View {
                                 .foregroundStyle(Color.stampText.opacity(0.85))
                         }
                     }
-                }
-
-                if showSeparateBurn {
-                    Text("And the largest shell on the sand drifts away.")
-                        .font(.avenir(11, weight: .medium, italic: true))
-                        .tracking(1.5)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(Color.stampText.opacity(0.85))
-                        .padding(.horizontal, 24)
                 }
             }
             .padding(.top, 4)
@@ -452,12 +519,46 @@ struct GameView: View {
             Background()
 
             VStack(spacing: 0) {
-                ChromeBar(settings: settings)
-                    .opacity(revealChrome ? 1 : 0)
-                    .offset(y: revealChrome ? 0 : -16)
+                ChromeBar(
+                    settings: settings,
+                    onDebugSeedAI: {
+                        #if DEBUG
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                            store.debugSeedAIVaults()
+                        }
+                        #endif
+                    },
+                    onDebugSteal: {
+                        #if DEBUG
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                            // Set the staging in the same MainActor turn
+                            // as the mutation so SwiftUI batches them
+                            // into one render — no active-state flash.
+                            stealArrivalSeat = GameStore.humanSeat
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 450_000_000)
+                                if stealArrivalSeat == GameStore.humanSeat { stealArrivalSeat = nil }
+                            }
+                            store.debugTriggerSteal()
+                        }
+                        #endif
+                    },
+                    onDebugEndGame: {
+                        #if DEBUG
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                            store.debugForceGameOver()
+                        }
+                        #endif
+                    }
+                )
+                .opacity(revealChrome ? 1 : 0)
+                .offset(y: revealChrome ? 0 : -16)
 
                 Scoreboard(
-                    players: store.state.players,
+                    players: displayedPlayers,
                     scores: store.scores,
                     current: displayCurrent,
                     revealed: revealScoreboard,
@@ -529,7 +630,7 @@ struct GameView: View {
                     pace: settings.gameSpeed.rawValue
                 )
                 let duration = gameStartTime.map { Int(Date().timeIntervalSince($0)) } ?? 0
-                Telemetry.shared.track("game_ended", props: [
+                let endProps: [String: Any] = [
                     "won": humanWon,
                     "my_score": humanScore,
                     "opponent_count": store.state.players.count - 1,
@@ -539,7 +640,9 @@ struct GameView: View {
                     "duration_seconds": duration,
                     "difficulty": settings.difficulty.rawValue,
                     "pace": settings.gameSpeed.rawValue,
-                ])
+                ]
+                Telemetry.shared.track("game_ended", props: endProps)
+                Telemetry.shared.track(humanWon ? "game_won" : "game_lost", props: endProps)
             }
         }
         .overlay {
@@ -635,7 +738,11 @@ struct GameView: View {
                 .animation(.easeOut(duration: 0.2), value: store.aiEvent)
             }
         }
-        .fullScreenCover(isPresented: .constant(store.isOver)) {
+        // Tally screen waits until the last-shell banner is dismissed.
+        // Without this gate, the fullScreenCover races the AIEventBanner
+        // overlay and covers it the instant `state.phase` flips to .over,
+        // so the player never gets to read "X claimed the last shell."
+        .fullScreenCover(isPresented: .constant(store.isOver && store.aiEvent == nil)) {
             CountingCeremony(
                 players: store.state.players,
                 scores: store.scores,
@@ -648,6 +755,9 @@ struct GameView: View {
 
 struct ChromeBar: View {
     let settings: SettingsStore
+    var onDebugSeedAI: (() -> Void)? = nil
+    var onDebugSteal: (() -> Void)? = nil
+    var onDebugEndGame: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -657,6 +767,26 @@ struct ChromeBar: View {
                 .foregroundStyle(Color.ink)
 
             Spacer()
+
+            #if DEBUG
+            Menu {
+                if let onDebugSeedAI {
+                    Button("Seed AI vaults (+2 each)", systemImage: "shell.fill", action: onDebugSeedAI)
+                }
+                if let onDebugSteal {
+                    Button("Trigger steal", systemImage: "hand.raised.fill", action: onDebugSteal)
+                }
+                if let onDebugEndGame {
+                    Button("End game (tally screen)", systemImage: "flag.checkered", action: onDebugEndGame)
+                }
+            } label: {
+                Image(systemName: "ladybug.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color.coral.opacity(0.85))
+                    .padding(8)
+            }
+            .accessibilityLabel("Debug menu")
+            #endif
 
             NavigationLink(value: Route.settings) {
                 Image(systemName: "gearshape")
