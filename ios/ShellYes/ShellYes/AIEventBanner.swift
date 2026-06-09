@@ -6,7 +6,10 @@ struct AIEventBanner: View {
 
     var body: some View {
         ZStack {
-            Color.ink.opacity(0.42)
+            // Constant deep-plum scrim. Adaptive `Color.ink` would flip
+            // to cream in dark mode and brighten the screen behind the
+            // banner instead of darkening it.
+            Color.treasureInk.opacity(0.42)
                 .ignoresSafeArea()
 
             VStack(spacing: 14) {
@@ -54,7 +57,7 @@ struct AIEventBanner: View {
                 RoundedRectangle(cornerRadius: 18)
                     .strokeBorder(cardStroke, lineWidth: tone == .negative ? 1.5 : 1)
             )
-            .shadow(color: Color.ink.opacity(0.35), radius: 24, x: 0, y: 12)
+            .shadow(color: Color.treasureInk.opacity(0.35), radius: 24, x: 0, y: 12)
             .padding(.horizontal, 32)
         }
         .contentShape(Rectangle())
@@ -97,16 +100,20 @@ struct AIEventBanner: View {
         }
     }
 
+    // Positive/neutral text sits on the constant cream celebration card,
+    // so the ink stays constant deep plum too. Without this the banner
+    // flips to a plum card with cream text in dark mode and loses its
+    // "physical treasure" feel.
     private var titleColor: Color {
-        return tone == .negative ? Color.stampText : Color.ink
+        return tone == .negative ? Color.stampText : Color.treasureInk
     }
 
     private var subtitleColor: Color {
-        return tone == .negative ? Color.stampText.opacity(0.85) : Color.ink.opacity(0.7)
+        return tone == .negative ? Color.stampText.opacity(0.85) : Color.treasureInk.opacity(0.7)
     }
 
     private var tapHintColor: Color {
-        return tone == .negative ? Color.stampText.opacity(0.7) : Color.ink.opacity(0.45)
+        return tone == .negative ? Color.stampText.opacity(0.7) : Color.treasureInk.opacity(0.45)
     }
 
     private enum Tone { case positive, negative, neutral }
@@ -142,15 +149,19 @@ struct AIEventBanner: View {
                     )
                 )
         case .positive, .neutral:
+            // Constant cream — same value as light-mode `Color.paper`
+            // but doesn't invert in dark mode. Matches the treasure
+            // palette so the shell chip inside reads as a physical
+            // object rather than a piece of chrome.
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.paper)
+                .fill(Color.stampText)
         }
     }
 
     private var cardStroke: Color {
         switch tone {
         case .negative: return Color.bannerNegativeAccent
-        case .positive, .neutral: return Color.ink.opacity(0.18)
+        case .positive, .neutral: return Color.treasureInk.opacity(0.18)
         }
     }
 
@@ -229,8 +240,17 @@ private struct ShellChip: View {
         // outer rays radiate beyond the shell.
         .background {
             if celebrate {
-                LightRays()
-                    .allowsHitTesting(false)
+                // Brighter + slightly wider rays than the default, and
+                // no dark-mode dampening — the banner's surface is now
+                // constant cream regardless of system appearance, so
+                // the dampening (sized for plum dark-mode card) would
+                // just wash these out.
+                LightRays(
+                    rayWidth: 22,
+                    maxOpacity: 0.9,
+                    adaptToColorScheme: false
+                )
+                .allowsHitTesting(false)
             }
         }
         .scaleEffect(popScale)

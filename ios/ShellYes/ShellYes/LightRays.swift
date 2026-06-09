@@ -19,20 +19,27 @@ struct LightRays: View {
     var rayWidth: CGFloat = 18
     var rotationDuration: Double = 30
     var maxOpacity: Double = 0.65
+    /// Set `false` when the surface behind the rays is constant (does
+    /// not adapt to dark mode). The dark-mode dampening below assumes a
+    /// `Color.paper` card that flips to deep plum — against a constant
+    /// cream surface (like the shell-claim banner), the dampening
+    /// would just wash the rays out.
+    var adaptToColorScheme: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
     @SwiftUI.State private var visible: Bool = false
     @SwiftUI.State private var rotate: Double = 0
 
-    /// Dark-mode card surfaces (`Color.paper`) are deep plum, so the
-    /// cream-gold rays pop with much higher contrast than they do
-    /// against the light-mode cream paper. Dampen the peak gradient
+    /// Dark-mode adaptive card surfaces (`Color.paper`) are deep plum,
+    /// so the cream-gold rays pop with much higher contrast than they
+    /// do against the light-mode cream paper. Dampen the peak gradient
     /// alpha in dark mode so the visual weight roughly matches across
     /// both schemes — without this tuning the device (dark mode) reads
     /// the rays as harsh bars while the simulator (light mode) reads
     /// them as soft glow.
     private var effectiveMaxOpacity: Double {
-        colorScheme == .dark ? maxOpacity * 0.55 : maxOpacity
+        guard adaptToColorScheme else { return maxOpacity }
+        return colorScheme == .dark ? maxOpacity * 0.55 : maxOpacity
     }
 
     var body: some View {

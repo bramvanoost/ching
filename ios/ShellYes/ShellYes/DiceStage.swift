@@ -241,15 +241,20 @@ struct DiceStage: View {
                     let frameNs: [UInt64] = speedFactor > 1.0
                         ? [30_000_000, 34_000_000, 40_000_000, 50_000_000, 75_000_000, 130_000_000, 230_000_000, 410_000_000]
                         : Array(repeating: 80_000_000, count: 5)
+                    // Last frame settles directly onto the real faces so
+                    // there's no post-roll flip — Tine reported tapping
+                    // a die she'd already seen settle, only for it to
+                    // switch to a different face on the final settle.
+                    let lastIdx = frameNs.count - 1
                     for i in 0..<frameNs.count {
                         if Task.isCancelled { return }
                         if isHumanTurn || forceRollSound { GameSFX.shared.playRoll() }
-                        displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
+                        if i == lastIdx {
+                            displayedRolled = newValue
+                        } else {
+                            displayedRolled = (0..<newValue.count).map { _ in pool.randomElement()! }
+                        }
                         try? await Task.sleep(nanoseconds: frameNs[i])
-                    }
-                    if !Task.isCancelled {
-                        if isHumanTurn || forceRollSound { GameSFX.shared.playRoll() }
-                        displayedRolled = newValue
                     }
                 }
             } else {
