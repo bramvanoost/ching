@@ -58,7 +58,7 @@ struct AIEventBanner: View {
             }
             .padding(.vertical, 28)
             .padding(.horizontal, 24)
-            .frame(maxWidth: 320)
+            .frame(maxWidth: 360)
             .background(cardBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
@@ -77,7 +77,7 @@ struct AIEventBanner: View {
         case .took(let actor, let shell, let isFinal):
             if isFinal {
                 if actor.lowercased() == "you" {
-                    return "You claimed the last shell."
+                    return "Shell yes!\nYou claimed the last shell."
                 }
                 return "\(actor) claimed the last shell."
             }

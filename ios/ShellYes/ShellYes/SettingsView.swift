@@ -83,38 +83,14 @@ struct SettingsView: View {
                             StatRow(label: "Wins", value: winsValue)
                             StatRow(label: "Win streak", value: streakValue)
                             StatRow(label: "Best score", value: bestScoreValue)
-                            StatRow(label: "Biggest keep", value: biggestKeepValue)
-                            StatRow(label: "Steals", value: "\(stats.steals)")
-                            StatRow(label: "Busts", value: "\(stats.busts)")
-                            StatRow(label: "Hot face", value: hotFaceValue)
-                        }
-                    }
-
-                    glassCard {
-                        SettingsSection(title: "by difficulty") {
-                            ForEach(Difficulty.allCases, id: \.self) { d in
-                                StatRow(
-                                    label: d.rawValue.capitalized,
-                                    value: modeValue(
-                                        wins: stats.winsByDifficulty[d.rawValue] ?? 0,
-                                        games: stats.gamesByDifficulty[d.rawValue] ?? 0
-                                    )
-                                )
+                            NavigationLink(value: Route.stats) {
+                                SettingsRow(title: "All statistics") {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.coral)
+                                }
                             }
-                        }
-                    }
-
-                    glassCard {
-                        SettingsSection(title: "by pace") {
-                            ForEach(GameSpeed.allCases, id: \.self) { p in
-                                StatRow(
-                                    label: p.rawValue.capitalized,
-                                    value: modeValue(
-                                        wins: stats.winsByPace[p.rawValue] ?? 0,
-                                        games: stats.gamesByPace[p.rawValue] ?? 0
-                                    )
-                                )
-                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -321,10 +297,9 @@ private struct SettingsSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.avenir(11, weight: .medium, italic: true))
-                .textCase(.lowercase)
-                .tracking(2)
+            Text(title.prefix(1).uppercased() + title.dropFirst())
+                .font(.avenir(15, weight: .medium, italic: true))
+                .tracking(1.5)
                 .foregroundStyle(Color.coral)
                 .padding(.bottom, 8)
             content()
@@ -353,6 +328,7 @@ private struct SettingsRow<Trailing: View>: View {
             trailing()
         }
         .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 }
 

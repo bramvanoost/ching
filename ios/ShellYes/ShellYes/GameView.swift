@@ -865,7 +865,7 @@ struct ChromeBar: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 16)
+        .padding(.top, 24)
         .padding(.bottom, 0)
     }
 }

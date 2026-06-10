@@ -206,7 +206,14 @@ final class GameStore {
             if isOver {
                 GameSFX.shared.stopAIPlayingPattern()
                 sfxStarted = false
-                if let event { await presentAIEvent(event) }
+                if let event {
+                    if case .took = event { GameSFX.shared.playAIClaim() }
+                    if case .stole(_, let victim, _, _) = event,
+                       victim.lowercased() == "you" {
+                        GameSFX.shared.playPlayerShellLoss()
+                    }
+                    await presentAIEvent(event)
+                }
                 return
             }
             if !quiet && !reduceMotion {
@@ -218,6 +225,11 @@ final class GameStore {
                 // takes the wheel on the following iteration.
                 GameSFX.shared.stopAIPlayingPattern()
                 sfxStarted = false
+                if case .took = event { GameSFX.shared.playAIClaim() }
+                if case .stole(_, let victim, _, _) = event,
+                   victim.lowercased() == "you" {
+                    GameSFX.shared.playPlayerShellLoss()
+                }
                 await presentAIEvent(event)
             }
         }

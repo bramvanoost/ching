@@ -13,7 +13,7 @@ struct ShellsGrid: View {
                 Text("\(remainingCount)")
                     .font(.avenir(18, weight: .demiBold))
                     .foregroundStyle(Color.ink)
-                Text("shells on the sand")
+                Text(remainingCount == 1 ? "shell on the sand" : "shells on the sand")
                     .font(.avenir(18, weight: .medium, italic: true))
                     .foregroundStyle(Color.ink.opacity(0.75))
             }

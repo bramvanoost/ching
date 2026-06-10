@@ -13,17 +13,19 @@ final class GameSFX {
     private var bankPool: [AVAudioPlayer] = []
     private var bustPool: [AVAudioPlayer] = []
     private var countPool: [AVAudioPlayer] = []
-    private var countTickPool: [AVAudioPlayer] = []
     private var winnerPool: [AVAudioPlayer] = []
     private var rivalWinPool: [AVAudioPlayer] = []
     private var aiPlayingPool: [AVAudioPlayer] = []
+    private var aiClaimPool: [AVAudioPlayer] = []
+    private var playerLossPool: [AVAudioPlayer] = []
     private var nextRollIdx = 0
     private var nextConfirmIdx = 0
     private var nextBankIdx = 0
     private var nextBustIdx = 0
     private var nextCountIdx = 0
-    private var nextCountTickIdx = 0
     private var nextAIPlayingIdx = 0
+    private var nextAIClaimIdx = 0
+    private var nextPlayerLossIdx = 0
     private var aiPlayingTask: Task<Void, Never>? = nil
 
     /// Irregular cluster of inter-blip gaps (ms) for the AI-playing
@@ -39,18 +41,21 @@ final class GameSFX {
         load("dice_confirm", into: &confirmPool, copies: 2, volume: 0.7)
         load("outcome-success", into: &bankPool, copies: 2, volume: 0.7)
         load("outcome-failure", into: &bustPool, copies: 2, volume: 0.75)
-        // Counting ceremony: count plays once per player while their
-        // total ticks up; winner / otherwins fire on the final reveal.
-        load("count", into: &countPool, copies: 2, volume: 0.7)
-        // count_tick is a 150ms attack-only trim of count.m4a, fired
-        // per-pearl during the tally. Pool sized for overlap at the
-        // fastest tick spacing (~40ms).
-        load("count_tick", into: &countTickPool, copies: 4, volume: 0.55)
+        // Counting ceremony: full count clip fires per pearl during the
+        // tally. Pool sized for overlap at the fastest tick spacing
+        // (~40ms) given the clip's full tail.
+        load("count", into: &countPool, copies: 16, volume: 0.55)
         load("winner", into: &winnerPool, copies: 1, volume: 0.85)
         load("otherwins", into: &rivalWinPool, copies: 1, volume: 0.75)
         // AI-playing blip: ~480ms clip, cluster intervals as low as
         // 120ms, so size the pool for several overlaps.
         load("aiplaying", into: &aiPlayingPool, copies: 6, volume: 0.45)
+        // Short confirm tone when an AI claims a shell from the beach,
+        // played after the quiet-AI blip pattern stops and before the
+        // banner appears. Two copies cover back-to-back turn ends.
+        load("aiclaimsshell", into: &aiClaimPool, copies: 2, volume: 0.7)
+        // Sting when an AI steals a shell from the human seat.
+        load("playerlosesshell", into: &playerLossPool, copies: 2, volume: 0.75)
     }
 
     private func load(_ name: String, into pool: inout [AVAudioPlayer], copies: Int, volume: Float) {
@@ -84,7 +89,15 @@ final class GameSFX {
     }
 
     func playCountTick() {
-        play(from: &countTickPool, cursor: &nextCountTickIdx)
+        play(from: &countPool, cursor: &nextCountIdx)
+    }
+
+    func playAIClaim() {
+        play(from: &aiClaimPool, cursor: &nextAIClaimIdx)
+    }
+
+    func playPlayerShellLoss() {
+        play(from: &playerLossPool, cursor: &nextPlayerLossIdx)
     }
 
     func playWinFanfare() {

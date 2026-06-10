@@ -41,6 +41,8 @@ struct ShellYesApp: App {
                                 stats: stats,
                                 onNewGame: { store.newGame() }
                             )
+                        case .stats:
+                            StatsView(stats: stats)
                         }
                     }
             }
@@ -98,6 +100,7 @@ struct ShellYesApp: App {
 enum Route: Hashable {
     case game
     case settings
+    case stats
 }
 
 /// Closure-wrapped environment value. Wrapped in a struct so it

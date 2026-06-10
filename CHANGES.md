@@ -1,3 +1,57 @@
+# 0.7 — Audio, tally polish, settings split — 2026-06-10
+
+Scope: iOS app (`ios/ShellYes/ShellYes/*.swift`). New sound effects,
+counting-ceremony audio fix, last-shell copy, pluralization, chrome bar
+position, dedicated Statistics pane, settings section type bump.
+
+## Audio
+
+- Counting ceremony tally now plays the full `count.m4a` clip per pearl,
+  overlapping naturally instead of the trimmed `count_tick` attack. Pool
+  bumped to 16 copies for ~40ms tick spacing without cutoff. Removed
+  unused `count_tick.m4a` from the bundle.
+- New `aiclaimsshell.m4a` short confirm tone after an AI claims a shell
+  from the beach. Fires when the AI loop dispatches a `.took` event, in
+  both mid-game and final-shell paths.
+- New `playerlosesshell.m4a` sting when an AI steals from the human seat.
+  Fires on `.stole` events where `victim == "you"`.
+
+## Banner copy
+
+- Final-shell claim by the human now reads
+  `"Shell yes!\nYou claimed the last shell."` — forced break after the
+  exclamation, brand voice up front.
+- `AIEventBanner` card maxWidth bumped 320 → 360 so titles have more
+  room before they wrap.
+
+## Beach copy
+
+- `ShellsGrid` pluralizes: "1 shell on the sand" / "N shells on the sand".
+
+## In-game chrome
+
+- `ChromeBar` (wordmark, debug, gear) nudged down 8pt — `padding(.top)`
+  16 → 24 — so the top bar isn't crowding the safe-area edge.
+
+## Settings
+
+- Stats card on Settings trimmed to four headline rows: Games played,
+  Wins (w/ %), Win streak (current/best), Best score. The full
+  per-difficulty and per-pace breakdowns moved out to a dedicated
+  Statistics pane.
+- New `StatsView` reachable via a `Statistics →` row in Settings. Four
+  cards: Overview, Details (biggest keep, steals, busts, hot face),
+  By difficulty, By pace. Route enum gains `.stats`; `ShellYesApp`
+  navigation wired.
+- Section titles capitalize their first letter and bump from 11pt
+  italic / tracking 2 to 15pt italic / tracking 1.5 — closer in
+  weight to the row labels they head.
+- `SettingsRow` now sets `contentShape(Rectangle())` so the entire row
+  is tappable — previously the `Spacer()` gap between label and chevron
+  swallowed taps on Home, How to play, About.
+
+---
+
 # Theme & copy refinement — 2026-06-07
 
 Scope: iOS app (`ios/CHING/CHING/*.swift`). Copy, two-noun model, pearl visual,
